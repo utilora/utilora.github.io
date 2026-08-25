@@ -109,31 +109,8 @@
     if (document.querySelector(".promo-bar")) return;
     const bar = document.createElement("div");
     bar.className = "promo-bar";
-    bar.innerHTML = '<a href="/pro/"><b>专业财务目前免费使用</b>　报价单可加 logo、换模板 →</a>';
+    bar.innerHTML = '<a href="/pro/"><b>本地财务台 Beta</b>　数据不上传，请定期导出备份 →</a>';
     document.body.prepend(bar);
-  };
-
-  const mountLogin = async () => {
-    if (/\/(admin)(\/|$)/.test(location.pathname)) return;
-    const auth = window.UtiloraAuth;
-    if (auth) await auth.captureRedirect();
-    const session = auth ? await auth.refreshIfNeeded() : null;
-    const parent = document.querySelector(".nav-links") || document.querySelector(".tool-head nav");
-    if (!parent) return;
-    let link = parent.querySelector("[data-login]");
-    if (!link) {
-      link = document.createElement("a");
-      link.dataset.login = "1";
-      link.className = "login-link";
-      parent.append(link);
-    }
-    if (session?.user) {
-      link.href = "/account/";
-      link.textContent = auth.displayName(session.user);
-    } else {
-      link.href = "/login/";
-      link.textContent = "登录";
-    }
   };
 
   window.Utilora = {
@@ -148,19 +125,9 @@
   const boot = () => {
     ensureHeadLinks();
     registerWorker();
-    mountLogin();
     const slug = slugFromPath();
     if (slug) initToolChrome(slug);
   };
 
-  if (window.UtiloraAuth) {
-    boot();
-  } else {
-    const script = document.createElement("script");
-    const base = document.currentScript && document.currentScript.src ? document.currentScript.src : "/assets/js/app.js";
-    script.src = new URL("auth.js", base).href;
-    script.onload = boot;
-    script.onerror = boot;
-    document.head.append(script);
-  }
+  boot();
 })();

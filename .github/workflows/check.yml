@@ -110,3 +110,24 @@ jobs:
           print(f"共检查 {len(cards)} 个公开财务工具入口")
           sys.exit(1 if failed else 0)
           PY
+
+      - name: 本地财务台与 CSV 回归检查
+        run: |
+          set -euo pipefail
+          node --check pro/app.js
+          node --check tools/vat-split/tool.js
+          node --check assets/js/app.js
+          python3 << 'PY'
+          import pathlib
+
+          home = pathlib.Path("index.html").read_text(encoding="utf-8")
+          workbench = pathlib.Path("pro/app.js").read_text(encoding="utf-8")
+          vat = pathlib.Path("tools/vat-split/tool.js").read_text(encoding="utf-8")
+
+          assert 'data-login' not in home, "首页仍有登录入口"
+          assert "本地财务台 Beta" in home and "不跟随账号" in home
+          for token in ("indexedDB.open", "STORE_WORKSPACES", "导出完整备份", "导入备份", "清空当前账套", "载入演示数据"):
+              assert token in workbench, f"本地财务台缺少: {token}"
+          assert "csvCell" in vat and "\\uFEFF" in vat and "\\r\\n" in vat, "CSV 转义或 Excel 兼容处理缺失"
+          print("本地财务台与 CSV 回归检查通过")
+          PY

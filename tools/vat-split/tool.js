@@ -12,6 +12,8 @@
   const message = document.getElementById("message");
   let mode = "inclusive";
   let rate = 0.13;
+  const esc = (value) => String(value ?? "").replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[char]));
+  const csvCell = (value) => `"${String(value ?? "").replace(/"/g, '""')}"`;
 
   function parseRate(raw) {
     const text = String(raw || "").trim().replace(/%/g, "");
@@ -96,8 +98,8 @@
     batchTable.innerHTML = `
       <thead><tr><th>输入</th><th>税率</th><th>不含税</th><th>税额</th><th>价税合计</th></tr></thead>
       <tbody>${rows.map((row) => row.error
-        ? `<tr><td>${row.raw}</td><td colspan="4" class="error">${row.error}</td></tr>`
-        : `<tr><td>${row.raw}</td><td>${F.roundFen(row.rate * 100)}%</td><td>${F.formatRmb(row.exclusive)}</td><td>${F.formatRmb(row.tax)}</td><td>${F.formatRmb(row.inclusive)}</td></tr>`).join("")}</tbody>
+        ? `<tr><td>${esc(row.raw)}</td><td colspan="4" class="error">${esc(row.error)}</td></tr>`
+        : `<tr><td>${esc(row.raw)}</td><td>${F.roundFen(row.rate * 100)}%</td><td>${F.formatRmb(row.exclusive)}</td><td>${F.formatRmb(row.tax)}</td><td>${F.formatRmb(row.inclusive)}</td></tr>`).join("")}</tbody>
       <tfoot><tr><td colspan="2">合计</td><td>${F.formatRmb(sum.exclusive)}</td><td>${F.formatRmb(sum.tax)}</td><td>${F.formatRmb(sum.inclusive)}</td></tr></tfoot>`;
     document.getElementById("batchMoney").textContent = F.toMoney(sum.inclusive);
     say("");
@@ -145,9 +147,12 @@
   };
   document.getElementById("downloadCsv").onclick = () => {
     const { rows } = renderBatch();
-    const text = ["输入,税率,不含税,税额,价税合计", ...rows.map((row) => (
-      row.error ? `${row.raw},,,,${row.error}` : `${row.raw},${F.roundFen(row.rate * 100)}%,${row.exclusive},${row.tax},${row.inclusive}`
-    ))].join("\n");
+    const lines = [["输入", "税率", "不含税", "税额", "价税合计"], ...rows.map((row) => (
+      row.error
+        ? [row.raw, "", "", "", row.error]
+        : [row.raw, `${F.roundFen(row.rate * 100)}%`, row.exclusive.toFixed(2), row.tax.toFixed(2), row.inclusive.toFixed(2)]
+    ))];
+    const text = "\uFEFF" + lines.map((line) => line.map(csvCell).join(",")).join("\r\n");
     const a = document.createElement("a");
     a.href = URL.createObjectURL(new Blob([text], { type: "text/csv;charset=utf-8" }));
     a.download = "vat-split.csv";
