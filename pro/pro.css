@@ -1,17 +1,18 @@
-:root{--c-purple:#5851d8;--c-purple-2:#6c63ff;--c-bg:#f4f6fb;--c-side:#fff;--c-ink:#1f2937;--c-muted:#9ca3af;--c-line:#eef0f6;--c-pink:#ff6b8a;--c-green:#22c55e;--c-red:#ef4444}
+:root{--c-purple:#0f8a70;--c-purple-2:#08705b;--c-bg:#f5f7fa;--c-side:#0b1730;--c-ink:#162035;--c-muted:#788397;--c-line:#e3e8ef;--c-pink:#d35d6e;--c-green:#0f8a70;--c-red:#c23c4b}
 html,body.crater-body{margin:0;min-height:100vh;color:var(--c-ink);background:var(--c-bg);font-family:Inter,"Microsoft YaHei",system-ui,sans-serif}
 a{color:inherit;text-decoration:none}button,input,select,textarea{font:inherit}
-.crater-top{display:flex;align-items:center;gap:16px;height:56px;padding:0 22px;color:#fff;background:linear-gradient(90deg,#5851d8,#7c74f0)}
+.crater-top{display:flex;align-items:center;gap:16px;height:64px;padding:0 26px;color:#fff;background:#0b1730;border-bottom:1px solid #20304e}
 .crater-logo{font-size:20px;font-weight:800;letter-spacing:.02em}
-.crater-free{margin-left:auto;padding:4px 10px;border-radius:999px;background:#ffffff24;font-size:12px;font-weight:700}
+.crater-logo small{font-size:11px;color:#8fe0cf;margin-left:8px;letter-spacing:.08em}.crater-free{margin-left:auto;padding:6px 11px;border-radius:999px;background:#163251;color:#b9d6e6;font-size:11px;font-weight:700}.crater-free.error{background:#542633;color:#ffd4da}
 .crater-top a:last-child{color:#e0e7ff;font-size:13px;font-weight:650}
-.crater-shell{display:grid;grid-template-columns:220px minmax(0,1fr);min-height:calc(100vh - 56px)}
+.crater-shell{display:grid;grid-template-columns:220px minmax(0,1fr);min-height:calc(100vh - 64px)}
 .crater-side{background:var(--c-side);border-right:1px solid var(--c-line)}
 .crater-side nav{display:flex;flex-direction:column;padding:18px 12px}
-.crater-side button{display:flex;align-items:center;gap:10px;width:100%;padding:11px 14px;color:#6b7280;background:transparent;border:0;border-radius:10px;text-align:left;font-weight:700;cursor:pointer}
-.crater-side button:hover{background:#f5f3ff;color:var(--c-purple)}
-.crater-side button.active{color:var(--c-purple);background:#f3f0ff;box-shadow:inset 3px 0 0 var(--c-purple)}
+.crater-side button{display:flex;align-items:center;gap:10px;width:100%;padding:11px 14px;color:#aab7cc;background:transparent;border:0;border-radius:9px;text-align:left;font-weight:700;cursor:pointer}
+.crater-side button:hover{background:#142746;color:#fff}
+.crater-side button.active{color:#8fe0cf;background:#15314e;box-shadow:inset 3px 0 0 #35b99c}
 .crater-main{min-width:0;padding:22px 28px 48px}
+.local-notice{margin-bottom:18px;padding:12px 15px;border:1px solid #cfe2dc;border-radius:10px;background:#eef8f5;color:#315e54;font-size:12px;line-height:1.6}.local-notice b{color:#08705b;margin-right:8px}
 .crater-head{display:flex;align-items:center;gap:12px;margin-bottom:18px}
 .crater-head h1{margin:0;font-size:26px;letter-spacing:-.03em}
 .crater-head #primary-action{margin-left:auto;padding:10px 16px;color:#fff;background:var(--c-purple);border:0;border-radius:10px;font-weight:750;cursor:pointer}
@@ -74,10 +75,10 @@ a{color:inherit;text-decoration:none}button,input,select,textarea{font:inherit}
 .inv-total p{display:flex;justify-content:space-between;margin:6px 0;color:#6b7280}
 .inv-total .pay{color:#111827;font-size:18px;font-weight:800}
 .pill{display:inline-block;margin-top:4px;padding:2px 8px;border-radius:6px;font-size:11px;font-weight:800}
-.pill.overdue,.pill.rejected,.pill.expired{color:#fb7185;background:#ffe4ec}
+.pill.overdue,.pill.void,.pill.expired{color:#fb7185;background:#ffe4ec}
 .pill.draft{color:#d97706;background:#fef3c7}
-.pill.paid,.pill.accepted{color:#059669;background:#d1fae5}
-.pill.sent,.pill.viewed,.pill.partial{color:#5851d8;background:#eef2ff}
+.pill.paid,.pill.converted{color:#059669;background:#d1fae5}
+.pill.issued,.pill.partial{color:#0f8a70;background:#e4f6f1}
 .panel{background:#fff;border-radius:16px;padding:20px;box-shadow:0 8px 24px #5851d80c}
 .form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
 .field label{display:block;margin:0 0 6px;color:#6b7280;font-size:12px;font-weight:750}
@@ -85,6 +86,7 @@ a{color:inherit;text-decoration:none}button,input,select,textarea{font:inherit}
 .actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
 .actions button{padding:9px 14px;border:0;border-radius:9px;font-weight:700;cursor:pointer;background:var(--c-purple);color:#fff}
 .actions .secondary{color:#374151;background:#eef2ff}
+.actions .danger{background:#fff0f1;color:#b42335;border:1px solid #ffd1d6}.settings-section{margin-bottom:16px}.settings-section h2{margin:0 0 12px;font-size:18px}.data-note{color:#667085;font-size:13px;line-height:1.7}.workspace-row{display:flex;gap:10px}.workspace-row select{min-width:260px;padding:10px 12px;border:1px solid var(--c-line);border-radius:9px;background:#fff}.workspace-row button{padding:10px 14px;border:0;border-radius:9px;background:var(--c-purple);color:#fff;font-weight:700}.welcome-panel{max-width:760px;margin:50px auto;padding:46px;border:1px solid #dce5e2;border-radius:18px;background:#fff;box-shadow:0 18px 50px #0b17300d}.welcome-panel>span{color:#0f8a70;font-size:12px;font-weight:800;letter-spacing:.12em}.welcome-panel h2{margin:12px 0;font-size:30px;color:#0b1730}.welcome-panel p{color:#667085;line-height:1.8}.welcome-panel small{display:block;margin-top:22px;color:#8a94a5}
 .sheet-table{width:100%;border-collapse:collapse}
 .sheet-table th,.sheet-table td{padding:10px 8px;border-bottom:1px solid var(--c-line);text-align:left;font-size:14px}
 .empty{padding:40px 16px;color:var(--c-muted);text-align:center}
@@ -96,7 +98,7 @@ a{color:inherit;text-decoration:none}button,input,select,textarea{font:inherit}
 @media screen{.print-sheet{position:absolute;left:-9999px}}
 @media(max-width:980px){
   .crater-shell,.stat-row,.chart-wrap,.split-lists,.split-app,.edit-split,.form-grid,.inv-fromto{grid-template-columns:1fr}
-  .crater-side{position:fixed;z-index:20;inset:56px auto 0 0;width:min(260px,80vw);transform:translateX(-105%);transition:.2s}
+  .crater-side{position:fixed;z-index:20;inset:64px auto 0 0;width:min(260px,80vw);transform:translateX(-105%);transition:.2s}
   body.sidebar-open .crater-side{transform:none}
   .ghost{display:inline-flex}
 }
