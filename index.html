@@ -3,133 +3,187 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <meta name="description" content="Utilora 免费、轻量、保护隐私的在线实用工具箱">
-  <meta name="theme-color" content="#111827">
-  <meta property="og:title" content="Utilora｜在线实用工具箱">
-  <meta property="og:description" content="无需安装、无需登录。常用文本与开发工具，尽可能只在你的浏览器中处理。">
+  <meta name="description" content="Utilora 为中国小微企业财务人员提供增值税、个人所得税、工资成本、报价单等专业财税测算工具。计算过程透明，重要规则注明适用范围。">
+  <meta name="theme-color" content="#0b1730">
+  <meta name="robots" content="index,follow">
+  <link rel="canonical" href="https://utilora.github.io/">
+  <meta property="og:title" content="Utilora 财务工具｜小微企业财税测算">
+  <meta property="og:description" content="面向中国小微企业的专业财税测算与财务效率工具。">
   <meta property="og:type" content="website">
   <meta property="og:url" content="https://utilora.github.io/">
   <meta name="twitter:card" content="summary">
-  <title>Utilora｜在线实用工具箱</title>
+  <title>Utilora 财务工具｜小微企业财税测算</title>
   <link rel="icon" type="image/svg+xml" href="favicon.svg">
   <link rel="apple-touch-icon" href="favicon.svg">
   <link rel="manifest" href="site.webmanifest">
   <link rel="stylesheet" href="assets/css/site.css">
+  <link rel="stylesheet" href="assets/css/finance-home.css">
+  <script type="application/ld+json">
+  {
+    "@context":"https://schema.org",
+    "@type":"WebSite",
+    "name":"Utilora 财务工具",
+    "url":"https://utilora.github.io/",
+    "description":"面向中国小微企业财务人员的专业财税测算与财务效率工具"
+  }
+  </script>
 </head>
-<body>
-  <div class="promo-bar"><a href="pro/"><b>专业财务目前免费使用</b>　客户、报价、发票、收款工作台 →</a></div>
-  <header class="site-header"><nav class="nav"><a class="brand" href="./"><span class="brand-mark">U</span><span>Utilora</span></a><div class="nav-links"><a href="#tools">全部工具</a><a class="pro-nav" href="pro/">专业财务</a><a href="feedback/">功能建议</a><a class="login-link" data-login="1" href="login/">登录</a></div></nav></header>
+<body class="finance-home">
+  <div class="notice-bar">专业财务工作台目前免费开放 · <a href="pro/">客户、报价、发票与收款管理</a></div>
+  <header class="finance-header">
+    <nav class="finance-nav" aria-label="主导航">
+      <a class="finance-brand" href="./" aria-label="Utilora 财务工具首页">
+        <span class="finance-brand-mark">U</span>
+        <span><strong>Utilora</strong><small>财务工具</small></span>
+      </a>
+      <button class="mobile-menu" type="button" aria-label="打开导航" aria-expanded="false">菜单</button>
+      <div class="finance-nav-links">
+        <a href="#tools">财税工具</a>
+        <a href="#workspace">专业工作台</a>
+        <a href="#method">计算说明</a>
+        <a href="feedback/">功能建议</a>
+        <a class="nav-login" data-login="1" href="login/">登录</a>
+      </div>
+    </nav>
+  </header>
+
   <main>
-    <section class="hero"><div class="hero-inner"><div class="eyebrow">本地处理 · 保护隐私</div><h1>顺手的工具，<br><span>不该复杂。</span></h1><p>常用工具打开就能用。处理过程留在你的浏览器里。</p><div class="search-wrap"><span>⌕</span><input id="tool-search" type="search" placeholder="搜索工具，例如 图片、水印、JSON…" autocomplete="off"><kbd>/</kbd></div><div class="hero-meta"><span><b id="tool-count">55</b> 个工具</span><span>✓ 免费使用</span><span>✓ 本地处理</span><button id="install-app" class="install-btn" type="button">安装到桌面</button></div></div><div class="hero-art" aria-hidden="true"><div class="orb orb-one"></div><div class="orb orb-two"></div><div class="code-card"><i></i><i></i><i></i><pre>图像
-  压缩 / 格式转换
-  裁剪 / 水印
-  主色提取</pre></div></div></section>
-    <section id="library" class="library" hidden>
-      <div id="fav-shelf" class="shelf" hidden>
-        <h3>我的收藏</h3>
-        <div id="fav-row" class="shelf-row"></div>
-      </div>
-      <div id="recent-shelf" class="shelf" hidden>
-        <h3>最近使用</h3>
-        <div id="recent-row" class="shelf-row"></div>
-      </div>
-    </section>
-    <section id="featured" class="tools-section featured-section">
-      <div class="section-head">
-        <div>
-          <span class="section-kicker">FEATURED</span>
-          <h2>财务常用，目前免费</h2>
+    <section class="finance-hero">
+      <div class="hero-copy">
+        <span class="hero-label">为中国小微企业财务人员而做</span>
+        <h1>让日常财务测算<br><em>更清楚、更高效</em></h1>
+        <p>增值税、个人所得税、工资成本与报价管理。计算过程透明，重要规则注明适用范围，打开即可使用。</p>
+        <div class="hero-actions">
+          <a class="primary-cta" href="tools/vat-split/">开始财税测算 <span>→</span></a>
+          <a class="secondary-cta" href="pro/">查看专业工作台</a>
         </div>
-        <a class="pro-nav" href="pro/">打开工作台</a>
+        <div class="trust-row" aria-label="产品特点">
+          <span><b>01</b> 浏览器本地计算</span>
+          <span><b>02</b> 公式过程透明</span>
+          <span><b>03</b> 适用范围标注</span>
+        </div>
       </div>
-      <div class="tool-grid">
-        <a class="tool-card" href="tools/vat-split/"><span class="icon amber">税</span><div><h3>增值税价税分离</h3><p>含税拆分、加税与批量明细</p></div><b>→</b></a>
-        <a class="tool-card" href="tools/quote/"><span class="icon rose">报</span><div><h3>报价单</h3><p>工作台：客户、报价、转发票</p></div><b>→</b></a>
-        <a class="tool-card" href="tools/income-tax/"><span class="icon indigo">个</span><div><h3>个人所得税</h3><p>累计预扣与年度汇算</p></div><b>→</b></a>
-        <a class="tool-card" href="tools/payroll/"><span class="icon green">发</span><div><h3>到手工资</h3><p>五险一金、个税与企业成本</p></div><b>→</b></a>
+      <div class="finance-preview" aria-label="增值税测算示例">
+        <div class="preview-top"><span>增值税价税分离</span><i>即时测算</i></div>
+        <div class="preview-input"><small>含税金额</small><strong>¥ 113,000.00</strong></div>
+        <div class="preview-rate"><span>适用税率</span><b>13%</b></div>
+        <div class="preview-results">
+          <div><small>不含税金额</small><strong>¥ 100,000.00</strong></div>
+          <div><small>增值税额</small><strong>¥ 13,000.00</strong></div>
+        </div>
+        <p>示例仅展示计算方式，实际结果以工具输入及适用政策为准。</p>
       </div>
     </section>
-    <section id="tools" class="tools-section"><div class="section-head"><div><span class="section-kicker">TOOLBOX</span><h2>选择一个工具开始</h2></div><div id="categories" class="categories"><button class="active" data-category="all">全部</button><button data-category="finance">财务</button><button data-category="text">文本</button><button data-category="developer">开发</button><button data-category="generator">生成</button><button data-category="image">图像</button></div></div>
-      <div id="tool-grid" class="tool-grid">
-        <a class="tool-card new" data-category="finance" data-search="增值税 价税分离 含税 不含税 税额 1% 3% 6% 9% 13% 小规模 一般纳税人 zengzhishui" href="tools/vat-split/"><span class="icon amber">税</span><div><h3>增值税价税分离</h3><p>含税拆分、加税与批量明细</p></div><b>→</b></a>
-        <a class="tool-card new" data-category="finance" data-search="报价单 对账单 形式发票 账单 明细 PDF 打印 增值税 baojiadan" href="tools/quote/"><span class="icon rose">报</span><div><h3>报价单</h3><p>公章、收款码、定金和历史单据</p></div><b>→</b></a>
-        <a class="tool-card new" data-category="finance" data-search="个税 个人所得税 累计预扣 汇算清缴 专项附加扣除 税率 工资 geshui" href="tools/income-tax/"><span class="icon indigo">个</span><div><h3>个人所得税</h3><p>累计预扣与年度汇算，含专项附加</p></div><b>→</b></a>
-        <a class="tool-card new" data-category="finance" data-search="到手工资 五险一金 社保 公积金 实发 个税 缴费基数 北京 上海 gongzi" href="tools/payroll/"><span class="icon green">发</span><div><h3>到手工资</h3><p>五险一金、个税与企业成本</p></div><b>→</b></a>
-        <a class="tool-card new" data-category="developer" data-search="罗马 数字 转换 roman numeral" href="tools/roman-numeral/"><span class="icon amber">RM</span><div><h3>罗马数字转换</h3><p>阿拉伯数字与罗马数字互转</p></div><b>→</b></a>
-        <a class="tool-card new" data-category="generator" data-search="百分比 计算 占比 增减 percentage" href="tools/percentage/"><span class="icon rose">%</span><div><h3>百分比计算器</h3><p>占比、增减幅度与百分数运算</p></div><b>→</b></a>
-        <a class="tool-card new" data-category="text" data-search="列表 转换 逗号 换行 JSON 去重 list" href="tools/list-converter/"><span class="icon green">列</span><div><h3>列表格式转换</h3><p>换行、逗号、JSON 等列表互转</p></div><b>→</b></a>
-        <a class="tool-card new" data-category="developer" data-search="HTTP 状态码 查询 404 500 status" href="tools/http-status/"><span class="icon blue">HTTP</span><div><h3>HTTP 状态码查询</h3><p>快速查找常见状态码含义</p></div><b>→</b></a>
-        <a class="tool-card new" data-category="developer" data-search="色彩 对比度 WCAG 色盲 无障碍 contrast sebi" href="tools/color-contrast/"><span class="icon violet">◐</span><div><h3>色彩对比度</h3><p>计算 WCAG 对比度，判断 AA/AAA</p></div><b>→</b></a>
-        <a class="tool-card new" data-category="text" data-search="Markdown 表格 对齐 美化 table biaoge" href="tools/markdown-table/"><span class="icon green">表</span><div><h3>Markdown 表格对齐</h3><p>对齐列宽，支持左中右对齐</p></div><b>→</b></a>
-        <a class="tool-card new" data-category="image" data-search="图片 压缩 体积 WebP Base64 EXIF 照片 粘贴 批量 zip tupian yasuo tpy" href="tools/image-compress/"><span class="icon amber">图</span><div><h3>图片压缩</h3><p>单张或批量压缩，可打包下载</p></div><b>→</b></a>
-        <a class="tool-card new" data-category="image" data-search="图片 格式 转换 JPEG PNG WebP 批量 zhuanhuan geshi" href="tools/image-convert/"><span class="icon green">转</span><div><h3>图片格式转换</h3><p>JPEG、PNG、WebP 互转，可批量下载</p></div><b>→</b></a>
-        <a class="tool-card new" data-category="image" data-search="图片 尺寸 缩放 裁剪 宽高 crop resize caijian" href="tools/image-resize/"><span class="icon cyan">裁</span><div><h3>尺寸与裁剪</h3><p>调整宽高，拖选区域后导出</p></div><b>→</b></a>
-        <a class="tool-card new" data-category="image" data-search="图片 水印 文字 平铺 watermark shuiyin" href="tools/image-watermark/"><span class="icon rose">印</span><div><h3>图片水印</h3><p>添加文字水印，可调位置与透明度</p></div><b>→</b></a>
-        <a class="tool-card new" data-category="image" data-search="图片 主色 提取 色板 HEX 配色 palette zhuse" href="tools/image-palette/"><span class="icon violet">取</span><div><h3>主色提取</h3><p>从图片取出主色并复制 HEX</p></div><b>→</b></a>
-        <a class="tool-card new" data-category="text" data-search="数字 中文 大写 人民币 金额 发票 合同 批量 shuzi zhongwen daxie" href="tools/number-chinese/"><span class="icon rose">万</span><div><h3>数字转中文大写</h3><p>金额转人民币大写，支持批量发票</p></div><b>→</b></a>
-        <a class="tool-card new" data-category="text" data-search="身份证 校验 号码 生日 性别 户籍 18位 15位 shenfenzheng jiaoyan sfz" href="tools/id-card/"><span class="icon indigo">证</span><div><h3>身份证校验</h3><p>校验号码，读出生日、性别与省份</p></div><b>→</b></a>
-        <a class="tool-card new" data-category="text" data-search="简体 繁体 拼音 slug 中文 转换 台湾 香港 头发 词级 jianfan pinyin" href="tools/zh-convert/"><span class="icon violet">汉</span><div><h3>简繁拼音</h3><p>词级简繁互转、拼音与 slug</p></div><b>→</b></a>
-        <a class="tool-card new" data-category="text" data-search="Markdown 预览 HTML 公众号 笔记 md 渲染 微信 markdown yulan gongzhonghao" href="tools/markdown-preview/"><span class="icon green">MD</span><div><h3>Markdown 预览</h3><p>本地预览，并复制公众号 HTML</p></div><b>→</b></a>
-        <a class="tool-card new" data-category="developer" data-search="Unix 权限 chmod 文件 权限 八进制 符号 rwx 计算 quanxian" href="tools/unix-permission/"><span class="icon amber">rwx</span><div><h3>Unix 权限计算</h3><p>勾选权限，得到 chmod 八进制与命令</p></div><b>→</b></a>
-        <a class="tool-card new" data-category="developer" data-search="SQL 格式化 美化 压缩 关键字 缩进 sql geshihua" href="tools/sql-formatter/"><span class="icon blue">SQL</span><div><h3>SQL 格式化</h3><p>关键字大写、换行缩进与压缩</p></div><b>→</b></a>
-        <a class="tool-card" data-category="text" data-search="文本统计 字数 字符 行数 中文 阅读" href="tools/text-counter/"><span class="icon indigo">字</span><div><h3>文本统计</h3><p>统计字符、中文与阅读时间</p></div><b>→</b></a>
-        <a class="tool-card" data-category="developer" data-search="JSON 格式化 压缩 校验 排序 json geshihua" href="tools/json-formatter/"><span class="icon amber">{ }</span><div><h3>JSON 格式化</h3><p>格式化、压缩、排序与下载</p></div><b>→</b></a>
-        <a class="tool-card new" data-category="developer" data-search="JSON YAML CSV 转换 表格 配置 zhuanhuan" href="tools/data-convert/"><span class="icon blue">YML</span><div><h3>JSON / YAML / CSV</h3><p>三种格式在浏览器里互转</p></div><b>→</b></a>
-        <a class="tool-card" data-category="developer" data-search="时间戳 Unix 日期 转换" href="tools/timestamp/"><span class="icon cyan">时</span><div><h3>时间戳转换</h3><p>Unix 时间戳与日期互转</p></div><b>→</b></a>
-        <a class="tool-card" data-category="generator" data-search="密码 生成 随机 安全" href="tools/password-generator/"><span class="icon rose">密</span><div><h3>密码生成器</h3><p>生成安全随机密码</p></div><b>→</b></a>
-        <a class="tool-card" data-category="text" data-search="大小写 英文 转换" href="tools/case-converter/"><span class="icon violet">Aa</span><div><h3>大小写转换</h3><p>转换英文文本大小写</p></div><b>→</b></a>
-        <a class="tool-card" data-category="developer" data-search="Base64 编码 解码 UTF8" href="tools/base64/"><span class="icon blue">64</span><div><h3>Base64 编解码</h3><p>UTF-8 文本安全转换</p></div><b>→</b></a>
-        <a class="tool-card" data-category="developer" data-search="正则 Regex 测试 匹配" href="tools/regex-tester/"><span class="icon green">.*</span><div><h3>正则测试</h3><p>实时查看匹配结果</p></div><b>→</b></a>
-        <a class="tool-card" data-category="developer" data-search="JWT Token 解码 Header Payload" href="tools/jwt-decoder/"><span class="icon orange">JWT</span><div><h3>JWT 解码</h3><p>查看 Header 与 Payload</p></div><b>→</b></a>
-        <a class="tool-card" data-category="generator" data-search="UUID GUID 随机 生成" href="tools/uuid-generator/"><span class="icon cyan">ID</span><div><h3>UUID 生成器</h3><p>批量生成 UUID v4</p></div><b>→</b></a>
-        <a class="tool-card" data-category="generator" data-search="二维码 QR 生成 识别 扫码 解码 erweima saoma" href="tools/qr-code/"><span class="icon dark">▦</span><div><h3>二维码</h3><p>生成二维码，也可识别图片</p></div><b>→</b></a>
-        <a class="tool-card" data-category="text" data-search="文本 对比 Diff 差异" href="tools/text-diff/"><span class="icon rose">≠</span><div><h3>文本对比</h3><p>按行查看新增与删除</p></div><b>→</b></a>
-        <a class="tool-card" data-category="developer" data-search="Hash MD5 SHA 摘要 哈希 加密" href="tools/hash-generator/"><span class="icon green">#</span><div><h3>Hash 生成器</h3><p>生成 MD5 与 SHA 摘要</p></div><b>→</b></a>
-        <a class="tool-card" data-category="developer" data-search="URL URI 百分号 编码 解码" href="tools/url-codec/"><span class="icon blue">%</span><div><h3>URL 编解码</h3><p>网址与参数安全转换</p></div><b>→</b></a>
-        <a class="tool-card" data-category="developer" data-search="颜色 HEX RGB HSL 转换" href="tools/color-converter/"><span class="icon violet">◐</span><div><h3>颜色转换</h3><p>HEX、RGB 与 HSL 互转</p></div><b>→</b></a>
-        <a class="tool-card" data-category="developer" data-search="Cron Crontab 定时 表达式 解释" href="tools/cron-explainer/"><span class="icon amber">⌚</span><div><h3>Cron 表达式解释</h3><p>读懂常见 5 段定时规则</p></div><b>→</b></a>
-        <a class="tool-card" data-category="developer" data-search="URL 网址 解析 域名 参数 端口" href="tools/url-parser/"><span class="icon blue">URL</span><div><h3>URL 解析器</h3><p>拆分网址的各个组成部分</p></div><b>→</b></a>
-        <a class="tool-card" data-category="developer" data-search="进制 二进制 八进制 十六进制 转换" href="tools/number-base/"><span class="icon amber">01</span><div><h3>进制转换</h3><p>二、八、十、十六进制互转</p></div><b>→</b></a>
-        <a class="tool-card" data-category="generator" data-search="单位 换算 长度 重量 温度" href="tools/unit-converter/"><span class="icon cyan">↔</span><div><h3>单位换算</h3><p>长度、重量与温度转换</p></div><b>→</b></a>
-        <a class="tool-card" data-category="text" data-search="HTML 实体 编码 解码 转义" href="tools/html-entities/"><span class="icon violet">&</span><div><h3>HTML 实体编解码</h3><p>转换 HTML 特殊字符</p></div><b>→</b></a>
-        <a class="tool-card" data-category="generator" data-search="随机数 生成 安全 批量" href="tools/random-number/"><span class="icon rose">#?</span><div><h3>随机数生成器</h3><p>安全批量生成随机整数</p></div><b>→</b></a>
-        <a class="tool-card" data-category="developer" data-search="抖音 视频 下载 无水印 分享链接" href="tools/douyin-downloader/"><span class="icon rose">▶</span><div><h3>抖音视频下载</h3><p>解析已授权的公开分享视频</p></div><b>→</b></a>
-        <a class="tool-card new" data-category="generator" data-search="密码 强度 分析 安全 熵 password strength" href="tools/password-strength/"><span class="icon rose">强</span><div><h3>密码强度分析</h3><p>评估长度、字符集与常见弱点</p></div><b>→</b></a>
-        <a class="tool-card new" data-category="developer" data-search="UTM 链接 营销 跟踪 参数 campaign" href="tools/utm-builder/"><span class="icon blue">UTM</span><div><h3>UTM 链接生成</h3><p>拼装带 UTM 参数的营销跟踪链接</p></div><b>→</b></a>
-        <a class="tool-card new" data-category="text" data-search="邮箱 提取 email 邮件 地址 youxiang" href="tools/email-extractor/"><span class="icon rose">@</span><div><h3>邮箱提取</h3><p>从文本中识别并提取邮箱地址</p></div><b>→</b></a>
-        <a class="tool-card new" data-category="developer" data-search="User-Agent UA 浏览器 系统 设备 解析" href="tools/user-agent/"><span class="icon cyan">UA</span><div><h3>User-Agent 解析</h3><p>识别操作系统、浏览器与设备类型</p></div><b>→</b></a>
-        <a class="tool-card new" data-category="developer" data-search="IPv4 CIDR 子网 网段 掩码 广播 主机 计算 ip wangduan" href="tools/ipv4-cidr/"><span class="icon blue">IP</span><div><h3>IPv4 / CIDR 计算</h3><p>计算网络地址、广播与可用主机范围</p></div><b>→</b></a>
-        <a class="tool-card new" data-category="developer" data-search="JSON TypeScript 类型 interface type 转换 ts" href="tools/json-to-ts/"><span class="icon amber">TS</span><div><h3>JSON 转 TypeScript 类型</h3><p>从 JSON 示例推断生成 interface</p></div><b>→</b></a>
-        <a class="tool-card new" data-category="generator" data-search="gitignore 忽略 生成 node python java git" href="tools/gitignore-generator/"><span class="icon green">GI</span><div><h3>.gitignore 生成</h3><p>按技术栈勾选，一键生成忽略规则</p></div><b>→</b></a>
-        <a class="tool-card new" data-category="developer" data-search="CSS 单位 px rem em vw vh 转换 换算" href="tools/css-units/"><span class="icon violet">CSS</span><div><h3>CSS 单位转换</h3><p>px、rem、em、vw、vh 即时互转</p></div><b>→</b></a>
-        <a class="tool-card new" data-category="text" data-search="slug URL 友好 拼音 首字母 标题 转换 slugify" href="tools/slugify/"><span class="icon violet">SL</span><div><h3>文本转 URLSlug</h3><p>标题转 URL 安全 slug，支持拼音首字母</p></div><b>→</b></a>
-        <a class="tool-card new" data-category="developer" data-search="文本 二进制 十六进制 转换 binary hex utf8" href="tools/text-binary/"><span class="icon blue">01</span><div><h3>文本二进制转换</h3><p>文本与二进制、十六进制互转</p></div><b>→</b></a>
-        <a class="tool-card new" data-category="generator" data-search="随机 色板 配色 颜色 palette 设计" href="tools/random-palette/"><span class="icon rose">色</span><div><h3>随机色板</h3><p>生成和谐配色方案，多种风格可选</p></div><b>→</b></a>
-        <a class="tool-card new" data-category="developer" data-search="Cron 下次 运行 时间 定时 计算 next" href="tools/cron-next/"><span class="icon amber">⌚</span><div><h3>Cron 下次运行</h3><p>计算表达式接下来若干次触发时间</p></div><b>→</b></a>
-      </div><div id="no-results" class="no-results" hidden>没有找到匹配的工具，<a href="feedback/">告诉我们你想要什么</a>。</div>
+
+    <section class="credibility" aria-label="服务承诺">
+      <div><strong>无需安装</strong><span>网页打开即用</span></div>
+      <div><strong>隐私优先</strong><span>主要计算留在本机</span></div>
+      <div><strong>面向实务</strong><span>围绕日常财务场景</span></div>
+      <div><strong>持续更新</strong><span>规则与功能逐步完善</span></div>
     </section>
-    <section class="privacy"><div><span>隐私优先</span><h2>你的内容，留在你的浏览器里。</h2><p>除留言功能外，工具处理过程不会主动把输入内容发送到 Utilora 服务器。收藏和最近使用只保存在你的设备上。</p></div><div class="privacy-badge">◉<small>LOCAL<br>PROCESSING</small></div></section>
+
+    <section id="tools" class="finance-section">
+      <div class="finance-section-head">
+        <div><span class="section-tag">CORE TOOLS</span><h2>常用财税工具</h2></div>
+        <p>聚焦小微企业财务人员每天真正会用到的测算与单据场景。</p>
+      </div>
+      <div class="finance-tool-grid">
+        <a class="finance-tool-card featured" href="tools/vat-split/">
+          <span class="tool-num">01</span><div class="tool-icon">税</div>
+          <h3>增值税价税分离</h3>
+          <p>含税拆分、加税计算与批量明细，支持常用税率及征收率。</p>
+          <span class="tool-link">立即使用 →</span>
+        </a>
+        <a class="finance-tool-card" href="tools/income-tax/">
+          <span class="tool-num">02</span><div class="tool-icon">个</div>
+          <h3>个人所得税测算</h3>
+          <p>累计预扣、专项附加扣除与年度汇算辅助测算。</p>
+          <span class="tool-link">立即使用 →</span>
+        </a>
+        <a class="finance-tool-card" href="tools/payroll/">
+          <span class="tool-num">03</span><div class="tool-icon">薪</div>
+          <h3>工资与用工成本</h3>
+          <p>测算到手工资、五险一金、个人所得税及企业成本。</p>
+          <span class="tool-link">立即使用 →</span>
+        </a>
+        <a class="finance-tool-card" href="tools/quote/">
+          <span class="tool-num">04</span><div class="tool-icon">报</div>
+          <h3>报价单</h3>
+          <p>制作报价、对账与形式发票，并衔接客户和收款记录。</p>
+          <span class="tool-link">立即使用 →</span>
+        </a>
+        <a class="finance-tool-card compact" href="tools/number-chinese/">
+          <span class="tool-num">05</span><div class="tool-icon">万</div>
+          <h3>人民币大写转换</h3>
+          <p>将数字金额转换为规范人民币大写，支持批量处理。</p>
+          <span class="tool-link">立即使用 →</span>
+        </a>
+      </div>
+    </section>
+
+    <section id="workspace" class="workspace-section">
+      <div class="workspace-copy">
+        <span class="section-tag light">PRO WORKSPACE</span>
+        <h2>从一次计算，走向完整业务记录</h2>
+        <p>Utilora 专业财务工作台帮助小微企业集中管理客户、报价、发票与收款状态，让业务信息不再散落。</p>
+        <ul>
+          <li>客户与联系人统一管理</li>
+          <li>报价单快速生成并转为发票记录</li>
+          <li>收款进度与历史单据清晰可查</li>
+        </ul>
+        <a href="pro/">打开专业财务工作台 →</a>
+      </div>
+      <div class="workspace-board" aria-hidden="true">
+        <div class="board-head"><span>财务概览</span><i></i><i></i><i></i></div>
+        <div class="board-stats"><div><small>本月应收</small><b>¥ 86,240</b></div><div><small>已收款</small><b>¥ 62,800</b></div></div>
+        <div class="board-list"><span></span><span></span><span></span></div>
+      </div>
+    </section>
+
+    <section id="method" class="finance-section method-section">
+      <div class="finance-section-head">
+        <div><span class="section-tag">OUR METHOD</span><h2>专业，不只是给出一个数字</h2></div>
+      </div>
+      <div class="method-grid">
+        <article><span>1</span><h3>展示计算过程</h3><p>重要结果同时呈现输入条件、采用公式与中间步骤，方便复核。</p></article>
+        <article><span>2</span><h3>说明适用范围</h3><p>区分纳税人类型、计算期间和规则边界，减少误用。</p></article>
+        <article><span>3</span><h3>保留政策时间</h3><p>涉及政策的工具逐步标注依据、版本和更新日期。</p></article>
+      </div>
+    </section>
+
+    <section class="roadmap-section">
+      <div><span class="section-tag">COMING NEXT</span><h2>接下来会做什么</h2><p>围绕小微企业高频场景，逐项上线并验证。</p></div>
+      <div class="roadmap-list">
+        <span>小型微利企业所得税测算 <i>规划中</i></span>
+        <span>固定资产折旧计算 <i>规划中</i></span>
+        <span>印花税辅助测算 <i>规划中</i></span>
+        <span>费用报销检查清单 <i>规划中</i></span>
+      </div>
+    </section>
+
+    <section class="disclaimer">
+      <strong>使用说明</strong>
+      <p>本站工具用于日常辅助测算与效率提升，不构成税务、会计或法律意见，不替代正式申报及专业判断。涉及具体业务时，请结合最新有效政策并向主管税务机关或专业人士核实。</p>
+    </section>
   </main>
-  <footer>
-    <a class="brand" href="./"><span class="brand-mark">U</span><span>Utilora</span></a>
-    <p>把复杂留给工具，把时间还给你。</p>
-    <button id="install-app-footer" class="install-btn" type="button">安装到桌面</button>
-    <span>© <span id="year"></span></span>
-  </footer>
-  <div id="install-guide" class="install-guide" hidden>
-    <div class="install-card">
-      <h3>安装到桌面</h3>
-      <p>装好后可离线打开常用工具，不必每次找网址。</p>
-      <ol>
-        <li>Chrome / Edge：地址栏右侧「安装」或浏览器菜单里的「安装 Utilora」</li>
-        <li>iPhone：Safari 点底部分享，再选「添加到主屏幕」</li>
-        <li>Android：浏览器菜单里的「添加到主屏幕」</li>
-      </ol>
-      <button id="install-guide-close" class="secondary" type="button">知道了</button>
+
+  <footer class="finance-footer">
+    <div class="footer-main">
+      <a class="finance-brand footer-brand" href="./"><span class="finance-brand-mark">U</span><span><strong>Utilora</strong><small>财务工具</small></span></a>
+      <p>为小微企业财务人员提供清楚、可靠、顺手的在线工具。</p>
+      <div><a href="#tools">财税工具</a><a href="pro/">专业工作台</a><a href="feedback/">功能建议</a><a href="login/">登录</a></div>
     </div>
-  </div>
+    <div class="footer-bottom"><span>© <span id="year"></span> Utilora</span><span>结果仅供辅助测算</span></div>
+  </footer>
+
+  <script>
+    const menu=document.querySelector(".mobile-menu");
+    const links=document.querySelector(".finance-nav-links");
+    menu?.addEventListener("click",()=>{const open=links.classList.toggle("open");menu.setAttribute("aria-expanded",String(open));});
+    document.querySelectorAll(".finance-nav-links a").forEach(a=>a.addEventListener("click",()=>links.classList.remove("open")));
+    document.getElementById("year").textContent=new Date().getFullYear();
+  </script>
   <script src="assets/js/app.js"></script>
-  <script src="assets/js/home.js"></script>
   <script src="assets/js/analytics.js"></script>
 </body>
 </html>
