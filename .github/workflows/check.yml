@@ -28,8 +28,11 @@ jobs:
             index.html \
             README.md \
             assets/css/site.css \
-            assets/js/home.js \
-            feedback/index.html
+            assets/css/finance-home.css \
+            assets/js/app.js \
+            feedback/index.html \
+            robots.txt \
+            sitemap.xml
           do
             test -f "$f" || { echo "缺少文件: $f"; exit 1; }
           done
@@ -60,9 +63,9 @@ jobs:
           if [ "$missing" -ne 0 ]; then
             exit 1
           fi
-          echo "工具页文件齐全: ${count} 个"
+          echo "保留工具页文件齐全: ${count} 个"
 
-      - name: 首页卡片链接有效
+      - name: 首页财务卡片链接有效
         run: |
           set -euo pipefail
           python3 << 'PY'
@@ -71,17 +74,20 @@ jobs:
           import sys
 
           html = pathlib.Path("index.html").read_text(encoding="utf-8")
-          hrefs = re.findall(r'href="(tools/[^\"]+/)"', html)
-          if not hrefs:
-              print("首页没有找到 tools/ 链接")
+          cards = re.findall(
+              r'<a class="finance-tool-card[^"]*" href="(tools/[^"]+/)"',
+              html,
+          )
+          if not cards:
+              print("首页没有找到财务工具卡片")
               sys.exit(1)
 
           failed = False
           seen = set()
-          for href in hrefs:
+          for href in cards:
               path = pathlib.Path(href) / "index.html"
               if href in seen:
-                  print(f"重复卡片: {href}")
+                  print(f"重复财务卡片: {href}")
                   failed = True
               seen.add(href)
               if not path.is_file():
@@ -90,22 +96,17 @@ jobs:
               else:
                   print(f"OK  {href}")
 
-          cards = len(re.findall(r'class="tool-card', html))
-          count_m = re.search(r'id="tool-count">(\d+)', html)
-          if count_m and int(count_m.group(1)) != cards:
-              print(f"工具数量不一致: 展示 {count_m.group(1)}，卡片 {cards}")
-              failed = True
-          if cards != len(hrefs):
-              print(f"卡片数 {cards} 与工具链接数 {len(hrefs)} 不一致")
-              failed = True
-
-          folders = {p.name for p in pathlib.Path("tools").iterdir() if p.is_dir()}
-          linked = {href.rstrip("/").split("/", 1)[1] for href in hrefs}
-          orphans = sorted(folders - linked)
-          if orphans:
-              print("未在首页挂出的工具目录: " + ", ".join(orphans))
+          generic_markers = (
+              "JSON 格式化",
+              "图片压缩",
+              "正则测试",
+              "UUID 生成器",
+          )
+          leaked = [name for name in generic_markers if name in html]
+          if leaked:
+              print("首页仍显示非财务工具: " + ", ".join(leaked))
               failed = True
 
-          print(f"共检查 {len(hrefs)} 个首页入口")
+          print(f"共检查 {len(cards)} 个公开财务工具入口")
           sys.exit(1 if failed else 0)
           PY
