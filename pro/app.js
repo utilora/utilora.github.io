@@ -2,9 +2,10 @@
   const F = window.UtiloraFinance;
   const LEGACY_KEY = "utilora_crater_v1";
   const DB_NAME = "utilora_finance_v2";
-  const DB_VERSION = 1;
+  const DB_VERSION = 2;
   const STORE_WORKSPACES = "workspaces";
   const STORE_SETTINGS = "settings";
+  const STORE_RECOVERY = "recovery";
   const view = document.getElementById("view");
   const sheet = document.getElementById("sheet");
   const titleEl = document.getElementById("page-title");
@@ -80,11 +81,12 @@
       const database = req.result;
       if (!database.objectStoreNames.contains(STORE_WORKSPACES)) database.createObjectStore(STORE_WORKSPACES, { keyPath: "id" });
       if (!database.objectStoreNames.contains(STORE_SETTINGS)) database.createObjectStore(STORE_SETTINGS, { keyPath: "key" });
+      if (!database.objectStoreNames.contains(STORE_RECOVERY)) database.createObjectStore(STORE_RECOVERY, { keyPath: "id" });
     };
     req.onsuccess = () => resolve(req.result);
     req.onerror = () => reject(req.error || new Error("无法打开本地数据库"));
   });
-  const workspaceRecord = (data = db) => ({ id: workspaceId, name: data.company.name || "未命名账套", updatedAt: new Date().toISOString(), data });
+  const workspaceRecord = (data = db) => ({ id: workspaceId, name: data.company.name || "未命名公司", updatedAt: new Date().toISOString(), data });
   const setSaveState = (text, error = false) => {
     if (!saveState) return;
     saveState.textContent = text;
@@ -95,12 +97,24 @@
     setSaveState("保存中…");
     try {
       await request(txStore(STORE_WORKSPACES, "readwrite").put(workspaceRecord()));
-      setSaveState("已保存到本机 · " + (db.company.name || "未命名账套"));
+      setSaveState("已保存到本机 · " + (db.company.name || "未命名公司"));
     } catch (error) {
       setSaveState("本地保存失败，请立即导出备份", true);
     }
   };
   const setActiveWorkspace = async (id) => request(txStore(STORE_SETTINGS, "readwrite").put({ key: "activeWorkspace", value: id }));
+  const getSetting = async (key) => request(txStore(STORE_SETTINGS).get(key));
+  const setSetting = async (key, value) => request(txStore(STORE_SETTINGS, "readwrite").put({ key, value }));
+  const backupKey = () => `lastBackup:${workspaceId}`;
+  const recoveryPoint = async (reason) => {
+    if (!db || !workspaceId) return;
+    const createdAt = new Date().toISOString();
+    await request(txStore(STORE_RECOVERY, "readwrite").put({ id: `${workspaceId}:${createdAt}`, workspaceId, createdAt, reason, data: db }));
+  };
+  const latestRecovery = async () => {
+    const rows = await request(txStore(STORE_RECOVERY).getAll());
+    return rows.filter((item) => item.workspaceId === workspaceId).sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)))[0] || null;
+  };
   const listWorkspaces = async () => request(txStore(STORE_WORKSPACES).getAll());
   const switchWorkspace = async (id) => {
     const record = await request(txStore(STORE_WORKSPACES).get(id));
@@ -108,7 +122,7 @@
     workspaceId = id;
     db = normalizeData(record.data);
     await setActiveWorkspace(id);
-    setSaveState("已保存到本机 · " + (db.company.name || "未命名账套"));
+    setSaveState("已保存到本机 · " + (db.company.name || "未命名公司"));
     location.hash = "#/dashboard";
     draw();
   };
@@ -137,7 +151,7 @@
     workspaceId = record.id;
     db = normalizeData(record.data);
     await setActiveWorkspace(workspaceId);
-    setSaveState("已保存到本机 · " + (db.company.name || "未命名账套"));
+    setSaveState("已保存到本机 · " + (db.company.name || "未命名公司"));
   };
   const customer = (id) => db.customers.find((c) => c.id === id) || {};
   const nextNo = (prefix, list) => {
@@ -239,54 +253,58 @@
 
   function renderDashboard() {
     const due = db.invoices.reduce((s, inv) => s + Math.max(0, compute(inv).inclusive - paidOf(inv.id)), 0);
-    const sales = db.invoices.reduce((s, inv) => s + compute(inv).inclusive, 0);
-    const receipts = db.payments.reduce((s, p) => s + Number(p.amount || 0), 0);
-    const expenses = db.expenses.reduce((s, e) => s + Number(e.amount || 0), 0);
-    const series = monthSeries();
-    const dues = db.invoices.filter((i) => ["overdue", "issued", "partial"].includes(invoiceStatus(i)));
+    const month = today().slice(0, 7);
+    const monthSales = db.invoices.filter((i) => (i.date || "").startsWith(month)).reduce((s, inv) => s + compute(inv).inclusive, 0);
+    const monthReceipts = db.payments.filter((p) => (p.date || "").startsWith(month)).reduce((s, p) => s + Number(p.amount || 0), 0);
+    const overdue = db.invoices.filter((i) => invoiceStatus(i) === "overdue");
+    const overdueAmount = overdue.reduce((s, inv) => s + Math.max(0, compute(inv).inclusive - paidOf(inv.id)), 0);
+    const dues = db.invoices.filter((i) => ["overdue", "issued", "partial"].includes(invoiceStatus(i))).sort((a, b) => String(a.dueDate).localeCompare(String(b.dueDate))).slice(0, 8);
+    const recentPayments = db.payments.slice().sort((a, b) => String(b.date).localeCompare(String(a.date))).slice(0, 6);
     if (!db.customers.length && !db.estimates.length && !db.invoices.length && !db.expenses.length) {
-      view.innerHTML = `<div class="welcome-panel"><span>本地财务台 Beta</span><h2>从一个干净账套开始</h2><p>当前账套没有业务数据。先设置企业信息并创建客户，或载入明确标记的演示数据了解功能。</p><div class="actions"><button data-start="settings">设置企业信息</button><button class="secondary" data-start="customers">创建第一个客户</button><button class="secondary" data-start="demo">载入演示数据</button></div><small>数据仅保存在当前浏览器，请定期导出备份。</small></div>`;
+      view.innerHTML = `<div class="welcome-panel"><span>本地财务台 Beta</span><h2>从一家公司的真实数据开始</h2><p>当前公司没有业务数据。先完善公司信息并创建客户，或主动载入明确标记的演示数据了解功能。</p><div class="actions"><button data-start="settings">设置公司信息</button><button class="secondary" data-start="customers">创建第一个客户</button><button class="secondary" data-start="demo">载入演示数据</button></div><small>数据仅保存在当前浏览器，请定期导出备份。</small></div>`;
       view.querySelector('[data-start="settings"]').onclick = () => go("settings");
       view.querySelector('[data-start="customers"]').onclick = () => go("customers");
-      view.querySelector('[data-start="demo"]').onclick = async () => { if (window.confirm("在当前空账套中载入演示数据？")) { db = demo(); await save(); draw(); } };
+      view.querySelector('[data-start="demo"]').onclick = async () => { if (window.confirm("在当前空公司中载入演示数据？")) { db = demo(); await save(); draw(); } };
       return;
     }
     view.innerHTML = `
       <div class="stat-row">
-        <div class="stat-card" data-go="invoices"><div><b>${money(due)}</b><span>应收未收</span></div><div class="stat-ico pink">¥</div></div>
-        <div class="stat-card" data-go="customers"><div><b>${db.customers.length}</b><span>客户</span></div><div class="stat-ico blue">客</div></div>
-        <div class="stat-card" data-go="invoices"><div><b>${db.invoices.length}</b><span>应收单</span></div><div class="stat-ico violet">单</div></div>
-        <div class="stat-card" data-go="estimates"><div><b>${db.estimates.length}</b><span>报价</span></div><div class="stat-ico blue">报</div></div>
+        <div class="stat-card" data-go="invoices"><div><b>${money(monthSales)}</b><span>本月应收</span></div><div class="stat-ico violet">应</div></div>
+        <div class="stat-card" data-go="payments"><div><b>${money(monthReceipts)}</b><span>本月已收</span></div><div class="stat-ico blue">收</div></div>
+        <div class="stat-card" data-go="invoices"><div><b>${money(due)}</b><span>尚未收款</span></div><div class="stat-ico pink">¥</div></div>
+        <div class="stat-card" data-go="reports"><div><b>${money(overdueAmount)}</b><span>已逾期</span></div><div class="stat-ico pink">期</div></div>
       </div>
-      <div class="chart-wrap">
-        <div class="chart-card" data-go="reports"><h2>销售收入与费用</h2>${svgChart(series)}</div>
-        <div class="sum-card">
-          <p data-go="reports"><span>销售合计</span><b class="purple">${money(sales)}</b></p>
-          <p data-go="payments"><span>已收</span><b class="green">${money(receipts)}</b></p>
-          <p data-go="expenses"><span>费用</span><b class="red">${money(expenses)}</b></p>
-          <p data-go="reports"><span>净额</span><b>${money(sales - expenses)}</b></p>
-        </div>
+      <div class="dashboard-actions">
+        <button data-go="invoice/new">新建应收单</button><button class="secondary" data-go="payments">记录收款</button><button class="secondary" data-go="settings">导入 / 备份数据</button>
       </div>
+      <div class="backup-banner" id="dashboard-backup">正在检查本地备份状态…</div>
       <div class="split-lists">
         <div class="list-card">
           <h2 data-go="invoices">到期应收</h2>
           ${dues.length ? dues.map((inv) => `<div class="mini-row" data-go="invoices/${inv.id}"><div><b>${esc(customer(inv.customerId).name)}</b><small>${esc(inv.dueDate)} · ${esc(inv.number)}</small></div><b>${money(compute(inv).inclusive - paidOf(inv.id))}</b></div>`).join("") : `<p class="empty">没有到期应收单</p>`}
         </div>
         <div class="list-card">
-          <h2 data-go="estimates">最近报价</h2>
-          ${db.estimates.map((est) => `<div class="mini-row" data-go="estimates/${est.id}"><div><b>${esc(customer(est.customerId).name)}</b><small>${esc(est.date)} · ${esc(est.number)}</small></div><b>${money(compute(est).inclusive)}</b></div>`).join("") || `<p class="empty">还没有报价</p>`}
+          <h2 data-go="payments">最近收款</h2>
+          ${recentPayments.map((p) => { const inv = db.invoices.find((i) => i.id === p.invoiceId) || {}; return `<div class="mini-row" data-go="payments"><div><b>${esc(customer(inv.customerId).name || "未关联客户")}</b><small>${esc(p.date)} · ${esc(inv.number)}</small></div><b>${money(p.amount)}</b></div>`; }).join("") || `<p class="empty">还没有收款记录</p>`}
         </div>
       </div>`;
     view.querySelectorAll("[data-go]").forEach((el) => el.onclick = () => { location.hash = `#/${el.dataset.go}`; });
+    getSetting(backupKey()).then((item) => {
+      const node = document.getElementById("dashboard-backup");
+      if (!node) return;
+      const age = item?.value ? Math.floor((Date.now() - new Date(item.value).getTime()) / 86400000) : Infinity;
+      node.classList.toggle("warn", age > 7);
+      node.textContent = item?.value ? `最近备份：${new Date(item.value).toLocaleString("zh-CN")} · ${age > 7 ? "建议立即备份" : "状态正常"}` : "尚未导出备份 · 建议立即备份";
+    });
   }
 
   function renderPeople(kind) {
     const isCust = kind === "customers";
     const list = db[kind];
-    view.innerHTML = `<div class="panel">${list.length ? `<table class="sheet-table"><thead><tr>${isCust ? "<th>客户</th><th>电话</th><th>邮箱</th><th></th>" : "<th>项目</th><th>单价</th><th>税率</th><th></th>"}</tr></thead><tbody>${list.map((row) => `<tr>
+    view.innerHTML = `<div class="panel">${list.length ? `<table class="sheet-table"><thead><tr>${isCust ? "<th>客户</th><th>未收金额</th><th>电话 / 邮箱</th><th></th>" : "<th>项目</th><th>单价</th><th>税率</th><th></th>"}</tr></thead><tbody>${list.map((row) => `<tr>
       <td><b>${esc(row.name)}</b><div style="color:#9ca3af;font-size:12px">${esc(isCust ? row.address : row.spec)}</div></td>
-      <td>${isCust ? esc(row.phone) : money(row.price)}</td>
-      <td>${isCust ? esc(row.email) : `${row.rate}%`}</td>
+      <td>${isCust ? money(db.invoices.filter((inv) => inv.customerId === row.id).reduce((sum, inv) => sum + Math.max(0, compute(inv).inclusive - paidOf(inv.id)), 0)) : money(row.price)}</td>
+      <td>${isCust ? `${esc(row.phone)}<div style="color:#9ca3af;font-size:12px">${esc(row.email)}</div>` : `${row.rate}%`}</td>
       <td class="actions"><button class="secondary" data-edit="${row.id}">编辑</button><button class="secondary" data-del="${row.id}">删除</button></td>
     </tr>`).join("")}</tbody></table>` : `<p class="empty">${isCust ? "还没有客户" : "还没有项目"}</p>`}</div>
     <div class="panel" id="box" hidden style="margin-top:14px"><div class="form-grid" id="form"></div><div class="actions"><button id="save">保存</button><button class="secondary" id="cancel">取消</button></div></div>`;
@@ -326,7 +344,7 @@
     if (!inv) return;
     const left = Math.max(0, compute(inv).inclusive - paidOf(inv.id));
     const amount = Number(window.prompt("收到多少？", String(left)) || 0);
-    if (!amount) return;
+    if (!amount || amount < 0 || amount > left) return window.alert("收款金额必须大于 0，且不能超过剩余应收金额。");
     db.payments.unshift({ id: uid("p"), invoiceId: id, date: today(), amount, method: "转账", note: "" });
     save(); draw();
   }
@@ -396,11 +414,16 @@
   }
 
   function renderPayments() {
-    view.innerHTML = `<div class="panel">${db.payments.length ? `<table class="sheet-table"><thead><tr><th>日期</th><th>应收单</th><th>客户</th><th>金额</th><th>方式</th></tr></thead><tbody>${db.payments.map((p) => {
+    view.innerHTML = `<div class="panel">${db.payments.length ? `<table class="sheet-table"><thead><tr><th>日期</th><th>应收单</th><th>客户</th><th>金额</th><th>方式</th><th></th></tr></thead><tbody>${db.payments.map((p) => {
       const inv = db.invoices.find((i) => i.id === p.invoiceId) || {};
-      return `<tr><td>${esc(p.date)}</td><td>${esc(inv.number)}</td><td>${esc(customer(inv.customerId).name)}</td><td>${money(p.amount)}</td><td>${esc(p.method)}</td></tr>`;
+      return `<tr><td>${esc(p.date)}</td><td>${esc(inv.number)}</td><td>${esc(customer(inv.customerId).name)}</td><td>${money(p.amount)}</td><td>${esc(p.method)}</td><td><button class="secondary" data-delete-payment="${p.id}">删除</button></td></tr>`;
     }).join("")}</tbody></table>` : `<p class="empty">还没有收款</p>`}</div>`;
     primary.onclick = () => { if (db.invoices[0]) quickPay(db.invoices[0].id); };
+    view.querySelectorAll("[data-delete-payment]").forEach((button) => button.onclick = async () => {
+      if (!window.confirm("删除这条收款记录？应收状态会自动重新计算。")) return;
+      db.payments = db.payments.filter((p) => p.id !== button.dataset.deletePayment);
+      await save(); draw();
+    });
   }
 
   function renderExpenses() {
@@ -425,7 +448,19 @@
 
   function renderReports() {
     const series = monthSeries();
+    const aging = { current: 0, d30: 0, d60: 0, d90: 0, over90: 0 };
+    db.invoices.forEach((inv) => {
+      const left = Math.max(0, compute(inv).inclusive - paidOf(inv.id));
+      if (!left || inv.status === "draft" || inv.status === "void") return;
+      const days = inv.dueDate ? Math.floor((new Date(today()) - new Date(inv.dueDate)) / 86400000) : 0;
+      if (days <= 0) aging.current += left;
+      else if (days <= 30) aging.d30 += left;
+      else if (days <= 60) aging.d60 += left;
+      else if (days <= 90) aging.d90 += left;
+      else aging.over90 += left;
+    });
     view.innerHTML = `<div class="chart-card"><h2>近 8 个月销售与费用</h2>${svgChart(series)}</div>
+      <div class="panel" style="margin-top:14px"><h2>应收账龄</h2><table class="sheet-table"><thead><tr><th>未到期</th><th>逾期 1–30 天</th><th>逾期 31–60 天</th><th>逾期 61–90 天</th><th>逾期 90 天以上</th></tr></thead><tbody><tr><td>${money(aging.current)}</td><td>${money(aging.d30)}</td><td>${money(aging.d60)}</td><td>${money(aging.d90)}</td><td>${money(aging.over90)}</td></tr></tbody></table></div>
       <div class="panel" style="margin-top:14px"><table class="sheet-table"><thead><tr><th>月份</th><th>销售</th><th>费用</th><th>净额</th></tr></thead><tbody>${series.map((s) => `<tr><td>${s.label}</td><td>${money(s.sales)}</td><td>${money(s.expenses)}</td><td>${money(s.sales - s.expenses)}</td></tr>`).join("")}</tbody></table></div>`;
     primary.hidden = true;
   }
@@ -444,8 +479,14 @@
     const c = db.company;
     primary.hidden = true;
     const workspaces = await listWorkspaces();
-    view.innerHTML = `<div class="panel settings-section"><h2>当前账套</h2><p class="data-note">每个账套在 IndexedDB 中独立保存。数据不上传，也不会跟随 Utilora 账号或设备同步。</p>
-      <div class="workspace-row"><select id="workspace-select">${workspaces.map((item) => `<option value="${item.id}"${item.id === workspaceId ? " selected" : ""}>${esc(item.name)}</option>`).join("")}</select><button id="workspace-new" type="button">新建账套</button></div>
+    const record = workspaces.find((item) => item.id === workspaceId);
+    const backup = await getSetting(backupKey());
+    const recovery = await latestRecovery();
+    const backupAge = backup?.value ? Math.floor((Date.now() - new Date(backup.value).getTime()) / 86400000) : Infinity;
+    const backupLabel = backup?.value ? `${new Date(backup.value).toLocaleString("zh-CN")} · ${backupAge > 7 ? "建议立即备份" : "状态正常"}` : "尚未备份 · 建议立即备份";
+    view.innerHTML = `<div class="panel settings-section"><h2>当前公司</h2><p class="data-note">每家公司在 IndexedDB 中独立保存。数据不上传，也不会跟随 Utilora 账号或设备同步。</p>
+      <div class="data-health"><span><b>数据位置</b>当前浏览器</span><span><b>当前公司</b>${esc(db.company.name)}</span><span><b>最近保存</b>${record?.updatedAt ? new Date(record.updatedAt).toLocaleString("zh-CN") : "—"}</span><span class="${backupAge > 7 ? "warn" : ""}"><b>最近备份</b>${esc(backupLabel)}</span></div>
+      <div class="workspace-row"><select id="workspace-select">${workspaces.map((item) => `<option value="${item.id}"${item.id === workspaceId ? " selected" : ""}>${esc(item.name)}</option>`).join("")}</select><button id="workspace-new" type="button">新建公司</button></div>
     </div>
     <div class="panel settings-section"><h2>企业信息</h2><div class="form-grid">
       <div class="field"><label>公司名称</label><input id="co-name" value="${esc(c.name)}"></div>
@@ -460,15 +501,17 @@
       <div class="actions">
         <button id="data-export" type="button">导出完整备份</button>
         <button id="data-import" class="secondary" type="button">导入备份</button>
+        <button id="data-recover" class="secondary" type="button"${recovery ? "" : " disabled"}>恢复最近自动恢复点</button>
         <button id="data-demo" class="secondary" type="button">载入演示数据</button>
-        <button id="data-clear" class="danger" type="button">清空当前账套</button>
+        <button id="data-clear" class="danger" type="button">清空当前公司数据</button>
       </div>
       <input id="data-file" type="file" accept="application/json,.json" hidden>
       <p id="data-msg" class="empty"></p>
+      <p class="data-note">${recovery ? `最近自动恢复点：${new Date(recovery.createdAt).toLocaleString("zh-CN")}（${esc(recovery.reason)}）` : "当前公司还没有自动恢复点。导入、载入演示或清空前会自动创建。"}</p>
     </div>`;
     document.getElementById("workspace-select").onchange = (event) => switchWorkspace(event.target.value);
     document.getElementById("workspace-new").onclick = async () => {
-      const name = window.prompt("新账套名称", "我的企业");
+      const name = window.prompt("新公司名称", "我的企业");
       if (!name?.trim()) return;
       await createWorkspace(name.trim());
       draw();
@@ -479,20 +522,31 @@
       document.getElementById("co-msg").textContent = "企业信息已保存到当前浏览器";
     };
     document.getElementById("data-export").onclick = () => {
-      const safeName = (db.company.name || "账套").replace(/[\\/:*?"<>|]/g, "-");
-      downloadJson(`utilora-backup-${safeName}-${today()}.json`, { type: "utilora-finance-backup", version: 2, exportedAt: new Date().toISOString(), data: db });
+      const safeName = (db.company.name || "公司").replace(/[\\/:*?"<>|]/g, "-");
+      const exportedAt = new Date().toISOString();
+      downloadJson(`utilora-backup-${safeName}-${today()}.json`, { type: "utilora-finance-backup", version: 3, exportedAt, summary: { company: db.company.name, customers: db.customers.length, invoices: db.invoices.length, payments: db.payments.length }, data: db });
+      setSetting(backupKey(), exportedAt);
       document.getElementById("data-msg").textContent = "备份已下载。请妥善保管，文件中包含客户和财务信息。";
     };
     document.getElementById("data-import").onclick = () => document.getElementById("data-file").click();
+    document.getElementById("data-recover").onclick = async () => {
+      if (!recovery || !window.confirm(`恢复到 ${new Date(recovery.createdAt).toLocaleString("zh-CN")} 的公司数据？当前状态会先生成新的恢复点。`)) return;
+      await recoveryPoint("手动恢复前");
+      db = normalizeData(recovery.data);
+      await save(); draw();
+    };
     document.getElementById("data-file").onchange = async (event) => {
       const file = event.target.files?.[0];
       if (!file) return;
       const msg = document.getElementById("data-msg");
       try {
         const payload = JSON.parse(await file.text());
-        if (payload.type !== "utilora-finance-backup" || !payload.data?.company || !Array.isArray(payload.data.customers)) throw new Error("不是有效的 Utilora 备份文件");
-        await createWorkspace(`${payload.data.company.name || "导入账套"}（导入）`, payload.data);
-        msg.textContent = "导入成功，已创建独立账套";
+        if (payload.type !== "utilora-finance-backup" || ![2, 3].includes(payload.version) || !payload.data?.company || !Array.isArray(payload.data.customers) || !Array.isArray(payload.data.invoices) || !Array.isArray(payload.data.payments)) throw new Error("备份格式、版本或必要数据不完整");
+        const summary = `公司：${payload.data.company.name || "未命名"}\n客户：${payload.data.customers.length}\n应收单：${payload.data.invoices.length}\n收款：${payload.data.payments.length}\n导出时间：${payload.exportedAt || "未知"}`;
+        if (!window.confirm(`导入预览\n\n${summary}\n\n确认创建为独立公司吗？`)) return;
+        await recoveryPoint("导入前自动恢复点");
+        await createWorkspace(`${payload.data.company.name || "导入公司"}（导入）`, payload.data);
+        msg.textContent = "导入成功，已创建独立公司；原公司已保留恢复点";
         draw();
       } catch (error) {
         msg.textContent = error.message || "导入失败";
@@ -501,14 +555,16 @@
       event.target.value = "";
     };
     document.getElementById("data-demo").onclick = async () => {
-      if (!window.confirm("演示数据会替换当前账套的全部内容。建议先导出备份。继续吗？")) return;
+      if (!window.confirm("演示数据会替换当前公司的全部内容，并自动创建恢复点。继续吗？")) return;
+      await recoveryPoint("载入演示数据前");
       db = demo();
       await save();
       draw();
     };
     document.getElementById("data-clear").onclick = async () => {
-      const typed = window.prompt(`此操作会删除当前账套“${db.company.name}”中的全部业务数据。请输入“清空”确认：`);
-      if (typed !== "清空") return;
+      const typed = window.prompt(`此操作会删除当前公司“${db.company.name}”中的全部业务数据，并先创建恢复点。请输入公司名称确认：`);
+      if (typed !== db.company.name) return;
+      await recoveryPoint("清空公司数据前");
       const company = { ...db.company };
       db = empty(company.name || "我的企业");
       db.company = company;
@@ -604,7 +660,7 @@
       btn.classList.toggle("active", key === r.name || (r.name === "estimate" && key === "estimates") || (r.name === "invoice" && key === "invoices"));
     });
     titleEl.textContent = titles[r.name] || "工作台";
-    if (r.name === "dashboard") { primary.textContent = "新建报价"; primary.onclick = () => go("estimate", "new"); renderDashboard(); }
+    if (r.name === "dashboard") { primary.textContent = "新建应收单"; primary.onclick = () => go("invoice", "new"); renderDashboard(); }
     else if (r.name === "customers") { primary.textContent = "新建客户"; renderPeople("customers"); }
     else if (r.name === "items") { primary.textContent = "新建项目"; renderPeople("items"); }
     else if (r.name === "estimates") { primary.textContent = "新建报价"; renderDocs("estimates"); }

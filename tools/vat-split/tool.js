@@ -77,7 +77,9 @@
     return batch.value.split(/\r?\n/).map((line) => {
       const text = line.trim();
       if (!text) return null;
-      const [left, right] = text.split(/[,，\t]/);
+      const rateMatch = text.match(/^(.*)[,，\t]\s*(\d+(?:\.\d+)?)%$/);
+      const left = rateMatch ? rateMatch[1] : text;
+      const right = rateMatch ? rateMatch[2] : "";
       const parsed = F.parseAmount(left ?? "");
       const lineRate = right ? parseRate(right) : activeRate();
       if (parsed.error || lineRate == null) return { raw: text, error: "无法解析" };

@@ -1,4 +1,8 @@
 User-agent: *
 Allow: /
+Disallow: /login/
+Disallow: /account/
+Disallow: /admin/
+Disallow: /tools/douyin-downloader/
 
 Sitemap: https://utilora.github.io/sitemap.xml

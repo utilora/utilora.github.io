@@ -120,3 +120,4 @@ a.plan-pill{margin:0}
 .quote-card.theme-stamp .quote-head{margin:-28px -32px 16px;padding:24px 32px 18px;color:#fff;background:#9f1239}
 .quote-card.theme-stamp .quote-head .muted,.quote-card.theme-stamp .quote-meta{color:#fecdd3}
 @media print{.quote-mark{color:#b91c1c22}}
+.policy-note{display:grid;gap:6px;margin:14px 0;padding:13px 15px;border:1px solid #f0c36a;border-radius:10px;background:#fff9e9;color:#76520b;font-size:13px;line-height:1.6}.policy-note b{color:#513500}.policy-note span{display:block}

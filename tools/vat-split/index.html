@@ -19,6 +19,7 @@
     <div class="panel">
       <h1>增值税价税分离</h1>
       <p class="hint">含税拆不含税、税额，或反向加税。一般纳税人常用 13% / 9% / 6%，小规模常用 3% / 1%。按价税分离公式测算，开票请以税控系统为准。</p>
+      <div class="policy-note"><b>计算口径</b><span>适用地区：中国大陆｜适用期间：请按业务发生时有效税率选择｜公式：不含税金额＝含税金额÷（1＋税率）｜最近核验：2026-08-25</span><span>政策与优惠税率可能调整，本工具不判断具体业务适用税率，不代替开票或纳税申报。</span></div>
       <p class="pro-cta">本地财务台 Beta：<a href="../../pro/">业务数据仅保存在当前浏览器，支持本地备份</a>。</p>
       <div class="tabs" id="modes">
         <button type="button" class="active" data-mode="inclusive">含税拆分</button>
@@ -54,7 +55,7 @@
           <textarea id="batch">11300
 3090,3%
 10600,6%</textarea>
-          <p class="hint tight">支持 11300 或 10600,6%。未写税率时用上方税率。</p>
+          <p class="hint tight">支持 11300、11,300 或 10600,6%。每行税率请带 %；未写税率时使用上方税率，计算后请先核对识别结果。</p>
         </div>
         <div class="table-wrap">
           <table class="sheet-table" id="batchTable"></table>
