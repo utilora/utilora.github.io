@@ -367,7 +367,7 @@
 
   function convertEstimate(id) {
     const est = db.estimates.find((e) => e.id === id);
-    if (!est) return;
+    if (!est || !guardOpen(today())) return;
     est.status = "converted";
     const inv = { id: uid("v"), number: nextNo("AR", db.invoices), customerId: est.customerId, estimateId: est.id, date: today(), dueDate: addDays(15), status: "draft", notes: est.notes, rows: est.rows.map((r) => ({ ...r })) };
     db.invoices.unshift(inv); save(); go("invoices", inv.id);
@@ -433,7 +433,7 @@
         if (b.dataset.act === "edit") go(isEst ? "estimate" : "invoice", selected.id);
         if (b.dataset.act === "convert") convertEstimate(selected.id);
         if (b.dataset.act === "pay") quickPay(selected.id);
-        if (b.dataset.act === "issued") { selected.status = "issued"; save(); draw(); }
+        if (b.dataset.act === "issued" && guardOpen(selected.date)) { selected.status = "issued"; save(); draw(); }
       });
     };
     document.querySelectorAll(".tabs button").forEach((b) => b.onclick = () => {
