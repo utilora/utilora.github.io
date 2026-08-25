@@ -1,10 +1,18 @@
 (() => {
   const F = window.UtiloraFinance;
-  const KEY = "utilora_crater_v1";
+  const LEGACY_KEY = "utilora_crater_v1";
+  const DB_NAME = "utilora_finance_v2";
+  const DB_VERSION = 1;
+  const STORE_WORKSPACES = "workspaces";
+  const STORE_SETTINGS = "settings";
   const view = document.getElementById("view");
   const sheet = document.getElementById("sheet");
   const titleEl = document.getElementById("page-title");
   const primary = document.getElementById("primary-action");
+  const saveState = document.getElementById("save-state");
+  let idb = null;
+  let workspaceId = "";
+  let db = null;
 
   const uid = (p) => `${p}-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
   const today = () => new Date().toISOString().slice(0, 10);
@@ -12,48 +20,130 @@
   const esc = (v) => String(v || "").replace(/[&<>"]/g, (ch) => ({ "&": "\u0026amp;", "<": "\u0026lt;", ">": "\u0026gt;", '"': "\u0026quot;" }[ch]));
   const money = (n) => F.formatRmb(F.roundFen(Number(n) || 0));
 
-  const empty = () => ({
-    company: { name: "示例商行", taxId: "91310000MA0000000X", address: "上海市静安区", phone: "021-00000000", email: "hi@example.com", payInfo: "工行 6222 **** 8899", theme: "navy" },
+  const empty = (name = "我的企业") => ({
+    schemaVersion: 2,
+    company: { name, taxId: "", address: "", phone: "", email: "", payInfo: "", theme: "navy" },
     customers: [], items: [], estimates: [], invoices: [], payments: [], expenses: [],
   });
+  const normalizeData = (source) => {
+    const next = { ...empty(), ...(source || {}) };
+    next.company = { ...empty().company, ...(source?.company || {}) };
+    ["customers", "items", "estimates", "invoices", "payments", "expenses"].forEach((key) => {
+      next[key] = Array.isArray(source?.[key]) ? source[key] : [];
+    });
+    const estimateStatus = { sent: "issued", viewed: "issued", accepted: "converted", rejected: "void" };
+    const invoiceStatusMap = { sent: "issued", viewed: "issued", accepted: "issued", rejected: "void" };
+    next.estimates = next.estimates.map((item) => ({ ...item, status: estimateStatus[item.status] || item.status || "draft" }));
+    next.invoices = next.invoices.map((item) => ({ ...item, status: invoiceStatusMap[item.status] || item.status || "draft" }));
+    next.schemaVersion = 2;
+    return next;
+  };
 
-  const load = () => {
-    try {
-      const data = JSON.parse(localStorage.getItem(KEY) || "null");
-      if (data && data.company) return { ...empty(), ...data };
-    } catch { /* ignore */ }
-    const db = empty();
-    db.customers = [
+  const demo = () => {
+    const sample = empty("演示商行（示例数据）");
+    sample.company = { name: "演示商行（示例数据）", taxId: "91310000MA0000000X", address: "上海市静安区", phone: "021-00000000", email: "demo@example.com", payInfo: "示例收款账户", theme: "navy" };
+    sample.customers = [
       { id: "c1", name: "星海贸易", taxId: "91310115MA1KXXXXXX", email: "a@example.com", phone: "021-58880000", address: "浦东新区世纪大道 1 号" },
       { id: "c2", name: "北岸工作室", taxId: "", email: "b@example.com", phone: "13800000000", address: "静安区" },
       { id: "c3", name: "林间咖啡", taxId: "", email: "c@example.com", phone: "13600000000", address: "徐汇区" },
     ];
-    db.items = [
+    sample.items = [
       { id: "i1", name: "品牌顾问", spec: "按项目", unit: "项", price: 8000, rate: 6 },
       { id: "i2", name: "门店物料", spec: "A-12", unit: "批", price: 1260, rate: 13 },
       { id: "i3", name: "上门安装", spec: "市区", unit: "次", price: 300, rate: 6 },
     ];
-    db.estimates = [
-      { id: "e1", number: "EST-00001", customerId: "c1", date: today(), validUntil: addDays(7), status: "sent", notes: "含税报价，有效期 7 天。", rows: [{ name: "品牌顾问", spec: "按项目", qty: 1, unit: "项", price: 8000, rate: 6 }] },
+    sample.estimates = [
+      { id: "e1", number: "EST-00001", customerId: "c1", date: today(), validUntil: addDays(7), status: "issued", notes: "含税报价，有效期 7 天。", rows: [{ name: "品牌顾问", spec: "按项目", qty: 1, unit: "项", price: 8000, rate: 6 }] },
       { id: "e2", number: "EST-00002", customerId: "c3", date: today(), validUntil: addDays(10), status: "draft", notes: "", rows: [{ name: "门店物料", spec: "A-12", qty: 2, unit: "批", price: 1260, rate: 13 }] },
     ];
-    db.invoices = [
-      { id: "v1", number: "INV-00001", customerId: "c2", date: addDays(-20), dueDate: addDays(-5), status: "sent", notes: "月结。", rows: [{ name: "上门安装", spec: "市区", qty: 2, unit: "次", price: 300, rate: 6 }] },
-      { id: "v2", number: "INV-00002", customerId: "c1", date: today(), dueDate: addDays(15), status: "sent", notes: "", rows: [{ name: "品牌顾问", spec: "按项目", qty: 1, unit: "项", price: 8000, rate: 6 }] },
-      { id: "v3", number: "INV-00003", customerId: "c3", date: addDays(-3), dueDate: addDays(12), status: "draft", notes: "", rows: [{ name: "门店物料", spec: "A-12", qty: 1, unit: "批", price: 1260, rate: 13 }] },
+    sample.invoices = [
+      { id: "v1", number: "AR-00001", customerId: "c2", date: addDays(-20), dueDate: addDays(-5), status: "issued", notes: "月结。", rows: [{ name: "上门安装", spec: "市区", qty: 2, unit: "次", price: 300, rate: 6 }] },
+      { id: "v2", number: "AR-00002", customerId: "c1", date: today(), dueDate: addDays(15), status: "issued", notes: "", rows: [{ name: "品牌顾问", spec: "按项目", qty: 1, unit: "项", price: 8000, rate: 6 }] },
+      { id: "v3", number: "AR-00003", customerId: "c3", date: addDays(-3), dueDate: addDays(12), status: "draft", notes: "", rows: [{ name: "门店物料", spec: "A-12", qty: 1, unit: "批", price: 1260, rate: 13 }] },
     ];
-    db.payments = [{ id: "p1", invoiceId: "v2", date: today(), amount: 3000, method: "转账", note: "预付" }];
-    db.expenses = [
+    sample.payments = [{ id: "p1", invoiceId: "v2", date: today(), amount: 3000, method: "转账", note: "预付" }];
+    sample.expenses = [
       { id: "x1", date: today(), vendor: "办公用品", category: "办公", amount: 268, note: "" },
       { id: "x2", date: addDays(-12), vendor: "地铁", category: "交通", amount: 120, note: "" },
     ];
-    return db;
+    return sample;
   };
 
-  let db = load();
-  const save = () => localStorage.setItem(KEY, JSON.stringify(db));
+  const request = (req) => new Promise((resolve, reject) => {
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error || new Error("本地数据库操作失败"));
+  });
+  const txStore = (name, mode = "readonly") => idb.transaction(name, mode).objectStore(name);
+  const openDatabase = () => new Promise((resolve, reject) => {
+    const req = indexedDB.open(DB_NAME, DB_VERSION);
+    req.onupgradeneeded = () => {
+      const database = req.result;
+      if (!database.objectStoreNames.contains(STORE_WORKSPACES)) database.createObjectStore(STORE_WORKSPACES, { keyPath: "id" });
+      if (!database.objectStoreNames.contains(STORE_SETTINGS)) database.createObjectStore(STORE_SETTINGS, { keyPath: "key" });
+    };
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error || new Error("无法打开本地数据库"));
+  });
+  const workspaceRecord = (data = db) => ({ id: workspaceId, name: data.company.name || "未命名账套", updatedAt: new Date().toISOString(), data });
+  const setSaveState = (text, error = false) => {
+    if (!saveState) return;
+    saveState.textContent = text;
+    saveState.classList.toggle("error", error);
+  };
+  const save = async () => {
+    if (!idb || !workspaceId || !db) return;
+    setSaveState("保存中…");
+    try {
+      await request(txStore(STORE_WORKSPACES, "readwrite").put(workspaceRecord()));
+      setSaveState("已保存到本机 · " + (db.company.name || "未命名账套"));
+    } catch (error) {
+      setSaveState("本地保存失败，请立即导出备份", true);
+    }
+  };
+  const setActiveWorkspace = async (id) => request(txStore(STORE_SETTINGS, "readwrite").put({ key: "activeWorkspace", value: id }));
+  const listWorkspaces = async () => request(txStore(STORE_WORKSPACES).getAll());
+  const switchWorkspace = async (id) => {
+    const record = await request(txStore(STORE_WORKSPACES).get(id));
+    if (!record) return;
+    workspaceId = id;
+    db = normalizeData(record.data);
+    await setActiveWorkspace(id);
+    setSaveState("已保存到本机 · " + (db.company.name || "未命名账套"));
+    location.hash = "#/dashboard";
+    draw();
+  };
+  const createWorkspace = async (name, data = null) => {
+    const id = uid("ws");
+    const next = data ? normalizeData(data) : empty(name || "我的企业");
+    next.company = { ...empty().company, ...(next.company || {}), name: name || next.company?.name || "我的企业" };
+    workspaceId = id;
+    db = next;
+    await request(txStore(STORE_WORKSPACES, "readwrite").put(workspaceRecord(next)));
+    await setActiveWorkspace(id);
+    return id;
+  };
+  const initStorage = async () => {
+    idb = await openDatabase();
+    let records = await listWorkspaces();
+    if (!records.length) {
+      let legacy = null;
+      try { legacy = JSON.parse(localStorage.getItem(LEGACY_KEY) || "null"); } catch { /* ignore */ }
+      await createWorkspace(legacy?.company?.name || "我的企业", legacy?.company ? legacy : null);
+      if (legacy) localStorage.removeItem(LEGACY_KEY);
+      records = await listWorkspaces();
+    }
+    const active = await request(txStore(STORE_SETTINGS).get("activeWorkspace"));
+    const record = records.find((item) => item.id === active?.value) || records[0];
+    workspaceId = record.id;
+    db = normalizeData(record.data);
+    await setActiveWorkspace(workspaceId);
+    setSaveState("已保存到本机 · " + (db.company.name || "未命名账套"));
+  };
   const customer = (id) => db.customers.find((c) => c.id === id) || {};
-  const nextNo = (prefix, list) => `${prefix}-${String(list.length + 1).padStart(5, "0")}`;
+  const nextNo = (prefix, list) => {
+    const max = list.reduce((value, item) => Math.max(value, Number(String(item.number || "").match(/(\d+)$/)?.[1] || 0)), 0);
+    return `${prefix}-${String(max + 1).padStart(5, "0")}`;
+  };
 
   function compute(doc) {
     const items = (doc.rows || []).map((line) => {
@@ -75,8 +165,8 @@
     if (inv.dueDate && inv.dueDate < today() && inv.status !== "draft") return "overdue";
     return inv.status || "draft";
   }
-  const EST_LABEL = { draft: "草稿", sent: "已发送", viewed: "已查看", expired: "已过期", accepted: "已接受", rejected: "已拒绝" };
-  const INV_LABEL = { draft: "草稿", sent: "已发送", viewed: "已查看", overdue: "逾期", partial: "部分付款", paid: "已付清" };
+  const EST_LABEL = { draft: "草稿", issued: "已确认", expired: "已过期", converted: "已转应收单", void: "已作废" };
+  const INV_LABEL = { draft: "草稿", issued: "已确认", overdue: "逾期", partial: "部分收款", paid: "已结清", void: "已作废" };
   const pill = (s, map) => `<span class="pill ${s}">${map[s] || s}</span>`;
   const route = () => { const h = (location.hash.replace(/^#\/?/, "") || "dashboard").split("/"); return { name: h[0], id: h[1] || "" }; };
   const go = (name, id) => { location.hash = id ? `#/${name}/${id}` : `#/${name}`; };
@@ -113,7 +203,7 @@
     const sum = compute(doc);
     return `<div class="inv-paper">
       <div class="inv-banner">
-        <div class="brand">${esc(co.name || "专业财务")}</div>
+        <div class="brand">${esc(co.name || "本地财务台")}</div>
         <div class="meta"><b>${esc(kind)}</b><div>${esc(doc.number)}</div><div>${esc(doc.date)}</div></div>
       </div>
       <div class="inv-body">
@@ -153,12 +243,19 @@
     const receipts = db.payments.reduce((s, p) => s + Number(p.amount || 0), 0);
     const expenses = db.expenses.reduce((s, e) => s + Number(e.amount || 0), 0);
     const series = monthSeries();
-    const dues = db.invoices.filter((i) => ["overdue", "sent", "partial"].includes(invoiceStatus(i)));
+    const dues = db.invoices.filter((i) => ["overdue", "issued", "partial"].includes(invoiceStatus(i)));
+    if (!db.customers.length && !db.estimates.length && !db.invoices.length && !db.expenses.length) {
+      view.innerHTML = `<div class="welcome-panel"><span>本地财务台 Beta</span><h2>从一个干净账套开始</h2><p>当前账套没有业务数据。先设置企业信息并创建客户，或载入明确标记的演示数据了解功能。</p><div class="actions"><button data-start="settings">设置企业信息</button><button class="secondary" data-start="customers">创建第一个客户</button><button class="secondary" data-start="demo">载入演示数据</button></div><small>数据仅保存在当前浏览器，请定期导出备份。</small></div>`;
+      view.querySelector('[data-start="settings"]').onclick = () => go("settings");
+      view.querySelector('[data-start="customers"]').onclick = () => go("customers");
+      view.querySelector('[data-start="demo"]').onclick = async () => { if (window.confirm("在当前空账套中载入演示数据？")) { db = demo(); await save(); draw(); } };
+      return;
+    }
     view.innerHTML = `
       <div class="stat-row">
         <div class="stat-card" data-go="invoices"><div><b>${money(due)}</b><span>应收未收</span></div><div class="stat-ico pink">¥</div></div>
         <div class="stat-card" data-go="customers"><div><b>${db.customers.length}</b><span>客户</span></div><div class="stat-ico blue">客</div></div>
-        <div class="stat-card" data-go="invoices"><div><b>${db.invoices.length}</b><span>发票</span></div><div class="stat-ico violet">票</div></div>
+        <div class="stat-card" data-go="invoices"><div><b>${db.invoices.length}</b><span>应收单</span></div><div class="stat-ico violet">单</div></div>
         <div class="stat-card" data-go="estimates"><div><b>${db.estimates.length}</b><span>报价</span></div><div class="stat-ico blue">报</div></div>
       </div>
       <div class="chart-wrap">
@@ -172,8 +269,8 @@
       </div>
       <div class="split-lists">
         <div class="list-card">
-          <h2 data-go="invoices">到期发票</h2>
-          ${dues.length ? dues.map((inv) => `<div class="mini-row" data-go="invoices/${inv.id}"><div><b>${esc(customer(inv.customerId).name)}</b><small>${esc(inv.dueDate)} · ${esc(inv.number)}</small></div><b>${money(compute(inv).inclusive - paidOf(inv.id))}</b></div>`).join("") : `<p class="empty">没有到期发票</p>`}
+          <h2 data-go="invoices">到期应收</h2>
+          ${dues.length ? dues.map((inv) => `<div class="mini-row" data-go="invoices/${inv.id}"><div><b>${esc(customer(inv.customerId).name)}</b><small>${esc(inv.dueDate)} · ${esc(inv.number)}</small></div><b>${money(compute(inv).inclusive - paidOf(inv.id))}</b></div>`).join("") : `<p class="empty">没有到期应收单</p>`}
         </div>
         <div class="list-card">
           <h2 data-go="estimates">最近报价</h2>
@@ -220,8 +317,8 @@
   function convertEstimate(id) {
     const est = db.estimates.find((e) => e.id === id);
     if (!est) return;
-    est.status = "accepted";
-    const inv = { id: uid("v"), number: nextNo("INV", db.invoices), customerId: est.customerId, estimateId: est.id, date: today(), dueDate: addDays(15), status: "sent", notes: est.notes, rows: est.rows.map((r) => ({ ...r })) };
+    est.status = "converted";
+    const inv = { id: uid("v"), number: nextNo("AR", db.invoices), customerId: est.customerId, estimateId: est.id, date: today(), dueDate: addDays(15), status: "draft", notes: est.notes, rows: est.rows.map((r) => ({ ...r })) };
     db.invoices.unshift(inv); save(); go("invoices", inv.id);
   }
   function quickPay(id) {
@@ -247,12 +344,12 @@
         <div class="tabs">
           <button class="on" data-f="all">全部</button>
           <button data-f="draft">草稿</button>
-          <button data-f="${isEst ? "sent" : "overdue"}">${isEst ? "已发送" : "逾期"}</button>
+          <button data-f="${isEst ? "issued" : "overdue"}">${isEst ? "已确认" : "逾期"}</button>
           ${isEst ? "" : `<button data-f="paid">已付清</button>`}
         </div>
         <div class="doc-scroll" id="rows"></div>
       </div>
-      <div class="preview-pane" id="preview">${selected ? "" : `<p class="empty">${isEst ? "还没有报价" : "还没有发票"}</p>`}</div>
+      <div class="preview-pane" id="preview">${selected ? "" : `<p class="empty">${isEst ? "还没有报价" : "还没有应收单"}</p>`}</div>
     </div>`;
     let filter = "all";
     const paintList = () => {
@@ -273,18 +370,18 @@
       if (!selected) return;
       document.getElementById("preview").innerHTML = `
         <div class="preview-actions">
-          ${isEst ? `<button class="main" data-act="convert">转为发票</button>` : `<button class="main" data-act="pay">记录收款</button>`}
+          ${isEst ? `<button class="main" data-act="convert">转为应收单</button>` : `<button class="main" data-act="pay">记录收款</button>`}
           <button data-act="edit">编辑</button>
-          <button data-act="sent">标为已发送</button>
+          <button data-act="issued">标为已确认</button>
           <button data-act="print">打印 / PDF</button>
         </div>
-        ${paper(selected, isEst ? "报价单" : "发票")}`;
+        ${paper(selected, isEst ? "报价单" : "应收单")}`;
       document.querySelectorAll("[data-act]").forEach((b) => b.onclick = () => {
-        if (b.dataset.act === "print") printDoc(selected, isEst ? "报价单" : "发票");
+        if (b.dataset.act === "print") printDoc(selected, isEst ? "报价单" : "应收单");
         if (b.dataset.act === "edit") go(isEst ? "estimate" : "invoice", selected.id);
         if (b.dataset.act === "convert") convertEstimate(selected.id);
         if (b.dataset.act === "pay") quickPay(selected.id);
-        if (b.dataset.act === "sent") { selected.status = "sent"; save(); draw(); }
+        if (b.dataset.act === "issued") { selected.status = "issued"; save(); draw(); }
       });
     };
     document.querySelectorAll(".tabs button").forEach((b) => b.onclick = () => {
@@ -299,7 +396,7 @@
   }
 
   function renderPayments() {
-    view.innerHTML = `<div class="panel">${db.payments.length ? `<table class="sheet-table"><thead><tr><th>日期</th><th>发票</th><th>客户</th><th>金额</th><th>方式</th></tr></thead><tbody>${db.payments.map((p) => {
+    view.innerHTML = `<div class="panel">${db.payments.length ? `<table class="sheet-table"><thead><tr><th>日期</th><th>应收单</th><th>客户</th><th>金额</th><th>方式</th></tr></thead><tbody>${db.payments.map((p) => {
       const inv = db.invoices.find((i) => i.id === p.invoiceId) || {};
       return `<tr><td>${esc(p.date)}</td><td>${esc(inv.number)}</td><td>${esc(customer(inv.customerId).name)}</td><td>${money(p.amount)}</td><td>${esc(p.method)}</td></tr>`;
     }).join("")}</tbody></table>` : `<p class="empty">还没有收款</p>`}</div>`;
@@ -333,26 +430,95 @@
     primary.hidden = true;
   }
 
-  function renderSettings() {
+  const downloadJson = (filename, payload) => {
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    a.click();
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+  };
+
+  async function renderSettings() {
     const c = db.company;
-    view.innerHTML = `<div class="panel"><div class="form-grid">
+    primary.hidden = true;
+    const workspaces = await listWorkspaces();
+    view.innerHTML = `<div class="panel settings-section"><h2>当前账套</h2><p class="data-note">每个账套在 IndexedDB 中独立保存。数据不上传，也不会跟随 Utilora 账号或设备同步。</p>
+      <div class="workspace-row"><select id="workspace-select">${workspaces.map((item) => `<option value="${item.id}"${item.id === workspaceId ? " selected" : ""}>${esc(item.name)}</option>`).join("")}</select><button id="workspace-new" type="button">新建账套</button></div>
+    </div>
+    <div class="panel settings-section"><h2>企业信息</h2><div class="form-grid">
       <div class="field"><label>公司名称</label><input id="co-name" value="${esc(c.name)}"></div>
       <div class="field"><label>税号</label><input id="co-tax" value="${esc(c.taxId)}"></div>
       <div class="field"><label>地址</label><input id="co-addr" value="${esc(c.address)}"></div>
       <div class="field"><label>电话</label><input id="co-phone" value="${esc(c.phone)}"></div>
       <div class="field"><label>邮箱</label><input id="co-email" value="${esc(c.email)}"></div>
       <div class="field"><label>收款账户</label><input id="co-pay" value="${esc(c.payInfo)}"></div>
-    </div><div class="actions"><button id="co-save" type="button">保存</button></div><p id="co-msg" class="empty"></p></div>`;
-    primary.hidden = true;
-    document.getElementById("co-save").onclick = () => {
+    </div><div class="actions"><button id="co-save" type="button">保存企业信息</button></div><p id="co-msg" class="empty"></p></div>
+    <div class="panel settings-section"><h2>数据与备份</h2>
+      <p class="data-note"><b>重要：</b>清理浏览器数据、使用无痕模式或更换设备都可能导致本地数据丢失。请定期导出完整备份。</p>
+      <div class="actions">
+        <button id="data-export" type="button">导出完整备份</button>
+        <button id="data-import" class="secondary" type="button">导入备份</button>
+        <button id="data-demo" class="secondary" type="button">载入演示数据</button>
+        <button id="data-clear" class="danger" type="button">清空当前账套</button>
+      </div>
+      <input id="data-file" type="file" accept="application/json,.json" hidden>
+      <p id="data-msg" class="empty"></p>
+    </div>`;
+    document.getElementById("workspace-select").onchange = (event) => switchWorkspace(event.target.value);
+    document.getElementById("workspace-new").onclick = async () => {
+      const name = window.prompt("新账套名称", "我的企业");
+      if (!name?.trim()) return;
+      await createWorkspace(name.trim());
+      draw();
+    };
+    document.getElementById("co-save").onclick = async () => {
       db.company = { ...c, name: document.getElementById("co-name").value.trim(), taxId: document.getElementById("co-tax").value.trim(), address: document.getElementById("co-addr").value.trim(), phone: document.getElementById("co-phone").value.trim(), email: document.getElementById("co-email").value.trim(), payInfo: document.getElementById("co-pay").value.trim() };
-      save();
-      document.getElementById("co-msg").textContent = "已保存在这台设备";
+      await save();
+      document.getElementById("co-msg").textContent = "企业信息已保存到当前浏览器";
+    };
+    document.getElementById("data-export").onclick = () => {
+      const safeName = (db.company.name || "账套").replace(/[\\/:*?"<>|]/g, "-");
+      downloadJson(`utilora-backup-${safeName}-${today()}.json`, { type: "utilora-finance-backup", version: 2, exportedAt: new Date().toISOString(), data: db });
+      document.getElementById("data-msg").textContent = "备份已下载。请妥善保管，文件中包含客户和财务信息。";
+    };
+    document.getElementById("data-import").onclick = () => document.getElementById("data-file").click();
+    document.getElementById("data-file").onchange = async (event) => {
+      const file = event.target.files?.[0];
+      if (!file) return;
+      const msg = document.getElementById("data-msg");
+      try {
+        const payload = JSON.parse(await file.text());
+        if (payload.type !== "utilora-finance-backup" || !payload.data?.company || !Array.isArray(payload.data.customers)) throw new Error("不是有效的 Utilora 备份文件");
+        await createWorkspace(`${payload.data.company.name || "导入账套"}（导入）`, payload.data);
+        msg.textContent = "导入成功，已创建独立账套";
+        draw();
+      } catch (error) {
+        msg.textContent = error.message || "导入失败";
+        msg.classList.add("error");
+      }
+      event.target.value = "";
+    };
+    document.getElementById("data-demo").onclick = async () => {
+      if (!window.confirm("演示数据会替换当前账套的全部内容。建议先导出备份。继续吗？")) return;
+      db = demo();
+      await save();
+      draw();
+    };
+    document.getElementById("data-clear").onclick = async () => {
+      const typed = window.prompt(`此操作会删除当前账套“${db.company.name}”中的全部业务数据。请输入“清空”确认：`);
+      if (typed !== "清空") return;
+      const company = { ...db.company };
+      db = empty(company.name || "我的企业");
+      db.company = company;
+      await save();
+      draw();
     };
   }
 
   function blankDoc(isEst) {
-    return { id: uid(isEst ? "e" : "v"), number: nextNo(isEst ? "EST" : "INV", isEst ? db.estimates : db.invoices), customerId: (db.customers[0] && db.customers[0].id) || "", date: today(), validUntil: addDays(7), dueDate: addDays(15), status: "draft", notes: "", rows: [{ name: "", spec: "", qty: 1, unit: "项", price: "", rate: 13 }] };
+    return { id: uid(isEst ? "e" : "v"), number: nextNo(isEst ? "EST" : "AR", isEst ? db.estimates : db.invoices), customerId: (db.customers[0] && db.customers[0].id) || "", date: today(), validUntil: addDays(7), dueDate: addDays(15), status: "draft", notes: "", rows: [{ name: "", spec: "", qty: 1, unit: "项", price: "", rate: 13 }] };
   }
 
   function renderEditor(isEst, id) {
@@ -387,7 +553,7 @@
             <button class="secondary" id="d-back" type="button">返回</button>
           </div>
         </div>
-        <div class="preview-pane">${paper(working, isEst ? "报价单" : "发票")}</div>
+        <div class="preview-pane">${paper(working, isEst ? "报价单" : "应收单")}</div>
       </div>`;
       const sync = () => {
         working.customerId = document.getElementById("d-customer").value;
@@ -421,14 +587,14 @@
         if (idx >= 0) arr[idx] = working; else arr.unshift(working);
         save(); go(isEst ? "estimates" : "invoices", working.id);
       };
-      document.getElementById("d-print").onclick = () => { sync(); printDoc(working, isEst ? "报价单" : "发票"); };
+      document.getElementById("d-print").onclick = () => { sync(); printDoc(working, isEst ? "报价单" : "应收单"); };
       document.getElementById("d-back").onclick = () => go(isEst ? "estimates" : "invoices");
     };
     primary.hidden = true;
     paint();
   }
 
-  const titles = { dashboard: "工作台", customers: "客户", items: "项目", estimates: "报价", invoices: "发票", payments: "收款", expenses: "费用", reports: "报表", settings: "设置", estimate: "编辑报价", invoice: "编辑发票" };
+  const titles = { dashboard: "概览", customers: "客户", items: "项目", estimates: "报价", invoices: "应收单", payments: "收款", expenses: "费用", reports: "报表", settings: "数据与设置", estimate: "编辑报价", invoice: "编辑应收单" };
 
   function draw() {
     const r = route();
@@ -442,7 +608,7 @@
     else if (r.name === "customers") { primary.textContent = "新建客户"; renderPeople("customers"); }
     else if (r.name === "items") { primary.textContent = "新建项目"; renderPeople("items"); }
     else if (r.name === "estimates") { primary.textContent = "新建报价"; renderDocs("estimates"); }
-    else if (r.name === "invoices") { primary.textContent = "新建发票"; renderDocs("invoices"); }
+    else if (r.name === "invoices") { primary.textContent = "新建应收单"; renderDocs("invoices"); }
     else if (r.name === "payments") { primary.textContent = "记收款"; renderPayments(); }
     else if (r.name === "expenses") renderExpenses();
     else if (r.name === "reports") renderReports();
@@ -455,6 +621,11 @@
   document.querySelectorAll(".crater-side button").forEach((btn) => { btn.onclick = () => go(btn.dataset.route); });
   document.getElementById("sidebar-toggle").onclick = () => document.body.classList.toggle("sidebar-open");
   window.addEventListener("hashchange", draw);
-  if (!location.hash) location.hash = "#/dashboard";
-  else draw();
+  initStorage().then(() => {
+    if (!location.hash) location.hash = "#/dashboard";
+    else draw();
+  }).catch((error) => {
+    setSaveState("无法打开本地数据库", true);
+    view.innerHTML = `<div class="panel"><h2>本地数据库无法打开</h2><p class="error">${esc(error.message || "请检查浏览器隐私设置")}</p></div>`;
+  });
 })();
