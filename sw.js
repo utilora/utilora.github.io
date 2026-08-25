@@ -1,4 +1,4 @@
-const CACHE = "utilora-v6";
+const CACHE = "utilora-v7";
 const PRECACHE = [
   "./",
   "./index.html",
@@ -8,6 +8,15 @@ const PRECACHE = [
   "./assets/css/finance-home.css",
   "./assets/js/app.js",
   "./assets/js/analytics.js",
+  "./assets/js/finance.js",
+  "./assets/js/csv.js",
+  "./assets/js/xlsx-lite.js",
+  "./pro/",
+  "./pro/pro.css",
+  "./pro/app.js",
+  "./tools/vat-split/",
+  "./tools/payroll/",
+  "./policies/",
   "./feedback/",
 ];
 

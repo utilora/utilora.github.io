@@ -65,13 +65,13 @@
       </div>
       <div class="finance-preview" aria-label="增值税测算示例">
         <div class="preview-top"><span>增值税价税分离</span><i>即时测算</i></div>
-        <div class="preview-input"><small>含税金额</small><strong>¥ 113,000.00</strong></div>
-        <div class="preview-rate"><span>适用税率</span><b>13%</b></div>
+        <div class="preview-input"><small>含税金额</small><input id="home-vat-amount" value="113000" inputmode="decimal" aria-label="含税金额"></div>
+        <div class="preview-rate"><span>适用税率</span><select id="home-vat-rate" aria-label="适用税率"><option value="13">13%</option><option value="9">9%</option><option value="6">6%</option><option value="3">3%</option><option value="1">1%</option><option value="0">0%</option></select></div>
         <div class="preview-results">
-          <div><small>不含税金额</small><strong>¥ 100,000.00</strong></div>
-          <div><small>增值税额</small><strong>¥ 13,000.00</strong></div>
+          <div><small>不含税金额</small><strong id="home-vat-net">¥ 100,000.00</strong></div>
+          <div><small>增值税额</small><strong id="home-vat-tax">¥ 13,000.00</strong></div>
         </div>
-        <p>示例仅展示计算方式，实际结果以工具输入及适用政策为准。</p>
+        <p>可直接改金额和税率试算，数据不上传。</p>
       </div>
     </section>
 
@@ -118,6 +118,7 @@
           <p>将数字金额转换为规范人民币大写，支持批量处理。</p>
           <span class="tool-link">立即使用 →</span>
         </a>
+        <a class="finance-tool-card compact" href="pro/?demo=1#/dashboard"><span class="tool-num">06</span><div class="tool-icon">台</div><h3>试用完整本地财务台</h3><p>带可操作演示数据，体验客户往来、应收、收款、报销、固定资产和月结检查；改动不保存。</p><span class="tool-link">进入演示工作台 →</span></a>
       </div>
     </section>
 
@@ -132,7 +133,7 @@
           <li>收款进度与历史单据清晰可查</li>
           <li>支持完整备份、恢复和多公司数据隔离</li>
         </ul>
-        <a href="pro/">打开本地财务台 Beta →</a>
+        <div class="hero-actions"><a class="primary-cta" href="pro/">创建本地公司</a><a class="secondary-cta" href="pro/?demo=1#/dashboard">先试用演示数据</a></div>
       </div>
       <div class="workspace-board" aria-hidden="true">
         <div class="board-head"><span>财务概览</span><i></i><i></i><i></i></div>
@@ -156,9 +157,9 @@
       <div><span class="section-tag">COMING NEXT</span><h2>接下来会做什么</h2><p>围绕小微企业高频场景，逐项上线并验证。</p></div>
       <div class="roadmap-list">
         <span>小型微利企业所得税测算 <i>规划中</i></span>
-        <span>固定资产折旧计算 <i>规划中</i></span>
+        <span>固定资产折旧计算 <i>已上线</i></span>
         <span>印花税辅助测算 <i>规划中</i></span>
-        <span>费用报销检查清单 <i>规划中</i></span>
+        <span>报销附件与月结异常检查 <i>已上线</i></span>
       </div>
     </section>
 
@@ -183,6 +184,8 @@
     menu?.addEventListener("click",()=>{const open=links.classList.toggle("open");menu.setAttribute("aria-expanded",String(open));});
     document.querySelectorAll(".finance-nav-links a").forEach(a=>a.addEventListener("click",()=>links.classList.remove("open")));
     document.getElementById("year").textContent=new Date().getFullYear();
+    const amount=document.getElementById("home-vat-amount"),rate=document.getElementById("home-vat-rate"),fmt=new Intl.NumberFormat("zh-CN",{style:"currency",currency:"CNY"});
+    const calc=()=>{const gross=Math.max(0,Number(amount.value)||0),r=(Number(rate.value)||0)/100,net=Math.round(gross/(1+r)*100)/100;document.getElementById("home-vat-net").textContent=fmt.format(net);document.getElementById("home-vat-tax").textContent=fmt.format(Math.round((gross-net)*100)/100);};amount?.addEventListener("input",calc);rate?.addEventListener("change",calc);calc();
   </script>
   <script src="assets/js/app.js"></script>
   <script src="assets/js/analytics.js"></script>

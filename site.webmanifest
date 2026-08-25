@@ -1,13 +1,18 @@
 {
-  "name": "Utilora 在线实用工具箱",
+  "name": "Utilora 小微企业财务工具",
   "short_name": "Utilora",
-  "description": "无需安装、无需登录。常用文本与开发工具，尽可能只在你的浏览器中处理。",
+  "description": "面向中国小微企业财务人员的本地优先财税工具与财务工作台。",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
   "background_color": "#0f172a",
-  "theme_color": "#111827",
+  "theme_color": "#0f8a70",
   "lang": "zh-CN",
+  "shortcuts": [
+    {"name":"本地财务台","url":"./pro/"},
+    {"name":"增值税价税分离","url":"./tools/vat-split/"},
+    {"name":"政策版本","url":"./policies/"}
+  ],
   "icons": [
     {
       "src": "./favicon.svg",

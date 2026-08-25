@@ -116,6 +116,7 @@ jobs:
         run: |
           set -euo pipefail
           node --check pro/app.js
+          node --check assets/js/xlsx-lite.js
           node --check tools/vat-split/tool.js
           node --check assets/js/app.js
           python3 << 'PY'
@@ -142,9 +143,9 @@ jobs:
           import pathlib
           app = pathlib.Path("pro/app.js").read_text(encoding="utf-8")
           html = pathlib.Path("pro/index.html").read_text(encoding="utf-8")
-          for token in ("IMPORT_SCHEMAS", "validateImport", "commitImport", "exportOperations", "exportAgingCsv", "renderReimbursements", "renderAssets", "assetDepreciation"):
+          for token in ("IMPORT_SCHEMAS", "validateImport", "commitImport", "exportOperations", "exportAgingCsv", "renderReimbursements", "renderAssets", "assetDepreciation", "renderCustomerDetail", "renderChecks", "closedMonths", "undo:"):
               assert token in app, token
-          for route in ("reimbursements", "assets"):
+          for route in ("reimbursements", "assets", "checks"):
               assert f'data-route="{route}"' in html, route
           assert "policies/" in pathlib.Path("index.html").read_text(encoding="utf-8")
           print("批量导入、业务导出、资产与报销回归检查通过")

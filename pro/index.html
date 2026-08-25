@@ -27,12 +27,13 @@
         <button data-route="expenses" type="button">费用</button>
         <button data-route="reimbursements" type="button">报销</button>
         <button data-route="assets" type="button">固定资产</button>
+        <button data-route="checks" type="button">月结与检查</button>
         <button data-route="reports" type="button">报表</button>
         <button data-route="settings" type="button">数据与设置</button>
       </nav>
     </aside>
     <main class="crater-main">
-      <div class="local-notice"><b>本地模式</b> 数据只保存在当前浏览器，不上传服务器，也不跟随账号或设备同步。请定期在“数据与设置”中导出备份。</div>
+      <div class="local-notice" id="local-notice"><b>本地模式</b> 数据只保存在当前浏览器，不上传服务器，也不跟随账号或设备同步。请定期在“数据与设置”中导出备份。</div>
       <div class="crater-head">
         <button id="sidebar-toggle" class="ghost" type="button">☰</button>
         <h1 id="page-title">概览</h1>
@@ -44,6 +45,7 @@
   <section class="print-sheet" id="sheet"></section>
   <script src="../assets/js/finance.js"></script>
   <script src="../assets/js/csv.js"></script>
+  <script src="../assets/js/xlsx-lite.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
