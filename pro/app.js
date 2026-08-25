@@ -22,21 +22,21 @@
   const money = (n) => F.formatRmb(F.roundFen(Number(n) || 0));
 
   const empty = (name = "我的企业") => ({
-    schemaVersion: 2,
+    schemaVersion: 3,
     company: { name, taxId: "", address: "", phone: "", email: "", payInfo: "", theme: "navy" },
-    customers: [], items: [], estimates: [], invoices: [], payments: [], expenses: [],
+    customers: [], items: [], estimates: [], invoices: [], payments: [], expenses: [], reimbursements: [], assets: [],
   });
   const normalizeData = (source) => {
     const next = { ...empty(), ...(source || {}) };
     next.company = { ...empty().company, ...(source?.company || {}) };
-    ["customers", "items", "estimates", "invoices", "payments", "expenses"].forEach((key) => {
+    ["customers", "items", "estimates", "invoices", "payments", "expenses", "reimbursements", "assets"].forEach((key) => {
       next[key] = Array.isArray(source?.[key]) ? source[key] : [];
     });
     const estimateStatus = { sent: "issued", viewed: "issued", accepted: "converted", rejected: "void" };
     const invoiceStatusMap = { sent: "issued", viewed: "issued", accepted: "issued", rejected: "void" };
     next.estimates = next.estimates.map((item) => ({ ...item, status: estimateStatus[item.status] || item.status || "draft" }));
     next.invoices = next.invoices.map((item) => ({ ...item, status: invoiceStatusMap[item.status] || item.status || "draft" }));
-    next.schemaVersion = 2;
+    next.schemaVersion = 3;
     return next;
   };
 
@@ -67,6 +67,8 @@
       { id: "x1", date: today(), vendor: "办公用品", category: "办公", amount: 268, note: "" },
       { id: "x2", date: addDays(-12), vendor: "地铁", category: "交通", amount: 120, note: "" },
     ];
+    sample.reimbursements = [{ id: "r1", date: today(), claimant: "演示员工", category: "差旅", amount: 680, hasInvoice: true, status: "reviewed", note: "示例数据" }];
+    sample.assets = [{ id: "a1", name: "演示办公电脑", category: "电子设备", cost: 9000, residualRate: 5, years: 3, startDate: addDays(-180), note: "示例数据" }];
     return sample;
   };
 
@@ -446,6 +448,81 @@
     };
   }
 
+  function renderReimbursements() {
+    const labels = { draft: "待审核", reviewed: "已审核", paid: "已报销" };
+    view.innerHTML = `<div class="panel"><div class="form-grid">
+      <div class="field"><label>日期</label><input id="r-date" type="date" value="${today()}"></div>
+      <div class="field"><label>报销人</label><input id="r-person" placeholder="姓名"></div>
+      <div class="field"><label>费用类别</label><input id="r-category" placeholder="差旅 / 办公 / 招待"></div>
+      <div class="field"><label>金额</label><input id="r-amount" inputmode="decimal"></div>
+      <div class="field"><label>票据</label><select id="r-invoice"><option value="yes">有票据</option><option value="no">无票据</option></select></div>
+      <div class="field"><label>备注</label><input id="r-note"></div>
+    </div><div class="actions"><button id="r-save">新增报销</button></div></div>
+    <div class="panel" style="margin-top:14px">${db.reimbursements.length ? `<table class="sheet-table"><thead><tr><th>日期</th><th>报销人</th><th>类别</th><th>金额</th><th>票据</th><th>状态</th><th></th></tr></thead><tbody>${db.reimbursements.map((r) => `<tr><td>${esc(r.date)}</td><td>${esc(r.claimant)}</td><td>${esc(r.category)}</td><td>${money(r.amount)}</td><td>${r.hasInvoice ? "有" : "无"}</td><td>${labels[r.status] || r.status}</td><td class="actions"><button class="secondary" data-review="${r.id}">${r.status === "draft" ? "审核" : "标为已报销"}</button><button class="secondary" data-rdel="${r.id}">删除</button></td></tr>`).join("")}</tbody></table>` : `<p class="empty">还没有报销记录</p>`}</div>`;
+    primary.hidden = true;
+    document.getElementById("r-save").onclick = async () => {
+      const amount = Number(document.getElementById("r-amount").value);
+      const claimant = document.getElementById("r-person").value.trim();
+      if (!amount || !claimant) return window.alert("请填写报销人和有效金额。");
+      db.reimbursements.unshift({ id: uid("r"), date: document.getElementById("r-date").value, claimant, category: document.getElementById("r-category").value.trim(), amount: F.roundFen(amount), hasInvoice: document.getElementById("r-invoice").value === "yes", status: "draft", note: document.getElementById("r-note").value.trim() });
+      await save(); draw();
+    };
+    view.querySelectorAll("[data-review]").forEach((button) => button.onclick = async () => {
+      const item = db.reimbursements.find((r) => r.id === button.dataset.review);
+      if (!item) return;
+      item.status = item.status === "draft" ? "reviewed" : "paid";
+      await save(); draw();
+    });
+    view.querySelectorAll("[data-rdel]").forEach((button) => button.onclick = async () => {
+      if (!window.confirm("删除这条报销记录？")) return;
+      db.reimbursements = db.reimbursements.filter((r) => r.id !== button.dataset.rdel);
+      await save(); draw();
+    });
+  }
+
+  const assetDepreciation = (asset, asOf = today()) => {
+    const cost = Number(asset.cost) || 0;
+    const residual = F.roundFen(cost * (Number(asset.residualRate) || 0) / 100);
+    const months = Math.max(1, Math.round((Number(asset.years) || 1) * 12));
+    const monthly = F.roundFen((cost - residual) / months);
+    const start = new Date(`${asset.startDate || asOf}T00:00:00`);
+    const end = new Date(`${asOf}T00:00:00`);
+    const elapsed = Math.max(0, (end.getFullYear() - start.getFullYear()) * 12 + end.getMonth() - start.getMonth());
+    const usedMonths = Math.min(months, elapsed);
+    const accumulated = F.roundFen(Math.min(cost - residual, monthly * usedMonths));
+    return { residual, months, monthly, usedMonths, accumulated, net: F.roundFen(cost - accumulated) };
+  };
+
+  function renderAssets() {
+    const presets = { "房屋、建筑物": 20, "机器及生产设备": 10, "器具、工具、家具": 5, "运输工具": 4, "电子设备": 3 };
+    view.innerHTML = `<div class="panel"><p class="data-note"><b>直线法辅助计算：</b>默认年限采用企业所得税实施条例最低年限。会计折旧应结合预计使用寿命、残值和企业政策确定；本页不判断一次性扣除或加速折旧资格。</p><div class="form-grid">
+      <div class="field"><label>资产名称</label><input id="a-name"></div>
+      <div class="field"><label>类别</label><select id="a-category">${Object.entries(presets).map(([name, years]) => `<option value="${name}" data-years="${years}">${name}（${years} 年）</option>`).join("")}</select></div>
+      <div class="field"><label>原值</label><input id="a-cost" inputmode="decimal"></div>
+      <div class="field"><label>预计净残值率 %</label><input id="a-residual" value="5" inputmode="decimal"></div>
+      <div class="field"><label>折旧年限</label><input id="a-years" value="20" inputmode="decimal"></div>
+      <div class="field"><label>开始使用日期</label><input id="a-start" type="date" value="${today()}"></div>
+    </div><div class="actions"><button id="a-save">新增固定资产</button></div></div>
+    <div class="panel" style="margin-top:14px">${db.assets.length ? `<table class="sheet-table"><thead><tr><th>资产</th><th>原值</th><th>月折旧</th><th>累计折旧</th><th>账面净值</th><th></th></tr></thead><tbody>${db.assets.map((a) => { const d = assetDepreciation(a); return `<tr><td><b>${esc(a.name)}</b><small>${esc(a.category)} · ${a.years} 年</small></td><td>${money(a.cost)}</td><td>${money(d.monthly)}</td><td>${money(d.accumulated)}</td><td>${money(d.net)}</td><td><button class="secondary" data-adel="${a.id}">删除</button></td></tr>`; }).join("")}</tbody></table>` : `<p class="empty">还没有固定资产</p>`}</div>
+    <div class="policy-source"><b>政策依据</b><a href="https://www.mof.gov.cn/zhengwuxinxi/zhengcefabu/2006zcfb/200805/t20080519_23104.htm" target="_blank" rel="noopener">财政部《企业会计准则第4号——固定资产》</a><a href="https://tianjin.chinatax.gov.cn/nsrxt/11200000000/0500/050004/20230626142020719.shtml" target="_blank" rel="noopener">国家税务总局：固定资产最低折旧年限</a></div>`;
+    primary.hidden = true;
+    document.getElementById("a-category").onchange = (event) => { document.getElementById("a-years").value = event.target.selectedOptions[0].dataset.years; };
+    document.getElementById("a-save").onclick = async () => {
+      const name = document.getElementById("a-name").value.trim();
+      const cost = Number(document.getElementById("a-cost").value);
+      const years = Number(document.getElementById("a-years").value);
+      const residualRate = Number(document.getElementById("a-residual").value);
+      if (!name || cost <= 0 || years <= 0 || residualRate < 0 || residualRate >= 100) return window.alert("请检查资产名称、原值、年限和残值率。");
+      db.assets.unshift({ id: uid("a"), name, category: document.getElementById("a-category").value, cost: F.roundFen(cost), residualRate, years, startDate: document.getElementById("a-start").value, note: "" });
+      await save(); draw();
+    };
+    view.querySelectorAll("[data-adel]").forEach((button) => button.onclick = async () => {
+      if (!window.confirm("删除这项固定资产？")) return;
+      db.assets = db.assets.filter((a) => a.id !== button.dataset.adel);
+      await save(); draw();
+    });
+  }
+
   function renderReports() {
     const series = monthSeries();
     const aging = { current: 0, d30: 0, d60: 0, d90: 0, over90: 0 };
@@ -474,6 +551,78 @@
     a.click();
     window.setTimeout(() => URL.revokeObjectURL(url), 1000);
   };
+
+  const downloadText = (filename, text, type = "text/csv;charset=utf-8") => {
+    const url = URL.createObjectURL(new Blob([text], { type }));
+    const a = document.createElement("a");
+    a.href = url; a.download = filename; a.click();
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+  };
+  const csvCell = (value) => `"${String(value ?? "").replace(/"/g, '""')}"`;
+  const csvText = (headers, rows) => "\uFEFF" + [headers, ...rows].map((row) => row.map(csvCell).join(",")).join("\r\n");
+  const xmlEsc = (value) => String(value ?? "").replace(/[&<>"']/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&apos;" }[ch]));
+  const excelWorkbook = (sheets) => `<?xml version="1.0"?><Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet"><Styles><Style ss:ID="Header"><Font ss:Bold="1"/><Interior ss:Color="#DDEBF7" ss:Pattern="Solid"/></Style><Style ss:ID="Money"><NumberFormat ss:Format="#,#0.00"/></Style></Styles>${sheets.map((sheet) => `<Worksheet ss:Name="${xmlEsc(sheet.name)}"><Table>${sheet.rows.map((row, index) => `<Row>${row.map((value) => `<Cell${index ? "" : ' ss:StyleID="Header"'}><Data ss:Type="${typeof value === "number" ? "Number" : "String"}">${xmlEsc(value)}</Data></Cell>`).join("")}</Row>`).join("")}</Table></Worksheet>`).join("")}</Workbook>`;
+
+  const IMPORT_SCHEMAS = {
+    customers: { label: "客户", fields: [{ key: "name", label: "客户名称", required: true, aliases: ["客户", "客户名称", "名称"] }, { key: "taxId", label: "税号", aliases: ["税号", "纳税人识别号"] }, { key: "phone", label: "电话", aliases: ["电话", "手机号"] }, { key: "email", label: "邮箱", aliases: ["邮箱", "email"] }, { key: "address", label: "地址", aliases: ["地址"] }] },
+    invoices: { label: "应收单", fields: [{ key: "number", label: "单号", required: true, aliases: ["单号", "应收单号"] }, { key: "customer", label: "客户名称", required: true, aliases: ["客户", "客户名称"] }, { key: "date", label: "日期", required: true, aliases: ["日期", "业务日期"] }, { key: "dueDate", label: "到期日", aliases: ["到期日"] }, { key: "amount", label: "含税金额", required: true, aliases: ["含税金额", "金额", "应收金额"] }, { key: "rate", label: "税率%", aliases: ["税率", "税率%"] }] },
+    payments: { label: "收款", fields: [{ key: "invoiceNumber", label: "应收单号", required: true, aliases: ["应收单号", "单号"] }, { key: "date", label: "收款日期", required: true, aliases: ["收款日期", "日期"] }, { key: "amount", label: "收款金额", required: true, aliases: ["收款金额", "金额"] }, { key: "method", label: "收款方式", aliases: ["收款方式", "方式"] }, { key: "note", label: "备注", aliases: ["备注"] }] },
+  };
+  let importState = null;
+
+  function validateImport(kind, headers, rows, mapping) {
+    const schema = IMPORT_SCHEMAS[kind];
+    const checked = rows.map((row, index) => {
+      const values = Object.fromEntries(schema.fields.map((field) => [field.key, mapping[field.key] === "" ? "" : String(row[Number(mapping[field.key])] ?? "").trim()]));
+      const errors = schema.fields.filter((field) => field.required && !values[field.key]).map((field) => `${field.label}为空`);
+      if (["invoices", "payments"].includes(kind) && values.amount && (!(Number(values.amount.replace(/,/g, "")) > 0))) errors.push("金额无效");
+      if (kind === "invoices" && values.customer && !db.customers.some((c) => c.name === values.customer)) errors.push("客户不存在");
+      if (kind === "invoices" && values.number && db.invoices.some((inv) => inv.number === values.number)) errors.push("应收单号已存在");
+      if (kind === "payments" && values.invoiceNumber && !db.invoices.some((inv) => inv.number === values.invoiceNumber)) errors.push("应收单不存在");
+      return { line: index + 2, values, errors };
+    });
+    const seen = new Set();
+    if (kind === "customers") checked.forEach((row) => { if (db.customers.some((c) => c.name === row.values.name) || seen.has(row.values.name)) row.errors.push("客户名称重复"); seen.add(row.values.name); });
+    if (kind === "invoices") checked.forEach((row) => { if (seen.has(row.values.number)) row.errors.push("文件内单号重复"); seen.add(row.values.number); });
+    if (kind === "payments") {
+      const imported = {};
+      checked.forEach((row) => {
+        const inv = db.invoices.find((item) => item.number === row.values.invoiceNumber);
+        if (!inv || row.errors.length) return;
+        imported[inv.id] = F.roundFen((imported[inv.id] || 0) + Number(row.values.amount.replace(/,/g, "")));
+        const left = F.roundFen(Math.max(0, compute(inv).inclusive - paidOf(inv.id)));
+        if (imported[inv.id] > left) row.errors.push("累计收款超过剩余应收");
+      });
+    }
+    return checked;
+  }
+
+  async function commitImport(kind, checked) {
+    await recoveryPoint(`批量导入${IMPORT_SCHEMAS[kind].label}前`);
+    if (kind === "customers") checked.forEach(({ values }) => db.customers.push({ id: uid("c"), ...values }));
+    if (kind === "invoices") checked.forEach(({ values }) => {
+      const amount = Number(values.amount.replace(/,/g, ""));
+      const rate = Number(String(values.rate || "0").replace(/%/g, "")) || 0;
+      const net = F.vatFromInclusive(amount, rate / 100).exclusive;
+      db.invoices.push({ id: uid("v"), number: values.number, customerId: db.customers.find((c) => c.name === values.customer).id, date: values.date, dueDate: values.dueDate || values.date, status: "issued", notes: "批量导入", rows: [{ name: "批量导入应收", spec: "", qty: 1, unit: "项", price: net, rate }] });
+    });
+    if (kind === "payments") checked.forEach(({ values }) => db.payments.push({ id: uid("p"), invoiceId: db.invoices.find((inv) => inv.number === values.invoiceNumber).id, date: values.date, amount: F.roundFen(Number(values.amount.replace(/,/g, ""))), method: values.method || "转账", note: values.note || "批量导入" }));
+    await save();
+  }
+
+  function exportOperations() {
+    const agingRows = [["客户", "应收单号", "到期日", "状态", "应收金额", "已收金额", "未收金额"]];
+    db.invoices.forEach((inv) => { const total = compute(inv).inclusive; const paid = paidOf(inv.id); agingRows.push([customer(inv.customerId).name || "", inv.number, inv.dueDate || "", INV_LABEL[invoiceStatus(inv)] || invoiceStatus(inv), total, paid, F.roundFen(Math.max(0, total - paid))]); });
+    const transactionRows = [["客户", "类型", "日期", "单号", "金额", "备注"]];
+    db.invoices.forEach((inv) => transactionRows.push([customer(inv.customerId).name || "", "应收", inv.date, inv.number, compute(inv).inclusive, inv.notes || ""]));
+    db.payments.forEach((p) => { const inv = db.invoices.find((i) => i.id === p.invoiceId) || {}; transactionRows.push([customer(inv.customerId).name || "", "收款", p.date, inv.number || "", Number(p.amount) || 0, p.note || ""]); });
+    const xml = excelWorkbook([{ name: "应收账龄", rows: agingRows }, { name: "客户往来", rows: transactionRows }]);
+    downloadText(`utilora-财务明细-${today()}.xml`, xml, "application/vnd.ms-excel;charset=utf-8");
+  }
+  function exportAgingCsv() {
+    const rows = db.invoices.map((inv) => { const total = compute(inv).inclusive; const paid = paidOf(inv.id); return [customer(inv.customerId).name || "", inv.number, inv.dueDate || "", INV_LABEL[invoiceStatus(inv)] || invoiceStatus(inv), total.toFixed(2), paid.toFixed(2), Math.max(0, total - paid).toFixed(2)]; });
+    downloadText(`utilora-应收账龄-${today()}.csv`, csvText(["客户", "应收单号", "到期日", "状态", "应收金额", "已收金额", "未收金额"], rows));
+  }
 
   async function renderSettings() {
     const c = db.company;
@@ -508,6 +657,12 @@
       <input id="data-file" type="file" accept="application/json,.json" hidden>
       <p id="data-msg" class="empty"></p>
       <p class="data-note">${recovery ? `最近自动恢复点：${new Date(recovery.createdAt).toLocaleString("zh-CN")}（${esc(recovery.reason)}）` : "当前公司还没有自动恢复点。导入、载入演示或清空前会自动创建。"}</p>
+    </div>
+    <div class="panel settings-section"><h2>批量导入与业务导出</h2><p class="data-note">支持 Excel 另存的 CSV/TSV 文件。先选择数据类型并上传，再映射字段、预览错误，确认后才写入；导入前自动创建恢复点。</p>
+      <div class="form-grid"><div class="field"><label>数据类型</label><select id="batch-kind">${Object.entries(IMPORT_SCHEMAS).map(([key, item]) => `<option value="${key}">${item.label}</option>`).join("")}</select></div><div class="field"><label>Excel / CSV 文件</label><input id="batch-file" type="file" accept=".csv,.tsv,text/csv,text/tab-separated-values"></div></div>
+      <div id="batch-mapping" class="mapping-grid"></div><div id="batch-preview" class="table-wrap"></div>
+      <div class="actions"><button id="batch-check" class="secondary" disabled>预览并检查</button><button id="batch-commit" disabled>确认导入</button><button id="business-export" class="secondary">导出客户往来与应收账龄（Excel）</button><button id="aging-csv" class="secondary">导出应收账龄 CSV</button></div>
+      <p id="batch-msg" class="data-note"></p>
     </div>`;
     document.getElementById("workspace-select").onchange = (event) => switchWorkspace(event.target.value);
     document.getElementById("workspace-new").onclick = async () => {
@@ -521,6 +676,47 @@
       await save();
       document.getElementById("co-msg").textContent = "企业信息已保存到当前浏览器";
     };
+    const renderMapping = () => {
+      if (!importState) return;
+      const schema = IMPORT_SCHEMAS[importState.kind];
+      document.getElementById("batch-mapping").innerHTML = schema.fields.map((field) => {
+        const auto = importState.headers.findIndex((header) => field.aliases.some((alias) => header.trim().toLowerCase() === alias.toLowerCase()));
+        return `<div class="field"><label>${field.label}${field.required ? " *" : ""}</label><select data-map="${field.key}"><option value="">不导入</option>${importState.headers.map((header, index) => `<option value="${index}"${index === auto ? " selected" : ""}>${esc(header)}</option>`).join("")}</select></div>`;
+      }).join("");
+      document.getElementById("batch-check").disabled = false;
+      document.getElementById("batch-commit").disabled = true;
+      document.getElementById("batch-preview").innerHTML = "";
+    };
+    document.getElementById("batch-kind").onchange = (event) => { if (importState) { importState.kind = event.target.value; renderMapping(); } };
+    document.getElementById("batch-file").onchange = async (event) => {
+      const file = event.target.files?.[0];
+      if (!file) return;
+      const rows = window.UtiloraCsv.parseCsv(await file.text());
+      if (rows.length < 2) return document.getElementById("batch-msg").textContent = "文件至少需要表头和一行数据。";
+      importState = { kind: document.getElementById("batch-kind").value, headers: rows[0], rows: rows.slice(1), checked: null };
+      renderMapping();
+      document.getElementById("batch-msg").textContent = `已读取 ${importState.rows.length} 行，请确认字段映射后预览。`;
+    };
+    document.getElementById("batch-check").onclick = () => {
+      if (!importState) return;
+      const mapping = Object.fromEntries([...document.querySelectorAll("[data-map]")].map((select) => [select.dataset.map, select.value]));
+      const requiredMissing = IMPORT_SCHEMAS[importState.kind].fields.filter((field) => field.required && mapping[field.key] === "");
+      if (requiredMissing.length) return window.alert(`请选择必填字段：${requiredMissing.map((field) => field.label).join("、")}`);
+      importState.checked = validateImport(importState.kind, importState.headers, importState.rows, mapping);
+      const errorCount = importState.checked.filter((row) => row.errors.length).length;
+      const fields = IMPORT_SCHEMAS[importState.kind].fields;
+      document.getElementById("batch-preview").innerHTML = `<table class="sheet-table"><thead><tr><th>行</th>${fields.map((field) => `<th>${field.label}</th>`).join("")}<th>检查</th></tr></thead><tbody>${importState.checked.slice(0, 50).map((row) => `<tr class="${row.errors.length ? "import-error" : ""}"><td>${row.line}</td>${fields.map((field) => `<td>${esc(row.values[field.key])}</td>`).join("")}<td>${row.errors.length ? esc(row.errors.join("；")) : "可导入"}</td></tr>`).join("")}</tbody></table>${importState.checked.length > 50 ? `<p class="data-note">仅展示前 50 行，共 ${importState.checked.length} 行。</p>` : ""}`;
+      document.getElementById("batch-msg").textContent = errorCount ? `发现 ${errorCount} 行错误，请修正文件后重新上传。` : `检查通过，共 ${importState.checked.length} 行。`;
+      document.getElementById("batch-commit").disabled = errorCount > 0;
+    };
+    document.getElementById("batch-commit").onclick = async () => {
+      if (!importState?.checked || importState.checked.some((row) => row.errors.length)) return;
+      if (!window.confirm(`确认导入 ${importState.checked.length} 行${IMPORT_SCHEMAS[importState.kind].label}数据？`)) return;
+      await commitImport(importState.kind, importState.checked);
+      window.alert("导入完成。"); draw();
+    };
+    document.getElementById("business-export").onclick = exportOperations;
+    document.getElementById("aging-csv").onclick = exportAgingCsv;
     document.getElementById("data-export").onclick = () => {
       const safeName = (db.company.name || "公司").replace(/[\\/:*?"<>|]/g, "-");
       const exportedAt = new Date().toISOString();
@@ -650,7 +846,7 @@
     paint();
   }
 
-  const titles = { dashboard: "概览", customers: "客户", items: "项目", estimates: "报价", invoices: "应收单", payments: "收款", expenses: "费用", reports: "报表", settings: "数据与设置", estimate: "编辑报价", invoice: "编辑应收单" };
+  const titles = { dashboard: "概览", customers: "客户", items: "项目", estimates: "报价", invoices: "应收单", payments: "收款", expenses: "费用", reimbursements: "报销", assets: "固定资产", reports: "报表", settings: "数据与设置", estimate: "编辑报价", invoice: "编辑应收单" };
 
   function draw() {
     const r = route();
@@ -667,6 +863,8 @@
     else if (r.name === "invoices") { primary.textContent = "新建应收单"; renderDocs("invoices"); }
     else if (r.name === "payments") { primary.textContent = "记收款"; renderPayments(); }
     else if (r.name === "expenses") renderExpenses();
+    else if (r.name === "reimbursements") renderReimbursements();
+    else if (r.name === "assets") renderAssets();
     else if (r.name === "reports") renderReports();
     else if (r.name === "settings") renderSettings();
     else if (r.name === "estimate") renderEditor(true, r.id);

@@ -32,7 +32,8 @@ jobs:
             assets/js/app.js \
             feedback/index.html \
             robots.txt \
-            sitemap.xml
+            sitemap.xml \
+            policies/index.html
           do
             test -f "$f" || { echo "缺少文件: $f"; exit 1; }
           done
@@ -133,4 +134,18 @@ jobs:
           PY
 
       - name: 财务计算单元测试
-        run: node tests/finance.test.js
+        run: |
+          node tests/finance.test.js
+          node tests/csv.test.js
+          node --check pro/app.js
+          python3 - <<'PY'
+          import pathlib
+          app = pathlib.Path("pro/app.js").read_text(encoding="utf-8")
+          html = pathlib.Path("pro/index.html").read_text(encoding="utf-8")
+          for token in ("IMPORT_SCHEMAS", "validateImport", "commitImport", "exportOperations", "exportAgingCsv", "renderReimbursements", "renderAssets", "assetDepreciation"):
+              assert token in app, token
+          for route in ("reimbursements", "assets"):
+              assert f'data-route="{route}"' in html, route
+          assert "policies/" in pathlib.Path("index.html").read_text(encoding="utf-8")
+          print("批量导入、业务导出、资产与报销回归检查通过")
+          PY

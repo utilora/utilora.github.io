@@ -92,6 +92,8 @@ a{color:inherit;text-decoration:none}button,input,select,textarea{font:inherit}
 .backup-banner{margin:0 0 14px;padding:11px 14px;border:1px solid #b7e4d8;border-radius:10px;background:#effbf7;color:#166b57;font-size:13px}.backup-banner.warn{border-color:#f4c77a;background:#fff8e8;color:#8a5900}
 .sheet-table{width:100%;border-collapse:collapse}
 .sheet-table th,.sheet-table td{padding:10px 8px;border-bottom:1px solid var(--c-line);text-align:left;font-size:14px}
+.sheet-table small{display:block;margin-top:3px;color:var(--c-muted)}.policy-source{display:flex;flex-wrap:wrap;gap:12px;margin-top:14px;padding:12px 14px;border:1px solid #d9e3ef;border-radius:10px;background:#f8fafc;font-size:12px}.policy-source a{color:#08705b;text-decoration:underline}
+.mapping-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:14px}.import-error{background:#fff1f2;color:#9f1239}.actions button:disabled{cursor:not-allowed;opacity:.45}
 .empty{padding:40px 16px;color:var(--c-muted);text-align:center}
 .edit-split{display:grid;grid-template-columns:minmax(0,1fr) minmax(320px,42%);gap:16px}
 @media print{
@@ -100,8 +102,9 @@ a{color:inherit;text-decoration:none}button,input,select,textarea{font:inherit}
 }
 @media screen{.print-sheet{position:absolute;left:-9999px}}
 @media(max-width:980px){
-  .crater-shell,.stat-row,.chart-wrap,.split-lists,.split-app,.edit-split,.form-grid,.inv-fromto{grid-template-columns:1fr}
+  .crater-shell,.stat-row,.chart-wrap,.split-lists,.split-app,.edit-split,.form-grid,.inv-fromto,.mapping-grid{grid-template-columns:1fr}
   .crater-side{position:fixed;z-index:20;inset:64px auto 0 0;width:min(260px,80vw);transform:translateX(-105%);transition:.2s}
   body.sidebar-open .crater-side{transform:none}
   .ghost{display:inline-flex}
 }
+@media(max-width:560px){.crater-top{padding:0 12px}.crater-logo small,.crater-free{display:none}.crater-main{padding:16px 12px 36px}.crater-head h1{font-size:22px}.crater-head #primary-action{padding:9px 11px}.panel,.list-card,.chart-card{padding:14px}.stat-card{padding:14px}.stat-card b{font-size:21px}.sheet-table{min-width:680px}.table-wrap{overflow-x:auto}.workspace-row{flex-direction:column}.workspace-row select{min-width:0;width:100%}.preview-pane{padding:10px}.inv-body{padding:20px 18px}.inv-banner{padding:20px 18px}}
