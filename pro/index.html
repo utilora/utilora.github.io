@@ -3,17 +3,17 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>专业财务 - Utilora</title>
-  <meta name="description" content="仿 Crater 的专业财务：工作台、报价、发票、收款和费用。目前免费使用。">
+  <title>本地财务台 Beta - Utilora</title>
+  <meta name="description" content="本地优先的客户、报价、应收单、收款与费用工作台。数据不上传、不跟随账号。">
   <link rel="icon" type="image/svg+xml" href="../favicon.svg">
   <link rel="stylesheet" href="../assets/css/site.css">
   <link rel="stylesheet" href="pro.css">
 </head>
 <body class="crater-body">
   <header class="crater-top">
-    <a class="crater-logo" href="./">专业财务</a>
-    <span class="crater-free">目前免费使用</span>
-    <a href="../">工具箱</a>
+    <a class="crater-logo" href="./">Utilora <small>本地财务台 Beta</small></a>
+    <span class="crater-free" id="save-state">正在打开本地账套…</span>
+    <a href="../">返回首页</a>
   </header>
   <div class="crater-shell">
     <aside class="crater-side" id="sidebar">
@@ -22,17 +22,18 @@
         <button data-route="customers" type="button">客户</button>
         <button data-route="items" type="button">项目</button>
         <button data-route="estimates" type="button">报价</button>
-        <button data-route="invoices" type="button">发票</button>
+        <button data-route="invoices" type="button">应收单</button>
         <button data-route="payments" type="button">收款</button>
         <button data-route="expenses" type="button">费用</button>
         <button data-route="reports" type="button">报表</button>
-        <button data-route="settings" type="button">设置</button>
+        <button data-route="settings" type="button">数据与设置</button>
       </nav>
     </aside>
     <main class="crater-main">
+      <div class="local-notice"><b>本地模式</b> 数据只保存在当前浏览器，不上传服务器，也不跟随账号或设备同步。请定期在“数据与设置”中导出备份。</div>
       <div class="crater-head">
         <button id="sidebar-toggle" class="ghost" type="button">☰</button>
-        <h1 id="page-title">工作台</h1>
+        <h1 id="page-title">概览</h1>
         <button id="primary-action" type="button">新建报价</button>
       </div>
       <div id="view"></div>
