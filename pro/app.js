@@ -732,7 +732,7 @@
     const recovery = await latestRecovery();
     const backupAge = backup?.value ? Math.floor((Date.now() - new Date(backup.value).getTime()) / 86400000) : Infinity;
     const backupLabel = backup?.value ? `${new Date(backup.value).toLocaleString("zh-CN")} · ${backupAge > 7 ? "建议立即备份" : "状态正常"}` : "尚未备份 · 建议立即备份";
-    view.innerHTML = `<div class="panel settings-section"><h2>当前公司</h2><p class="data-note">每家公司在 IndexedDB 中独立保存。数据不上传，也不会跟随 Utilora 账号或设备同步。</p>
+    view.innerHTML = `<div class="panel settings-section"><h2>当前公司</h2><p class="data-note">每家公司在 IndexedDB 中独立保存。数据不上传，也不会跟随 Utilora 账号或设备同步。</p><div class="actions"><button class="secondary" type="button" data-install-app>安装到电脑，以后从桌面双击打开</button></div>
       <div class="data-health"><span><b>数据位置</b>当前浏览器</span><span><b>当前公司</b>${esc(db.company.name)}</span><span><b>本地占用 / 配额</b>${esc(storageLabel)}</span><span class="${backupAge > 7 ? "warn" : ""}"><b>最近备份</b>${esc(backupLabel)}</span></div>
       <div class="workspace-row"><select id="workspace-select">${workspaces.map((item) => `<option value="${item.id}"${item.id === workspaceId ? " selected" : ""}>${esc(item.name)}</option>`).join("")}</select><button id="workspace-new" type="button">新建公司</button></div>
     </div>

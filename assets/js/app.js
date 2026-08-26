@@ -5,6 +5,24 @@
   const RECENT_KEY = "utilora_recent";
   const FAV_KEY = "utilora_favorites";
   const MAX_RECENT = 8;
+  let installPrompt = null;
+
+  const paintInstallButtons = () => {
+    const installed = window.matchMedia?.("(display-mode: standalone)").matches || navigator.standalone;
+    document.querySelectorAll("[data-install-app]").forEach((button) => {
+      button.textContent = installed ? "已安装到本机" : "安装到电脑";
+      button.disabled = Boolean(installed);
+      button.setAttribute("aria-disabled", String(Boolean(installed)));
+    });
+  };
+  window.addEventListener("beforeinstallprompt", (event) => { event.preventDefault(); installPrompt = event; paintInstallButtons(); });
+  window.addEventListener("appinstalled", () => { installPrompt = null; paintInstallButtons(); });
+  document.addEventListener("click", async (event) => {
+    const button = event.target.closest("[data-install-app]");
+    if (!button) return;
+    if (installPrompt) { installPrompt.prompt(); await installPrompt.userChoice; installPrompt = null; paintInstallButtons(); return; }
+    window.alert("如果浏览器没有弹出安装窗口，请打开浏览器右上角菜单，选择“安装 Utilora”或“将网页安装为应用”。安装后可从桌面图标双击打开。");
+  });
 
   const read = (key) => {
     try {
@@ -127,6 +145,7 @@
     registerWorker();
     const slug = slugFromPath();
     if (slug) initToolChrome(slug);
+    paintInstallButtons();
   };
 
   boot();

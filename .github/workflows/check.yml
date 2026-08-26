@@ -33,7 +33,9 @@ jobs:
             feedback/index.html \
             robots.txt \
             sitemap.xml \
-            policies/index.html
+            policies/index.html \
+            icon-192.png \
+            icon-512.png
           do
             test -f "$f" || { echo "缺少文件: $f"; exit 1; }
           done
@@ -119,6 +121,7 @@ jobs:
           node --check assets/js/xlsx-lite.js
           node --check tools/vat-split/tool.js
           node --check assets/js/app.js
+          python3 -m json.tool site.webmanifest >/dev/null
           python3 << 'PY'
           import pathlib
 
@@ -127,6 +130,7 @@ jobs:
           vat = pathlib.Path("tools/vat-split/tool.js").read_text(encoding="utf-8")
 
           assert 'data-login' not in home, "首页仍有登录入口"
+          assert "data-install-app" in home and "工资成本" in home and "个税测算" in home
           assert "本地财务台 Beta" in home and "不跟随账号" in home
           for token in ("indexedDB.open", "STORE_WORKSPACES", "STORE_RECOVERY", "导出完整备份", "导入备份", "清空当前公司数据", "载入演示数据", "应收账龄"):
               assert token in workbench, f"本地财务台缺少: {token}"
