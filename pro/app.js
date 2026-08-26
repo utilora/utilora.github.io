@@ -25,12 +25,12 @@
   const empty = (name = "我的企业") => ({
     schemaVersion: 3,
     company: { name, taxId: "", address: "", phone: "", email: "", payInfo: "", theme: "navy" },
-    customers: [], items: [], estimates: [], invoices: [], payments: [], expenses: [], reimbursements: [], assets: [], bankTransactions: [], accounts: [], vouchers: [], voucherTemplates: [], closedMonths: [],
+    customers: [], items: [], estimates: [], invoices: [], payments: [], expenses: [], reimbursements: [], assets: [], bankTransactions: [], payrollRows: [], accounts: [], vouchers: [], voucherTemplates: [], closedMonths: [],
   });
   const normalizeData = (source) => {
     const next = { ...empty(), ...(source || {}) };
     next.company = { ...empty().company, ...(source?.company || {}) };
-    ["customers", "items", "estimates", "invoices", "payments", "expenses", "reimbursements", "assets", "bankTransactions", "accounts", "vouchers", "voucherTemplates"].forEach((key) => {
+    ["customers", "items", "estimates", "invoices", "payments", "expenses", "reimbursements", "assets", "bankTransactions", "payrollRows", "accounts", "vouchers", "voucherTemplates"].forEach((key) => {
       next[key] = Array.isArray(source?.[key]) ? source[key] : [];
     });
     next.closedMonths = Array.isArray(source?.closedMonths) ? source.closedMonths : [];
@@ -290,7 +290,7 @@
     const dues = db.invoices.filter((i) => ["overdue", "issued", "partial"].includes(invoiceStatus(i))).sort((a, b) => String(a.dueDate).localeCompare(String(b.dueDate))).slice(0, 8);
     const recentPayments = db.payments.slice().sort((a, b) => String(b.date).localeCompare(String(a.date))).slice(0, 6);
     if (!db.customers.length && !db.estimates.length && !db.invoices.length && !db.expenses.length) {
-      view.innerHTML = `<div class="welcome-panel"><span>本地财务台 Beta</span><h2>从一家公司的真实数据开始</h2><p>当前公司没有业务数据。先完善公司信息并创建客户，或主动载入明确标记的演示数据了解功能。</p><div class="actions"><button data-start="settings">设置公司信息</button><button class="secondary" data-start="customers">创建第一个客户</button><button class="secondary" data-start="demo">载入演示数据</button></div><small>数据仅保存在当前浏览器，请定期导出备份。</small></div>`;
+      view.innerHTML = `<div class="welcome-panel"><span>3 分钟上手</span><h2>建立你的第一个本地财务账套</h2><div class="onboarding-steps"><b>1. 填写公司信息</b><b>2. 建立第一个客户</b><b>3. 录入应收或导入银行流水</b></div><p>如果只想看效果，可先载入明确标记的演示数据，不会上传。</p><div class="actions"><button data-start="settings">开始第 1 步</button><button class="secondary" data-start="customers">创建客户</button><button class="secondary" data-start="demo">先看演示</button></div><small>数据仅保存在当前浏览器，请定期导出备份。</small></div>`;
       view.querySelector('[data-start="settings"]').onclick = () => go("settings");
       view.querySelector('[data-start="customers"]').onclick = () => go("customers");
       view.querySelector('[data-start="demo"]').onclick = async () => { if (window.confirm("在当前空公司中载入演示数据？")) { db = demo(); await save(); draw(); } };
@@ -390,6 +390,7 @@
     if (!amount || amount < 0 || amount > left) return window.alert("收款金额必须大于 0，且不能超过剩余应收金额。");
     if (!guardOpen(today())) return;
     db.payments.unshift({ id: uid("p"), invoiceId: id, date: today(), amount, method: "转账", note: "" });
+    postVoucher("payment", db.payments[0].id, today(), `收到 ${customer(inv.customerId).name || "客户"} 货款`, amount);
     save(); draw();
   }
 
@@ -443,7 +444,7 @@
         if (b.dataset.act === "edit") go(isEst ? "estimate" : "invoice", selected.id);
         if (b.dataset.act === "convert") convertEstimate(selected.id);
         if (b.dataset.act === "pay") quickPay(selected.id);
-        if (b.dataset.act === "issued" && guardOpen(selected.date)) { selected.status = "issued"; save(); draw(); }
+        if (b.dataset.act === "issued" && guardOpen(selected.date)) { selected.status = "issued"; postVoucher("invoice",selected.id,selected.date,`确认应收 ${selected.number}`,compute(selected).inclusive); save(); draw(); }
       });
     };
     document.querySelectorAll(".tabs button").forEach((b) => b.onclick = () => {
@@ -490,6 +491,7 @@
       const amount = Number(document.getElementById("x-amount").value);
       const date = document.getElementById("x-date").value; if (!amount || !guardOpen(date)) return;
       db.expenses.unshift({ id: uid("x"), date, vendor: document.getElementById("x-vendor").value.trim(), category: document.getElementById("x-cat").value.trim(), amount, note: "" });
+      postVoucher("expense",db.expenses[0].id,date,`费用 ${db.expenses[0].vendor}`,amount);
       save(); draw();
     };
     view.querySelectorAll("[data-xedit]").forEach((button) => button.onclick = () => { const e = db.expenses.find((x) => x.id === button.dataset.xedit); if (!e || !guardOpen(e.date)) return; openDrawer("编辑费用", [{key:"date",label:"日期",type:"date",value:e.date},{key:"vendor",label:"对象",value:e.vendor},{key:"category",label:"类别",value:e.category},{key:"amount",label:"金额",value:e.amount}], async (v) => { const amount=Number(v.amount); if(!v.date||!guardOpen(v.date)||!(amount>0)) return false; Object.assign(e,{...v,amount:F.roundFen(amount)}); await save(); draw(); }); });
@@ -524,6 +526,7 @@
       const item = db.reimbursements.find((r) => r.id === button.dataset.review);
       if (!item || !guardOpen(item.date)) return;
       item.status = item.status === "draft" ? "reviewed" : "paid";
+      if(item.status==="paid")postVoucher("reimbursement",item.id,item.date,`报销 ${item.claimant}`,item.amount);
       await save(); draw();
     });
     view.querySelectorAll("[data-rdel]").forEach((button) => button.onclick = async () => {
@@ -578,15 +581,30 @@
   }
 
   function renderBank() {
-    const unmatched = db.bankTransactions.filter((x) => !x.paymentId);
-    view.innerHTML = `<div class="panel"><h2>导入银行流水</h2><p class="data-note">支持 .xlsx / CSV / TSV，第一行需包含日期、摘要、金额。正数按收入处理，导入后可自动匹配未收款应收单。</p><input id="bank-file" type="file" accept=".xlsx,.csv,.tsv"><div class="actions"><button id="bank-auto"${unmatched.length ? "" : " disabled"}>自动匹配收款</button></div><p id="bank-msg" class="data-note"></p></div><div class="panel" style="margin-top:14px"><table class="sheet-table"><thead><tr><th>日期</th><th>摘要</th><th>金额</th><th>匹配状态</th></tr></thead><tbody>${db.bankTransactions.map((x) => `<tr><td>${esc(x.date)}</td><td>${esc(x.summary)}</td><td>${money(x.amount)}</td><td>${x.paymentId ? "已生成收款" : "待匹配"}</td></tr>`).join("") || `<tr><td colspan="4">尚未导入银行流水</td></tr>`}</tbody></table></div>`;
+    const allocated=(x)=>x.paymentId?Number(x.amount||0):(x.allocations||[]).reduce((s,a)=>s+Number(a.amount||0),0),remaining=(x)=>F.roundFen(Math.max(0,Number(x.amount||0)-allocated(x)));
+    const unmatched = db.bankTransactions.filter((x) => remaining(x)>0);
+    view.innerHTML = `<div class="panel"><h2>导入银行流水</h2><p class="data-note">支持 .xlsx / CSV / TSV。可自动匹配，也可人工将一笔流水拆分到多张应收单。</p><input id="bank-file" type="file" accept=".xlsx,.csv,.tsv"><div class="actions"><button id="bank-auto"${unmatched.length ? "" : " disabled"}>自动匹配收款</button></div><p id="bank-msg" class="data-note"></p></div><div class="panel" style="margin-top:14px"><table class="sheet-table"><thead><tr><th>日期</th><th>摘要</th><th>金额</th><th>已匹配</th><th>待匹配</th><th></th></tr></thead><tbody>${db.bankTransactions.map((x) => `<tr><td>${esc(x.date)}</td><td>${esc(x.summary)}</td><td>${money(x.amount)}</td><td>${money(allocated(x))}</td><td>${money(remaining(x))}</td><td>${remaining(x)>0?`<button class="secondary" data-bank-match="${x.id}">人工匹配 / 拆分</button>`:"已完成"}</td></tr>`).join("") || `<tr><td colspan="6">尚未导入银行流水</td></tr>`}</tbody></table></div>`;
     primary.hidden = true;
     document.getElementById("bank-file").onchange = async (event) => { const file=event.target.files?.[0]; if(!file)return; try { const rows=file.name.toLowerCase().endsWith(".xlsx")?await window.UtiloraXlsx.readFirstSheet(file):window.UtiloraCsv.parseCsv(await file.text()); const headers=rows[0].map((x)=>String(x).trim()); const pick=(names)=>headers.findIndex((h)=>names.some((n)=>h.includes(n))); const di=pick(["日期","交易日"]),si=pick(["摘要","用途","对方"]),ai=pick(["金额","收入","贷方"]); if([di,si,ai].some((i)=>i<0)) throw new Error("未找到日期、摘要或金额列"); const added=rows.slice(1).map((r)=>({id:uid("b"),date:normalizeImportedDate(r[di]),summary:String(r[si]||"").trim(),amount:F.roundFen(Number(String(r[ai]||"").replace(/,/g,""))),paymentId:""})).filter((x)=>x.date&&x.amount); await recoveryPoint("导入银行流水前"); db.bankTransactions.push(...added); await save(); draw(); } catch(error){document.getElementById("bank-msg").textContent=error.message||"导入失败";} };
-    document.getElementById("bank-auto").onclick = async () => { let count=0; for(const tx of db.bankTransactions.filter((x)=>!x.paymentId&&x.amount>0)){ const candidates=db.invoices.filter((inv)=>Math.abs(Math.max(0,compute(inv).inclusive-paidOf(inv.id))-tx.amount)<0.01); if(candidates.length===1&&guardOpen(tx.date)){const inv=candidates[0],p={id:uid("p"),invoiceId:inv.id,date:tx.date,amount:tx.amount,method:"银行流水匹配",note:tx.summary};db.payments.push(p);tx.paymentId=p.id;count+=1;} } await save(); window.alert(`已自动匹配 ${count} 笔；金额不唯一的流水保留待人工处理。`); draw(); };
+    const applyMatch=async(tx,invoiceId,amount)=>{const inv=db.invoices.find((x)=>x.id===invoiceId),left=inv?Math.max(0,compute(inv).inclusive-paidOf(inv.id)):0;amount=F.roundFen(Number(amount));if(!inv||!(amount>0)||amount>remaining(tx)||amount>left||!guardOpen(tx.date)){window.alert("匹配金额不能超过流水未分配金额或应收余额。");return false;}const p={id:uid("p"),invoiceId:inv.id,date:tx.date,amount,method:"银行流水匹配",note:tx.summary};db.payments.push(p);tx.allocations=[...(tx.allocations||[]),{paymentId:p.id,invoiceId:inv.id,amount}];postVoucher("payment",p.id,p.date,tx.summary,amount);await save();draw();return true;};
+    view.querySelectorAll("[data-bank-match]").forEach((b)=>b.onclick=()=>{const tx=db.bankTransactions.find((x)=>x.id===b.dataset.bankMatch),invoices=db.invoices.filter((inv)=>Math.max(0,compute(inv).inclusive-paidOf(inv.id))>0);openDrawer("人工匹配银行流水",[{key:"invoiceId",label:"应收单",type:"select",value:invoices[0]?.id||"",options:invoices.map((inv)=>({value:inv.id,label:`${inv.number} · ${customer(inv.customerId).name} · 余额 ${money(compute(inv).inclusive-paidOf(inv.id))}`}))},{key:"amount",label:`本次匹配金额（流水剩余 ${money(remaining(tx))}）`,value:remaining(tx)}],(v)=>applyMatch(tx,v.invoiceId,v.amount));});
+    document.getElementById("bank-auto").onclick = async () => { let count=0; for(const tx of unmatched.filter((x)=>x.amount>0)){ const rest=remaining(tx),candidates=db.invoices.filter((inv)=>Math.abs(Math.max(0,compute(inv).inclusive-paidOf(inv.id))-rest)<0.01); if(candidates.length===1&&await applyMatch(tx,candidates[0].id,rest))count+=1; } if(count===0)window.alert("没有找到金额唯一且完全相等的应收单，请使用人工匹配。"); };
+  }
+
+  function renderPayroll() {
+    const cityOptions=F.CITY_PRESETS.map((c)=>`<option value="${c.id}">${c.name}${c.verified?" · 已核验":" · 参考"}</option>`).join("");
+    const calculate=(row)=>{const preset=F.CITY_PRESETS.find((c)=>c.id===row.city)||F.CITY_PRESETS[0],gross=Number(row.gross)||0,extra=Number(row.extra)||0,socialBase=F.clampBase(Number(row.socialBase)||gross,preset.socialMin,preset.socialMax),fundBase=F.clampBase(Number(row.fundBase)||gross,preset.fundMin,preset.fundMax),si=F.calcSocial({socialBase,fundBase,employee:preset.employee,employer:preset.employer}),tax=F.withholdingSchedule({incomes:[gross],specialMonthly:si.employee.total,extraMonthly:extra})[0]?.tax||0;return{si,tax,net:F.roundFen(gross-si.employee.total-extra-tax),cost:F.roundFen(gross+si.employer.total)};};
+    view.innerHTML=`<div class="panel"><h2>工资表批量测算</h2><p class="data-note">可直接新增，或导入 .xlsx / CSV / TSV。表头建议：姓名、税前工资、专项附加、社保基数、公积金基数。</p><div class="form-grid"><div class="field"><label>城市参数</label><select id="pay-city">${cityOptions}</select></div><div class="field"><label>工资表文件</label><input id="pay-file" type="file" accept=".xlsx,.csv,.tsv"></div></div><div class="actions"><button id="pay-add">新增员工</button><button id="pay-export" class="secondary">导出测算结果</button></div><p id="pay-msg" class="data-note"></p></div><div class="panel" style="margin-top:14px"><table class="sheet-table"><thead><tr><th>姓名</th><th>税前</th><th>个人五险一金</th><th>个税</th><th>实发</th><th>企业成本</th><th></th></tr></thead><tbody>${db.payrollRows.map((row)=>{const c=calculate(row);return`<tr><td>${esc(row.name)}</td><td>${money(row.gross)}</td><td>${money(c.si.employee.total)}</td><td>${money(c.tax)}</td><td>${money(c.net)}</td><td>${money(c.cost)}</td><td><button class="secondary" data-pay-edit="${row.id}">编辑</button></td></tr>`;}).join("")||`<tr><td colspan="7">还没有工资数据</td></tr>`}</tbody></table></div>`;
+    primary.hidden=true;
+    const edit=(row={id:"",name:"",gross:"",extra:0,socialBase:"",fundBase:"",city:document.getElementById("pay-city").value})=>openDrawer(row.id?"编辑员工工资":"新增员工工资",[{key:"name",label:"姓名",value:row.name},{key:"gross",label:"税前工资",value:row.gross},{key:"extra",label:"专项附加扣除",value:row.extra},{key:"socialBase",label:"社保基数（留空按工资）",value:row.socialBase},{key:"fundBase",label:"公积金基数（留空按工资）",value:row.fundBase},{key:"city",label:"城市",type:"select",value:row.city,options:F.CITY_PRESETS.map((c)=>({value:c.id,label:c.name}))}],async(v)=>{if(!v.name||!(Number(v.gross)>0))return false;const payload={...row,...v,id:row.id||uid("pay"),gross:F.roundFen(Number(v.gross)),extra:F.roundFen(Number(v.extra)||0),socialBase:Number(v.socialBase)||0,fundBase:Number(v.fundBase)||0};const i=db.payrollRows.findIndex((x)=>x.id===payload.id);if(i>=0)db.payrollRows[i]=payload;else db.payrollRows.push(payload);await save();draw();});
+    document.getElementById("pay-add").onclick=()=>edit();view.querySelectorAll("[data-pay-edit]").forEach((b)=>b.onclick=()=>edit(db.payrollRows.find((x)=>x.id===b.dataset.payEdit)));
+    document.getElementById("pay-file").onchange=async(e)=>{const file=e.target.files?.[0];if(!file)return;try{const rows=file.name.toLowerCase().endsWith(".xlsx")?await window.UtiloraXlsx.readFirstSheet(file):window.UtiloraCsv.parseCsv(await file.text()),headers=rows[0].map(String),find=(names)=>headers.findIndex((h)=>names.some((n)=>h.includes(n))),ni=find(["姓名","员工"]),gi=find(["税前工资","应发","工资"]),ei=find(["专项附加"]),si=find(["社保基数"]),fi=find(["公积金基数"]);if(ni<0||gi<0)throw new Error("未找到姓名或税前工资列");const city=document.getElementById("pay-city").value;db.payrollRows.push(...rows.slice(1).filter((r)=>r[ni]&&Number(r[gi])>0).map((r)=>({id:uid("pay"),name:String(r[ni]),gross:Number(r[gi]),extra:ei>=0?Number(r[ei])||0:0,socialBase:si>=0?Number(r[si])||0:0,fundBase:fi>=0?Number(r[fi])||0:0,city})));await save();draw();}catch(error){document.getElementById("pay-msg").textContent=error.message||"导入失败";}};
+    document.getElementById("pay-export").onclick=()=>downloadText(`utilora-工资测算-${today()}.csv`,csvText(["姓名","税前工资","个人五险一金","个税","实发工资","企业成本"],db.payrollRows.map((r)=>{const c=calculate(r);return[r.name,r.gross,c.si.employee.total,c.tax,c.net,c.cost];})));
   }
 
   const DEFAULT_ACCOUNTS = [{code:"1002",name:"银行存款",type:"资产"},{code:"1122",name:"应收账款",type:"资产"},{code:"1601",name:"固定资产",type:"资产"},{code:"2202",name:"应付账款",type:"负债"},{code:"5001",name:"主营业务收入",type:"收入"},{code:"5602",name:"管理费用",type:"费用"}];
   function ensureAccounts(){ if(!db.accounts.length) db.accounts=DEFAULT_ACCOUNTS.map((x)=>({id:uid("ac"),...x})); }
+  function postVoucher(sourceType,sourceId,date,summary,amount){if(db.vouchers.some((v)=>v.sourceType===sourceType&&v.sourceId===sourceId))return;ensureAccounts();const account=(code)=>db.accounts.find((a)=>a.code===code)?.id;const pair=sourceType==="invoice"?[account("1122"),account("5001")]:sourceType==="payment"?[account("1002"),account("1122")]:[account("5602"),account("1002")];db.vouchers.unshift({id:uid("vo"),sourceType,sourceId,date,summary,debitId:pair[0],creditId:pair[1],amount:F.roundFen(Number(amount)||0),status:"自动生成"});}
   function renderBookkeeping(){
     ensureAccounts(); const opts=db.accounts.map((a)=>({value:a.id,label:`${a.code} ${a.name}`}));
     view.innerHTML=`<div class="panel"><h2>记账凭证</h2><div class="form-grid"><div class="field"><label>日期</label><input id="v-date" type="date" value="${today()}"></div><div class="field"><label>摘要</label><input id="v-summary"></div><div class="field"><label>借方科目</label><select id="v-debit">${opts.map((o)=>`<option value="${o.value}">${o.label}</option>`).join("")}</select></div><div class="field"><label>贷方科目</label><select id="v-credit">${opts.map((o)=>`<option value="${o.value}">${o.label}</option>`).join("")}</select></div><div class="field"><label>金额</label><input id="v-amount"></div><div class="field"><label>凭证模板</label><select id="v-template"><option value="">不使用</option>${db.voucherTemplates.map((t)=>`<option value="${t.id}">${esc(t.name)}</option>`).join("")}</select></div></div><div class="actions"><button id="v-save">保存凭证</button><button id="v-template-save" class="secondary">将当前科目存为模板</button></div></div><div class="panel" style="margin-top:14px"><h2>科目表</h2><table class="sheet-table"><tbody>${db.accounts.map((a)=>`<tr><td>${a.code}</td><td>${esc(a.name)}</td><td>${a.type}</td></tr>`).join("")}</tbody></table></div><div class="panel" style="margin-top:14px"><h2>凭证列表</h2><table class="sheet-table"><thead><tr><th>日期</th><th>摘要</th><th>借</th><th>贷</th><th>金额</th></tr></thead><tbody>${db.vouchers.map((v)=>`<tr><td>${v.date}</td><td>${esc(v.summary)}</td><td>${esc(db.accounts.find((a)=>a.id===v.debitId)?.name)}</td><td>${esc(db.accounts.find((a)=>a.id===v.creditId)?.name)}</td><td>${money(v.amount)}</td></tr>`).join("")||`<tr><td colspan="5">暂无凭证</td></tr>`}</tbody></table></div>`;
@@ -950,7 +968,7 @@
     paint();
   }
 
-  const titles = { dashboard: "概览", customers: "客户", customer: "客户往来", items: "项目", estimates: "报价", invoices: "应收单", payments: "收款", expenses: "费用", reimbursements: "报销", assets: "固定资产", bank: "银行流水", bookkeeping: "科目与凭证", checks: "月结与检查", reports: "报表", settings: "数据与设置", estimate: "编辑报价", invoice: "编辑应收单" };
+  const titles = { dashboard: "概览", customers: "客户", customer: "客户往来", items: "项目", estimates: "报价", invoices: "应收单", payments: "收款", expenses: "费用", reimbursements: "报销", assets: "固定资产", payroll: "工资表", bank: "银行流水", bookkeeping: "科目与凭证", checks: "月结与检查", reports: "报表", settings: "数据与设置", estimate: "编辑报价", invoice: "编辑应收单" };
 
   function draw() {
     const r = route();
@@ -970,6 +988,7 @@
     else if (r.name === "expenses") renderExpenses();
     else if (r.name === "reimbursements") renderReimbursements();
     else if (r.name === "assets") renderAssets();
+    else if (r.name === "payroll") renderPayroll();
     else if (r.name === "bank") renderBank();
     else if (r.name === "bookkeeping") renderBookkeeping();
     else if (r.name === "checks") renderChecks();

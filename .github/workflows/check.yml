@@ -35,7 +35,8 @@ jobs:
             sitemap.xml \
             policies/index.html \
             icon-192.png \
-            icon-512.png
+            icon-512.png \
+            Utilora.url
           do
             test -f "$f" || { echo "缺少文件: $f"; exit 1; }
           done
@@ -130,7 +131,10 @@ jobs:
           vat = pathlib.Path("tools/vat-split/tool.js").read_text(encoding="utf-8")
 
           assert 'data-login' not in home, "首页仍有登录入口"
-          assert "data-install-app" in home and "工资成本" in home and "个税测算" in home
+          assert "data-install-app" in home and "工资成本" in home and "个税测算" in home and "你今天要做什么" in home
+          installer = pathlib.Path("assets/js/app.js").read_text(encoding="utf-8")
+          for token in ("showInstallPanel", "utilora-install-panel", "Utilora.url", "beforeinstallprompt"):
+              assert token in installer, f"安装流程缺少: {token}"
           assert "本地财务台 Beta" in home and "不跟随账号" in home
           for token in ("indexedDB.open", "STORE_WORKSPACES", "STORE_RECOVERY", "导出完整备份", "导入备份", "清空当前公司数据", "载入演示数据", "应收账龄"):
               assert token in workbench, f"本地财务台缺少: {token}"
@@ -147,9 +151,9 @@ jobs:
           import pathlib
           app = pathlib.Path("pro/app.js").read_text(encoding="utf-8")
           html = pathlib.Path("pro/index.html").read_text(encoding="utf-8")
-          for token in ("IMPORT_SCHEMAS", "validateImport", "commitImport", "exportOperations", "exportAgingCsv", "renderReimbursements", "renderAssets", "assetDepreciation", "renderCustomerDetail", "renderChecks", "renderBank", "renderBookkeeping", "bankTransactions", "voucherTemplates", "closedMonths", "undo:"):
+          for token in ("IMPORT_SCHEMAS", "validateImport", "commitImport", "exportOperations", "exportAgingCsv", "renderReimbursements", "renderAssets", "assetDepreciation", "renderCustomerDetail", "renderChecks", "renderBank", "renderPayroll", "renderBookkeeping", "data-bank-match", "postVoucher", "payrollRows", "bankTransactions", "voucherTemplates", "closedMonths", "undo:"):
               assert token in app, token
-          for route in ("reimbursements", "assets", "bank", "bookkeeping", "checks"):
+          for route in ("reimbursements", "assets", "payroll", "bank", "bookkeeping", "checks"):
               assert f'data-route="{route}"' in html, route
           assert "policies/" in pathlib.Path("index.html").read_text(encoding="utf-8")
           print("批量导入、业务导出、资产与报销回归检查通过")

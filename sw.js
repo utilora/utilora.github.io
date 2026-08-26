@@ -1,10 +1,11 @@
-const CACHE = "utilora-v9";
+const CACHE = "utilora-v10";
 const PRECACHE = [
   "./",
   "./index.html",
   "./favicon.svg",
   "./icon-192.png",
   "./icon-512.png",
+  "./Utilora.url",
   "./site.webmanifest",
   "./assets/css/site.css",
   "./assets/css/finance-home.css",
