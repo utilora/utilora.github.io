@@ -25,12 +25,12 @@
   const empty = (name = "我的企业") => ({
     schemaVersion: 3,
     company: { name, taxId: "", address: "", phone: "", email: "", payInfo: "", theme: "navy" },
-    customers: [], items: [], estimates: [], invoices: [], payments: [], expenses: [], reimbursements: [], assets: [], closedMonths: [],
+    customers: [], items: [], estimates: [], invoices: [], payments: [], expenses: [], reimbursements: [], assets: [], bankTransactions: [], accounts: [], vouchers: [], voucherTemplates: [], closedMonths: [],
   });
   const normalizeData = (source) => {
     const next = { ...empty(), ...(source || {}) };
     next.company = { ...empty().company, ...(source?.company || {}) };
-    ["customers", "items", "estimates", "invoices", "payments", "expenses", "reimbursements", "assets"].forEach((key) => {
+    ["customers", "items", "estimates", "invoices", "payments", "expenses", "reimbursements", "assets", "bankTransactions", "accounts", "vouchers", "voucherTemplates"].forEach((key) => {
       next[key] = Array.isArray(source?.[key]) ? source[key] : [];
     });
     next.closedMonths = Array.isArray(source?.closedMonths) ? source.closedMonths : [];
@@ -71,6 +71,7 @@
     ];
     sample.reimbursements = [{ id: "r1", date: today(), claimant: "演示员工", category: "差旅", amount: 680, hasInvoice: true, status: "reviewed", note: "示例数据" }];
     sample.assets = [{ id: "a1", name: "演示办公电脑", category: "电子设备", cost: 9000, residualRate: 5, years: 3, startDate: addDays(-180), note: "示例数据" }];
+    sample.bankTransactions = [{ id:"b1", date:today(), summary:"星海贸易转账", amount:3000, paymentId:"p1" }, { id:"b2", date:addDays(-2), summary:"客户回款待匹配", amount:600, paymentId:"" }];
     return sample;
   };
 
@@ -190,6 +191,15 @@
   const paidOf = (id) => F.roundFen(db.payments.filter((p) => p.invoiceId === id).reduce((s, p) => s + Number(p.amount || 0), 0));
   const isClosedDate = (date) => db.closedMonths.includes(String(date || "").slice(0, 7));
   const guardOpen = (date) => isClosedDate(date) ? (window.alert(`${String(date).slice(0, 7)} 已月结，请先在“月结与检查”中重开。`), false) : true;
+  function openDrawer(title, fields, onSave) {
+    const drawer = document.getElementById("edit-drawer");
+    document.getElementById("drawer-title").textContent = title;
+    document.getElementById("drawer-fields").innerHTML = fields.map((f) => `<div class="field"><label>${esc(f.label)}</label>${f.type === "select" ? `<select data-drawer="${f.key}">${f.options.map((o) => `<option value="${esc(o.value)}"${String(o.value) === String(f.value) ? " selected" : ""}>${esc(o.label)}</option>`).join("")}</select>` : `<input data-drawer="${f.key}" type="${f.type || "text"}" value="${esc(f.value)}">`}</div>`).join("");
+    drawer.hidden = false;
+    const close = () => { drawer.hidden = true; };
+    document.getElementById("drawer-close").onclick = close; document.getElementById("drawer-mask").onclick = close;
+    document.getElementById("drawer-save").onclick = async () => { const values = Object.fromEntries([...document.querySelectorAll("[data-drawer]")].map((x) => [x.dataset.drawer, x.value])); if (await onSave(values) !== false) close(); };
+  }
   function invoiceStatus(inv) {
     const total = compute(inv).inclusive;
     const paid = paidOf(inv.id);
@@ -455,10 +465,7 @@
     primary.onclick = () => { if (db.invoices[0]) quickPay(db.invoices[0].id); };
     view.querySelectorAll("[data-edit-payment]").forEach((button) => button.onclick = async () => {
       const p = db.payments.find((item) => item.id === button.dataset.editPayment); if (!p || !guardOpen(p.date)) return;
-      const date = window.prompt("收款日期 YYYY-MM-DD", p.date); const amount = Number(window.prompt("收款金额", p.amount)); const method = window.prompt("收款方式", p.method || "转账");
-      const inv = db.invoices.find((i) => i.id === p.invoiceId); const otherPaid = paidOf(p.invoiceId) - Number(p.amount || 0);
-      if (!date || !guardOpen(date) || !(amount > 0) || !inv || amount + otherPaid > compute(inv).inclusive) return window.alert("请检查日期和金额，收款不能超过应收。");
-      Object.assign(p, { date, amount: F.roundFen(amount), method: method || "转账" }); await save(); draw();
+      openDrawer("编辑收款", [{ key: "date", label: "收款日期", type: "date", value: p.date }, { key: "amount", label: "收款金额", value: p.amount }, { key: "method", label: "收款方式", value: p.method || "转账" }], async ({ date, amount, method }) => { amount = Number(amount); const inv = db.invoices.find((i) => i.id === p.invoiceId); const otherPaid = paidOf(p.invoiceId) - Number(p.amount || 0); if (!date || !guardOpen(date) || !(amount > 0) || !inv || amount + otherPaid > compute(inv).inclusive) { window.alert("请检查日期和金额，收款不能超过应收。"); return false; } Object.assign(p, { date, amount: F.roundFen(amount), method: method || "转账" }); await save(); draw(); });
     });
     view.querySelectorAll("[data-delete-payment]").forEach((button) => button.onclick = async () => {
       const current = db.payments.find((p) => p.id === button.dataset.deletePayment); if (!current || !guardOpen(current.date) || !window.confirm("删除这条收款记录？应收状态会自动重新计算。")) return;
@@ -485,7 +492,7 @@
       db.expenses.unshift({ id: uid("x"), date, vendor: document.getElementById("x-vendor").value.trim(), category: document.getElementById("x-cat").value.trim(), amount, note: "" });
       save(); draw();
     };
-    view.querySelectorAll("[data-xedit]").forEach((button) => button.onclick = async () => { const e = db.expenses.find((x) => x.id === button.dataset.xedit); if (!e || !guardOpen(e.date)) return; const date = window.prompt("日期 YYYY-MM-DD", e.date); const vendor = window.prompt("对象", e.vendor); const category = window.prompt("类别", e.category); const amount = Number(window.prompt("金额", e.amount)); if (!date || !guardOpen(date) || !(amount > 0)) return; Object.assign(e, { date, vendor, category, amount: F.roundFen(amount) }); await save(); draw(); });
+    view.querySelectorAll("[data-xedit]").forEach((button) => button.onclick = () => { const e = db.expenses.find((x) => x.id === button.dataset.xedit); if (!e || !guardOpen(e.date)) return; openDrawer("编辑费用", [{key:"date",label:"日期",type:"date",value:e.date},{key:"vendor",label:"对象",value:e.vendor},{key:"category",label:"类别",value:e.category},{key:"amount",label:"金额",value:e.amount}], async (v) => { const amount=Number(v.amount); if(!v.date||!guardOpen(v.date)||!(amount>0)) return false; Object.assign(e,{...v,amount:F.roundFen(amount)}); await save(); draw(); }); });
     view.querySelectorAll("[data-xdel]").forEach((button) => button.onclick = async () => { const e = db.expenses.find((x) => x.id === button.dataset.xdel); if (!e || !guardOpen(e.date) || !window.confirm("删除这条费用？")) return; db.expenses = db.expenses.filter((x) => x.id !== e.id); await save(); draw(); });
   }
 
@@ -512,7 +519,7 @@
       db.reimbursements.unshift({ id: uid("r"), date, claimant, category: document.getElementById("r-category").value.trim(), amount: F.roundFen(amount), hasInvoice: document.getElementById("r-invoice").value === "yes", status: "draft", note: document.getElementById("r-note").value.trim(), attachment });
       await save(); draw();
     };
-    view.querySelectorAll("[data-redit]").forEach((button) => button.onclick = async () => { const r = db.reimbursements.find((x) => x.id === button.dataset.redit); if (!r || !guardOpen(r.date)) return; const date = window.prompt("日期 YYYY-MM-DD", r.date); const claimant = window.prompt("报销人", r.claimant); const category = window.prompt("类别", r.category); const amount = Number(window.prompt("金额", r.amount)); if (!date || !claimant || !guardOpen(date) || !(amount > 0)) return; Object.assign(r, { date, claimant, category, amount: F.roundFen(amount) }); await save(); draw(); });
+    view.querySelectorAll("[data-redit]").forEach((button) => button.onclick = () => { const r=db.reimbursements.find((x)=>x.id===button.dataset.redit); if(!r||!guardOpen(r.date)) return; openDrawer("编辑报销",[{key:"date",label:"日期",type:"date",value:r.date},{key:"claimant",label:"报销人",value:r.claimant},{key:"category",label:"类别",value:r.category},{key:"amount",label:"金额",value:r.amount}],async(v)=>{const amount=Number(v.amount);if(!v.date||!v.claimant||!guardOpen(v.date)||!(amount>0))return false;Object.assign(r,{...v,amount:F.roundFen(amount)});await save();draw();}); });
     view.querySelectorAll("[data-review]").forEach((button) => button.onclick = async () => {
       const item = db.reimbursements.find((r) => r.id === button.dataset.review);
       if (!item || !guardOpen(item.date)) return;
@@ -562,12 +569,30 @@
       db.assets.unshift({ id: uid("a"), name, category: document.getElementById("a-category").value, cost: F.roundFen(cost), residualRate, years, startDate: document.getElementById("a-start").value, note: "" });
       await save(); draw();
     };
-    view.querySelectorAll("[data-aedit]").forEach((button) => button.onclick = async () => { const a = db.assets.find((x) => x.id === button.dataset.aedit); if (!a) return; const name = window.prompt("资产名称", a.name); const cost = Number(window.prompt("原值", a.cost)); const years = Number(window.prompt("折旧年限", a.years)); const residualRate = Number(window.prompt("残值率 %", a.residualRate)); if (!name || !(cost > 0) || !(years > 0) || residualRate < 0 || residualRate >= 100) return; Object.assign(a, { name, cost: F.roundFen(cost), years, residualRate }); await save(); draw(); });
+    view.querySelectorAll("[data-aedit]").forEach((button) => button.onclick = () => { const a=db.assets.find((x)=>x.id===button.dataset.aedit);if(!a)return;openDrawer("编辑固定资产",[{key:"name",label:"资产名称",value:a.name},{key:"cost",label:"原值",value:a.cost},{key:"years",label:"折旧年限",value:a.years},{key:"residualRate",label:"残值率 %",value:a.residualRate}],async(v)=>{const cost=Number(v.cost),years=Number(v.years),residualRate=Number(v.residualRate);if(!v.name||!(cost>0)||!(years>0)||residualRate<0||residualRate>=100)return false;Object.assign(a,{...v,cost:F.roundFen(cost),years,residualRate});await save();draw();}); });
     view.querySelectorAll("[data-adel]").forEach((button) => button.onclick = async () => {
       if (!window.confirm("删除这项固定资产？")) return;
       db.assets = db.assets.filter((a) => a.id !== button.dataset.adel);
       await save(); draw();
     });
+  }
+
+  function renderBank() {
+    const unmatched = db.bankTransactions.filter((x) => !x.paymentId);
+    view.innerHTML = `<div class="panel"><h2>导入银行流水</h2><p class="data-note">支持 .xlsx / CSV / TSV，第一行需包含日期、摘要、金额。正数按收入处理，导入后可自动匹配未收款应收单。</p><input id="bank-file" type="file" accept=".xlsx,.csv,.tsv"><div class="actions"><button id="bank-auto"${unmatched.length ? "" : " disabled"}>自动匹配收款</button></div><p id="bank-msg" class="data-note"></p></div><div class="panel" style="margin-top:14px"><table class="sheet-table"><thead><tr><th>日期</th><th>摘要</th><th>金额</th><th>匹配状态</th></tr></thead><tbody>${db.bankTransactions.map((x) => `<tr><td>${esc(x.date)}</td><td>${esc(x.summary)}</td><td>${money(x.amount)}</td><td>${x.paymentId ? "已生成收款" : "待匹配"}</td></tr>`).join("") || `<tr><td colspan="4">尚未导入银行流水</td></tr>`}</tbody></table></div>`;
+    primary.hidden = true;
+    document.getElementById("bank-file").onchange = async (event) => { const file=event.target.files?.[0]; if(!file)return; try { const rows=file.name.toLowerCase().endsWith(".xlsx")?await window.UtiloraXlsx.readFirstSheet(file):window.UtiloraCsv.parseCsv(await file.text()); const headers=rows[0].map((x)=>String(x).trim()); const pick=(names)=>headers.findIndex((h)=>names.some((n)=>h.includes(n))); const di=pick(["日期","交易日"]),si=pick(["摘要","用途","对方"]),ai=pick(["金额","收入","贷方"]); if([di,si,ai].some((i)=>i<0)) throw new Error("未找到日期、摘要或金额列"); const added=rows.slice(1).map((r)=>({id:uid("b"),date:normalizeImportedDate(r[di]),summary:String(r[si]||"").trim(),amount:F.roundFen(Number(String(r[ai]||"").replace(/,/g,""))),paymentId:""})).filter((x)=>x.date&&x.amount); await recoveryPoint("导入银行流水前"); db.bankTransactions.push(...added); await save(); draw(); } catch(error){document.getElementById("bank-msg").textContent=error.message||"导入失败";} };
+    document.getElementById("bank-auto").onclick = async () => { let count=0; for(const tx of db.bankTransactions.filter((x)=>!x.paymentId&&x.amount>0)){ const candidates=db.invoices.filter((inv)=>Math.abs(Math.max(0,compute(inv).inclusive-paidOf(inv.id))-tx.amount)<0.01); if(candidates.length===1&&guardOpen(tx.date)){const inv=candidates[0],p={id:uid("p"),invoiceId:inv.id,date:tx.date,amount:tx.amount,method:"银行流水匹配",note:tx.summary};db.payments.push(p);tx.paymentId=p.id;count+=1;} } await save(); window.alert(`已自动匹配 ${count} 笔；金额不唯一的流水保留待人工处理。`); draw(); };
+  }
+
+  const DEFAULT_ACCOUNTS = [{code:"1002",name:"银行存款",type:"资产"},{code:"1122",name:"应收账款",type:"资产"},{code:"1601",name:"固定资产",type:"资产"},{code:"2202",name:"应付账款",type:"负债"},{code:"5001",name:"主营业务收入",type:"收入"},{code:"5602",name:"管理费用",type:"费用"}];
+  function ensureAccounts(){ if(!db.accounts.length) db.accounts=DEFAULT_ACCOUNTS.map((x)=>({id:uid("ac"),...x})); }
+  function renderBookkeeping(){
+    ensureAccounts(); const opts=db.accounts.map((a)=>({value:a.id,label:`${a.code} ${a.name}`}));
+    view.innerHTML=`<div class="panel"><h2>记账凭证</h2><div class="form-grid"><div class="field"><label>日期</label><input id="v-date" type="date" value="${today()}"></div><div class="field"><label>摘要</label><input id="v-summary"></div><div class="field"><label>借方科目</label><select id="v-debit">${opts.map((o)=>`<option value="${o.value}">${o.label}</option>`).join("")}</select></div><div class="field"><label>贷方科目</label><select id="v-credit">${opts.map((o)=>`<option value="${o.value}">${o.label}</option>`).join("")}</select></div><div class="field"><label>金额</label><input id="v-amount"></div><div class="field"><label>凭证模板</label><select id="v-template"><option value="">不使用</option>${db.voucherTemplates.map((t)=>`<option value="${t.id}">${esc(t.name)}</option>`).join("")}</select></div></div><div class="actions"><button id="v-save">保存凭证</button><button id="v-template-save" class="secondary">将当前科目存为模板</button></div></div><div class="panel" style="margin-top:14px"><h2>科目表</h2><table class="sheet-table"><tbody>${db.accounts.map((a)=>`<tr><td>${a.code}</td><td>${esc(a.name)}</td><td>${a.type}</td></tr>`).join("")}</tbody></table></div><div class="panel" style="margin-top:14px"><h2>凭证列表</h2><table class="sheet-table"><thead><tr><th>日期</th><th>摘要</th><th>借</th><th>贷</th><th>金额</th></tr></thead><tbody>${db.vouchers.map((v)=>`<tr><td>${v.date}</td><td>${esc(v.summary)}</td><td>${esc(db.accounts.find((a)=>a.id===v.debitId)?.name)}</td><td>${esc(db.accounts.find((a)=>a.id===v.creditId)?.name)}</td><td>${money(v.amount)}</td></tr>`).join("")||`<tr><td colspan="5">暂无凭证</td></tr>`}</tbody></table></div>`;
+    primary.hidden=true; document.getElementById("v-template").onchange=(e)=>{const t=db.voucherTemplates.find((x)=>x.id===e.target.value);if(t){document.getElementById("v-debit").value=t.debitId;document.getElementById("v-credit").value=t.creditId;document.getElementById("v-summary").value=t.summary||"";}};
+    document.getElementById("v-save").onclick=async()=>{const date=document.getElementById("v-date").value,amount=Number(document.getElementById("v-amount").value);if(!date||!guardOpen(date)||!(amount>0))return;db.vouchers.unshift({id:uid("vo"),date,summary:document.getElementById("v-summary").value.trim(),debitId:document.getElementById("v-debit").value,creditId:document.getElementById("v-credit").value,amount:F.roundFen(amount)});await save();draw();};
+    document.getElementById("v-template-save").onclick=async()=>{const name=window.prompt("模板名称");if(!name)return;db.voucherTemplates.push({id:uid("vt"),name,summary:document.getElementById("v-summary").value.trim(),debitId:document.getElementById("v-debit").value,creditId:document.getElementById("v-credit").value});await save();draw();};
   }
 
   function renderReports() {
@@ -583,20 +608,20 @@
       else if (days <= 90) aging.d90 += left;
       else aging.over90 += left;
     });
-    view.innerHTML = `<div class="chart-card"><h2>近 8 个月销售与费用</h2>${svgChart(series)}</div>
+    const receivable=db.invoices.reduce((s,inv)=>s+Math.max(0,compute(inv).inclusive-paidOf(inv.id)),0), assetNet=db.assets.reduce((s,a)=>s+assetDepreciation(a).net,0), bankNet=db.bankTransactions.reduce((s,x)=>s+Number(x.amount||0),0);
+    const sales=db.invoices.reduce((s,inv)=>s+compute(inv).inclusive,0), costs=db.expenses.reduce((s,x)=>s+Number(x.amount||0),0)+db.reimbursements.reduce((s,x)=>s+Number(x.amount||0),0), receipts=db.payments.reduce((s,x)=>s+Number(x.amount||0),0);
+    view.innerHTML = `<div class="panel"><p class="data-note"><b>管理口径：</b>以当前工作台数据生成的简化报表，尚不是法定财务报表，需与会计凭证和总账复核。</p></div><div class="stat-row" style="margin-top:14px"><div class="stat-card"><div><b>${money(sales-costs)}</b><span>简化利润</span></div></div><div class="stat-card"><div><b>${money(receipts-costs)}</b><span>简化经营现金净额</span></div></div><div class="stat-card"><div><b>${money(receivable)}</b><span>应收余额</span></div></div></div><div class="chart-card"><h2>近 8 个月销售与费用</h2>${svgChart(series)}</div>
       <div class="panel" style="margin-top:14px"><h2>应收账龄</h2><table class="sheet-table"><thead><tr><th>未到期</th><th>逾期 1–30 天</th><th>逾期 31–60 天</th><th>逾期 61–90 天</th><th>逾期 90 天以上</th></tr></thead><tbody><tr><td>${money(aging.current)}</td><td>${money(aging.d30)}</td><td>${money(aging.d60)}</td><td>${money(aging.d90)}</td><td>${money(aging.over90)}</td></tr></tbody></table></div>
-      <div class="panel" style="margin-top:14px"><table class="sheet-table"><thead><tr><th>月份</th><th>销售</th><th>费用</th><th>净额</th></tr></thead><tbody>${series.map((s) => `<tr><td>${s.label}</td><td>${money(s.sales)}</td><td>${money(s.expenses)}</td><td>${money(s.sales - s.expenses)}</td></tr>`).join("")}</tbody></table></div>`;
+      <div class="panel" style="margin-top:14px"><h2>简化资产负债表</h2><table class="sheet-table"><tbody><tr><td>银行流水净额</td><td>${money(bankNet)}</td></tr><tr><td>应收账款</td><td>${money(receivable)}</td></tr><tr><td>固定资产净值</td><td>${money(assetNet)}</td></tr><tr><th>已识别资产合计</th><th>${money(bankNet+receivable+assetNet)}</th></tr></tbody></table></div><div class="panel" style="margin-top:14px"><h2>简化利润表 / 现金流量表</h2><table class="sheet-table"><tbody><tr><td>营业收入</td><td>${money(sales)}</td></tr><tr><td>费用与报销</td><td>${money(costs)}</td></tr><tr><th>简化利润</th><th>${money(sales-costs)}</th></tr><tr><td>客户收款</td><td>${money(receipts)}</td></tr><tr><th>经营现金净额</th><th>${money(receipts-costs)}</th></tr></tbody></table></div><div class="panel" style="margin-top:14px"><table class="sheet-table"><thead><tr><th>月份</th><th>销售</th><th>费用</th><th>净额</th></tr></thead><tbody>${series.map((s) => `<tr><td>${s.label}</td><td>${money(s.sales)}</td><td>${money(s.expenses)}</td><td>${money(s.sales - s.expenses)}</td></tr>`).join("")}</tbody></table></div>`;
     primary.hidden = true;
   }
 
   function renderChecks() {
     const month = new Date().toISOString().slice(0, 7);
     const anomalies = [];
-    db.invoices.forEach((inv) => { const total = compute(inv).inclusive; if (!customer(inv.customerId).id) anomalies.push(`应收单 ${inv.number} 未关联客户`); if (!(total > 0)) anomalies.push(`应收单 ${inv.number} 金额为 0`); if (paidOf(inv.id) > total) anomalies.push(`应收单 ${inv.number} 收款超额`); });
-    db.payments.filter((p) => !db.invoices.some((inv) => inv.id === p.invoiceId)).forEach(() => anomalies.push("存在未关联应收单的收款"));
-    db.reimbursements.filter((r) => !r.hasInvoice && r.amount > 0).forEach((r) => anomalies.push(`${r.date} ${r.claimant} 报销未标记票据`));
-    db.assets.filter((a) => !(Number(a.cost) > 0) || !(Number(a.years) > 0)).forEach((a) => anomalies.push(`固定资产 ${a.name} 折旧参数异常`));
-    view.innerHTML = `<div class="panel"><h2>月结</h2><p class="data-note">月结后，该月的应收、收款、费用和报销不再允许修改；可随时重开。</p><div class="form-grid"><div class="field"><label>月份</label><input id="close-month" type="month" value="${month}"></div></div><div class="actions"><button id="close-toggle"></button></div><p class="data-note">已月结：${db.closedMonths.sort().join("、") || "暂无"}</p></div><div class="panel" style="margin-top:14px"><h2>数据异常检查</h2>${anomalies.length ? `<ul>${anomalies.map((x) => `<li>${esc(x)}</li>`).join("")}</ul>` : `<p class="empty">未发现明显异常。请仍按原始凭证复核。</p>`}</div>`;
+    db.invoices.forEach((inv) => { const total=compute(inv).inclusive;if(!customer(inv.customerId).id)anomalies.push({where:`应收单 ${inv.number}`,issue:"未关联客户",fix:"编辑应收单并选择客户"});if(!(total>0))anomalies.push({where:`应收单 ${inv.number}`,issue:"金额为 0",fix:"检查数量和单价"});if(paidOf(inv.id)>total)anomalies.push({where:`应收单 ${inv.number}`,issue:"收款超额",fix:"检查或删除错误收款"});});
+    db.payments.filter((p)=>!db.invoices.some((inv)=>inv.id===p.invoiceId)).forEach((p)=>anomalies.push({where:`收款 ${p.date}`,issue:"未关联应收单",fix:"重新导入或删除记录"}));db.reimbursements.filter((r)=>!r.hasInvoice&&r.amount>0).forEach((r)=>anomalies.push({where:`报销 ${r.date} ${r.claimant}`,issue:"未标记票据",fix:"核实票据或补充附件"}));
+    view.innerHTML = `<div class="panel"><h2>月结</h2><p class="data-note">月结后，该月的应收、收款、费用和报销不再允许修改；可随时重开。</p><div class="form-grid"><div class="field"><label>月份</label><input id="close-month" type="month" value="${month}"></div></div><div class="actions"><button id="close-toggle"></button></div><p class="data-note">已月结：${db.closedMonths.sort().join("、") || "暂无"}</p></div><div class="panel" style="margin-top:14px"><h2>数据校验日志</h2><p class="data-note">检查时间：${new Date().toLocaleString("zh-CN")}</p><div class="validation-list">${anomalies.length ? anomalies.map((x) => `<div class="validation-item"><b>${esc(x.where)}：${esc(x.issue)}</b><small>修复建议：${esc(x.fix)}</small></div>`).join("") : `<p class="empty">未发现明显异常。请仍按原始凭证复核。</p>`}</div></div>`;
     primary.hidden = true;
     const paint = () => { const value = document.getElementById("close-month").value; document.getElementById("close-toggle").textContent = db.closedMonths.includes(value) ? "重开该月" : "完成该月月结"; };
     document.getElementById("close-month").onchange = paint; paint();
@@ -925,7 +950,7 @@
     paint();
   }
 
-  const titles = { dashboard: "概览", customers: "客户", customer: "客户往来", items: "项目", estimates: "报价", invoices: "应收单", payments: "收款", expenses: "费用", reimbursements: "报销", assets: "固定资产", checks: "月结与检查", reports: "报表", settings: "数据与设置", estimate: "编辑报价", invoice: "编辑应收单" };
+  const titles = { dashboard: "概览", customers: "客户", customer: "客户往来", items: "项目", estimates: "报价", invoices: "应收单", payments: "收款", expenses: "费用", reimbursements: "报销", assets: "固定资产", bank: "银行流水", bookkeeping: "科目与凭证", checks: "月结与检查", reports: "报表", settings: "数据与设置", estimate: "编辑报价", invoice: "编辑应收单" };
 
   function draw() {
     const r = route();
@@ -945,6 +970,8 @@
     else if (r.name === "expenses") renderExpenses();
     else if (r.name === "reimbursements") renderReimbursements();
     else if (r.name === "assets") renderAssets();
+    else if (r.name === "bank") renderBank();
+    else if (r.name === "bookkeeping") renderBookkeeping();
     else if (r.name === "checks") renderChecks();
     else if (r.name === "reports") renderReports();
     else if (r.name === "settings") renderSettings();

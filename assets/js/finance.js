@@ -174,6 +174,8 @@
       employee: { pension: 0.08, medical: 0.02, unemployment: 0.005, injury: 0, maternity: 0, housing: 0.07 },
       employer: { pension: 0.16, medical: 0.09, unemployment: 0.005, injury: 0.0026, maternity: 0.01, housing: 0.07 },
       note: "公积金默认 7%（上海上限常见 7%）",
+      verifiedParts: "2026 年职工医保单位 9%、个人 2%已核验；完整社保基数仍待官方公布",
+      sources: ["https://www.shanghai.gov.cn/gwk/search/content/921e047144694b61b6df8ca0c5ef2cfc"],
     },
     {
       id: "guangzhou",
@@ -196,6 +198,8 @@
       employee: { pension: 0.08, medical: 0.02, unemployment: 0.003, injury: 0, maternity: 0, housing: 0.05 },
       employer: { pension: 0.16, medical: 0.062, unemployment: 0.007, injury: 0.004, maternity: 0.0045, housing: 0.05 },
       note: "医保按一档口径，公积金默认 5%",
+      verifiedParts: "2026 年职工医保基数 6,727–33,633 和一档单位医保费率 6% 已核验；其他险种仍为参考",
+      sources: ["https://hsa.sz.gov.cn/szsylbzjwzgkml/szsylbzjwzgkml/qt/tzgg/content/post_12574511.html"],
     },
     {
       id: "hangzhou",

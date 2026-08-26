@@ -30,7 +30,7 @@
     const fundBase = customFund ? num("customFund") : F.clampBase(pay, preset.fundMin, preset.fundMax);
     document.getElementById("socialHint").textContent = `${preset.name} ${preset.socialMin}–${preset.socialMax}`;
     document.getElementById("fundHint").textContent = `${preset.fundMin}–${preset.fundMax}`;
-    document.getElementById("cityNote").innerHTML = preset.verified ? `✅ ${preset.note}。<a href="${preset.sources[0]}" target="_blank" rel="noopener">社保来源</a> · <a href="${preset.sources[1]}" target="_blank" rel="noopener">公积金来源</a>` : `⚠️ ${preset.note}。当前为参考参数，请以当地最新通知为准；基数与比例均可改。`;
+    document.getElementById("cityNote").innerHTML = preset.verified ? `✅ ${preset.note}。<a href="${preset.sources[0]}" target="_blank" rel="noopener">社保来源</a> · <a href="${preset.sources[1]}" target="_blank" rel="noopener">公积金来源</a>` : preset.verifiedParts ? `🟡 ${preset.verifiedParts}。<a href="${preset.sources[0]}" target="_blank" rel="noopener">查看官方来源</a>。未核验部分不作为申报依据。` : `⚠️ ${preset.note}。当前为参考参数，请以当地最新通知为准；基数与比例均可改。`;
     if (!customSocial) document.getElementById("customSocial").placeholder = String(socialBase);
     if (!customFund) document.getElementById("customFund").placeholder = String(fundBase);
 

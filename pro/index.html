@@ -27,6 +27,8 @@
         <button data-route="expenses" type="button">费用</button>
         <button data-route="reimbursements" type="button">报销</button>
         <button data-route="assets" type="button">固定资产</button>
+        <button data-route="bank" type="button">银行流水</button>
+        <button data-route="bookkeeping" type="button">科目与凭证</button>
         <button data-route="checks" type="button">月结与检查</button>
         <button data-route="reports" type="button">报表</button>
         <button data-route="settings" type="button">数据与设置</button>
@@ -43,6 +45,7 @@
     </main>
   </div>
   <section class="print-sheet" id="sheet"></section>
+  <div class="edit-drawer" id="edit-drawer" hidden><button class="drawer-mask" id="drawer-mask" aria-label="关闭"></button><section><header><h2 id="drawer-title">编辑</h2><button class="secondary" id="drawer-close">关闭</button></header><div id="drawer-fields" class="form-grid"></div><div class="actions"><button id="drawer-save">保存</button></div></section></div>
   <script src="../assets/js/finance.js"></script>
   <script src="../assets/js/csv.js"></script>
   <script src="../assets/js/xlsx-lite.js"></script>

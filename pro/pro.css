@@ -101,6 +101,7 @@ a{color:inherit;text-decoration:none}button,input,select,textarea{font:inherit}
   .print-sheet{display:block}
 }
 @media screen{.print-sheet{position:absolute;left:-9999px}}
+.edit-drawer{position:fixed;inset:0;z-index:80;display:grid;grid-template-columns:1fr min(520px,94vw)}.edit-drawer[hidden]{display:none}.drawer-mask{border:0;border-radius:0;background:rgba(8,18,38,.42)}.edit-drawer>section{background:white;padding:24px;box-shadow:-18px 0 50px rgba(8,18,38,.18);overflow:auto}.edit-drawer>section>header{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px}.edit-drawer h2{margin:0}.validation-list{display:grid;gap:8px}.validation-item{padding:11px 13px;border:1px solid #f2c7cc;border-radius:9px;background:#fff7f7}.validation-item small{display:block;color:var(--c-muted);margin-top:4px}
 @media(max-width:980px){
   .crater-shell,.stat-row,.chart-wrap,.split-lists,.split-app,.edit-split,.form-grid,.inv-fromto,.mapping-grid{grid-template-columns:1fr}
   .crater-side{position:fixed;z-index:20;inset:64px auto 0 0;width:min(260px,80vw);transform:translateX(-105%);transition:.2s}
