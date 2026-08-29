@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="robots" content="noindex,nofollow">
   <title>登录 - Utilora</title>
-  <meta name="description" content="使用邮箱登录 Utilora。注册会发送验证邮件，点开确认链接后才能登录。">
+  <meta name="description" content="使用邮箱登录 Utilora。注册会向真实邮箱发送验证码，验证成功后才能登录。">
   <link rel="icon" type="image/svg+xml" href="../favicon.svg">
   <link rel="stylesheet" href="../assets/css/site.css">
 </head>
@@ -14,7 +14,7 @@
     <div class="login-card">
       <a class="brand" href="../"><span class="brand-mark">U</span><span>返回工具箱</span></a>
       <h1 id="title">登录</h1>
-      <p class="hint" id="lead">工具不用登录也能用。注册会发送验证邮件，点开确认链接后才能登录。</p>
+      <p class="hint" id="lead">工具不用登录也能用。注册会向真实邮箱发送验证码，验证成功后才能登录。</p>
       <p id="banner" class="message" role="status"></p>
       <form id="auth-form">
         <div class="field" id="name-field" hidden>
@@ -36,6 +36,11 @@
         <div class="field" id="confirm-field" hidden>
           <label for="confirm">确认密码</label>
           <input id="confirm" type="password" minlength="8" autocomplete="new-password">
+        </div>
+        <div class="field" id="otp-field" hidden>
+          <label for="otp">邮箱验证码</label>
+          <input id="otp" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="8" pattern="[0-9]{6,8}" placeholder="请输入邮件中的验证码">
+          <p class="hint tight">验证码通常为 6 位数字，请收到后尽快完成验证。</p>
         </div>
         <button id="submit" type="submit">登录</button>
       </form>

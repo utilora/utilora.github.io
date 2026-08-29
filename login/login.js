@@ -8,6 +8,7 @@
   const nameField = document.getElementById("name-field");
   const confirmField = document.getElementById("confirm-field");
   const passwordField = document.getElementById("password-field");
+  const otpField = document.getElementById("otp-field");
   const strength = document.getElementById("strength");
   const submit = document.getElementById("submit");
   const toggleMode = document.getElementById("toggle-mode");
@@ -18,6 +19,7 @@
   const emailInput = document.getElementById("email");
   const passwordInput = document.getElementById("password");
   const confirmInput = document.getElementById("confirm");
+  const otpInput = document.getElementById("otp");
   const nameInput = document.getElementById("name");
   const randomName = document.getElementById("random-name");
 
@@ -41,21 +43,27 @@
   const paint = () => {
     const isUp = mode === "up";
     const isRecover = mode === "recover";
-    title.textContent = isUp ? "创建账号" : isRecover ? "重置密码" : "登录";
+    const isVerify = mode === "verify";
+    title.textContent = isUp ? "创建账号" : isRecover ? "重置密码" : isVerify ? "验证邮箱" : "登录";
     lead.textContent = isUp
-      ? "使用真实邮箱。我们会发送验证邮件，点开确认链接后才能登录。"
+      ? "使用真实邮箱。我们会发送 6 位验证码，验证成功后才能登录。"
       : isRecover
         ? "输入注册邮箱，我们会发送重置邮件。"
-        : "使用已验证的邮箱登录。工具本身仍可免登录使用。";
+        : isVerify
+          ? `验证码已发送到 ${pendingEmail}，请输入邮件中的数字验证码。`
+          : "使用已验证的邮箱登录。工具本身仍可免登录使用。";
     nameField.hidden = !isUp;
     confirmField.hidden = !isUp;
-    passwordField.hidden = isRecover;
-    passwordInput.required = !isRecover;
+    passwordField.hidden = isRecover || isVerify;
+    otpField.hidden = !isVerify;
+    passwordInput.required = !isRecover && !isVerify;
     confirmInput.required = isUp;
-    submit.textContent = isUp ? "发送验证邮件" : isRecover ? "发送重置邮件" : "登录";
-    toggleMode.textContent = isUp || isRecover ? "返回登录" : "没有账号？注册";
-    toggleRecover.hidden = isRecover;
-    resend.hidden = !pendingEmail || !isUp;
+    otpInput.required = isVerify;
+    emailInput.readOnly = isVerify;
+    submit.textContent = isUp ? "发送验证码" : isRecover ? "发送重置邮件" : isVerify ? "验证并完成注册" : "登录";
+    toggleMode.textContent = isUp || isRecover || isVerify ? "返回登录" : "没有账号？注册";
+    toggleRecover.hidden = isRecover || isVerify;
+    resend.hidden = !pendingEmail || !isVerify;
     strength.hidden = !(isUp && passwordInput.value);
   };
 
@@ -116,6 +124,7 @@
   toggleMode.addEventListener("click", () => {
     mode = mode === "in" ? "up" : "in";
     pendingEmail = "";
+    emailInput.readOnly = false;
     setMsg(formMsg, "");
     paint();
   });
@@ -132,16 +141,19 @@
     if (password) await auth.signup(email, password, name);
     else await auth.resend(email);
     pendingEmail = email;
+    mode = "verify";
     startCooldown(60);
     paint();
-    setMsg(formMsg, "验证邮件已发送到 " + email + "。请打开邮件里的确认链接，确认后会回到本站账号页。QQ / 网易请同时检查垃圾箱。");
+    setMsg(formMsg, "验证码已发送到 " + email + "。请输入邮件中的数字验证码；QQ / 网易邮箱请同时检查垃圾箱。");
   };
 
   resend.addEventListener("click", async () => {
     if (!pendingEmail || cooldown > 0) return;
     resend.disabled = true;
     try {
-      await sendMail(pendingEmail, nameInput.value.trim());
+      await auth.resend(pendingEmail);
+      startCooldown(60);
+      setMsg(formMsg, "新的验证码已发送，请查收邮件。");
     } catch (error) {
       setMsg(formMsg, error.message || "发送失败", true);
     }
@@ -159,6 +171,17 @@
       if (mode === "recover") {
         await auth.recover(email);
         setMsg(formMsg, "如果该邮箱已注册，重置邮件已发出。请同时检查垃圾箱。");
+        return;
+      }
+      if (mode === "verify") {
+        const token = otpInput.value.trim();
+        if (!/^\d{6,8}$/.test(token)) throw new Error("请输入邮件中的 6 位验证码");
+        await auth.verifyOtp(pendingEmail || email, token);
+        if (await auth.isDisabled()) {
+          await auth.logout();
+          throw new Error("账号已被停用，请联系管理员");
+        }
+        goAccount();
         return;
       }
       if (mode === "up") {

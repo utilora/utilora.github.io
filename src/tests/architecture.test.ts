@@ -25,6 +25,15 @@ describe("product architecture", () => {
     expect(vite).not.toContain('{ src: "pro", dest: "." }');
   });
 
+  it("requires an email OTP before registration completes", () => {
+    const login = read("login/index.html");
+    const logic = read("login/login.js");
+    expect(login).toContain('id="otp-field" hidden');
+    expect(login).toContain('autocomplete="one-time-code"');
+    expect(logic).toContain('await auth.verifyOtp');
+    expect(logic).toContain('await auth.resend(pendingEmail)');
+  });
+
   it("enables RLS for every organization-owned finance table", () => {
     const migration = read("supabase/migrations/202608290001_platform_core.sql");
     const tables = [
