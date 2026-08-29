@@ -21,6 +21,8 @@ describe("product architecture", () => {
     expect(pro).toContain('id="pro-shell" hidden');
     expect(pro).toContain('src="/src/pro.ts"');
     expect(pro).not.toContain("access.js");
+    const vite = read("vite.config.ts");
+    expect(vite).not.toContain('{ src: "pro", dest: "." }');
   });
 
   it("enables RLS for every organization-owned finance table", () => {
