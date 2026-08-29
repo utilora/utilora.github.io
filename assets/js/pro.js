@@ -1,8 +1,9 @@
 (() => {
-  // Flip to false when payment is wired.
+  // Keep this on during the launch promotion. Turn it off when payment is wired.
   const OPEN_PREVIEW = true;
 
   const fromUser = (user) => {
+    if (!user) return "guest";
     if (OPEN_PREVIEW) return "pro";
     const meta = (user && user.user_metadata) || {};
     if (meta.plan === "pro" || meta.pro === true) return "pro";
@@ -26,13 +27,15 @@
 
   const plan = () => fromUser(currentUser());
   const isPro = () => plan() === "pro";
-  const label = () => (OPEN_PREVIEW ? "目前免费使用" : isPro() ? "专业财务" : "免费版");
+  const canAccess = () => Boolean(currentUser()) && isPro();
+  const label = () => (!currentUser() ? "登录后限时免费" : OPEN_PREVIEW ? "专业版限时免费" : isPro() ? "专业财务" : "免费版");
 
   window.UtiloraPro = {
     OPEN_PREVIEW,
     fromUser,
     plan,
     isPro,
+    canAccess,
     label,
     href: "/pro/",
   };

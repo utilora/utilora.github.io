@@ -60,7 +60,8 @@
   };
 
   const goAccount = () => {
-    location.href = "../account/";
+    const next = new URLSearchParams(location.search).get("next");
+    location.href = next && !/^https?:|^\/\//i.test(next) ? next : "../account/";
   };
 
   const startCooldown = (seconds) => {

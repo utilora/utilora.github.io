@@ -44,3 +44,22 @@ git push
 ```
 
 GitHub Pages 会在推送后自动重新发布网站。
+
+## 新版架构
+
+项目正在从静态脚本逐步迁移到 Vite + TypeScript + Supabase：
+
+- 免费工具保持匿名、无需登录和本地优先；
+- 财务专业版通过 Supabase Auth、会员权益和企业成员权限控制；
+- 当前登录用户在内测活动期间获得专业版限时免费权益；
+- 数据库迁移、RLS 和活动配置位于 supabase/migrations/；
+- 架构说明见 docs/architecture.md，数据库运维见 docs/database.md。
+
+本地开发：
+
+    npm install
+    npm run dev
+    npm test
+    npm run build
+
+main 分支通过 GitHub Actions 构建 dist 并部署到 GitHub Pages。浏览器端只允许使用 Supabase publishable/anon key，禁止写入 service-role key。

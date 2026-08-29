@@ -29,7 +29,7 @@
   </script>
 </head>
 <body class="finance-home">
-  <div class="notice-bar">本地财务台 Beta · <a href="pro/">数据只保存在当前浏览器，不上传、不跟随账号</a></div>
+  <div class="notice-bar"><strong>财务专业版内测限时免费</strong> · 登录即可使用完整工作台，正式收费前会提前通知。<a href="pro/">立即体验</a></div>
   <header class="finance-header">
     <nav class="finance-nav" aria-label="主导航">
       <a class="finance-brand" href="./" aria-label="Utilora 财务工具首页">
@@ -38,7 +38,9 @@
       </a>
       <button class="mobile-menu" type="button" aria-label="打开导航" aria-expanded="false">菜单</button>
       <div class="finance-nav-links">
-        <a href="#tools">财税工具</a>
+        <a href="#tools">免费工具</a>
+        <a href="#compare">版本对比</a>
+        <a class="nav-pro-link" href="pro/">财务专业版 <em>限免</em></a>
         <a href="#workspace">本地财务台</a>
         <a href="#method">计算说明</a>
         <a href="policies/">政策版本</a>
@@ -51,12 +53,12 @@
   <main>
     <section class="finance-hero">
       <div class="hero-copy">
-        <span class="hero-label">为中国小微企业财务人员而做</span>
-        <h1>让日常财务测算<br><em>更清楚、更高效</em></h1>
+        <span class="hero-label">免费工具引流 · 专业财务提效</span>
+        <h1>免费工具随手即用<br><em>专业财务，登录限免</em></h1>
         <p>从发工资、算个税、拆分价税，到客户应收、银行流水和凭证管理。一站完成小微企业日常财务工作。</p>
         <div class="hero-actions">
-          <a class="primary-cta" href="#tools">选择财务工具 <span>→</span></a>
-          <a class="secondary-cta" href="pro/">打开本地财务台 Beta</a>
+          <a class="primary-cta" href="#tools">使用免费工具 <span>→</span></a>
+          <a class="secondary-cta pro-cta" href="pro/">登录使用财务专业版 · 限免</a>
           <button class="secondary-cta install-cta" type="button" data-install-app>安装到电脑</button>
         </div>
         <div class="hero-quick"><span>快速开始</span><a href="tools/vat-split/">价税分离</a><a href="tools/payroll/">工资成本</a><a href="tools/income-tax/">个税测算</a><a href="tools/number-chinese/">金额大写</a></div>
@@ -94,45 +96,63 @@
       </div>
       <div class="finance-tool-grid">
         <a class="finance-tool-card featured" href="tools/vat-split/">
-          <span class="tool-num">01</span><div class="tool-icon">税</div>
+          <span class="plan-badge free">免费</span><span class="tool-num">01</span><div class="tool-icon">税</div>
           <h3>增值税价税分离</h3>
           <p>含税拆分、加税计算与批量明细，支持常用税率及征收率。</p>
           <span class="tool-link">立即使用 →</span>
         </a>
         <a class="finance-tool-card" href="tools/income-tax/">
-          <span class="tool-num">02</span><div class="tool-icon">个</div>
+          <span class="plan-badge free">免费</span><span class="tool-num">02</span><div class="tool-icon">个</div>
           <h3>个人所得税测算</h3>
           <p>累计预扣、专项附加扣除与年度汇算辅助测算。</p>
           <span class="tool-link">立即使用 →</span>
         </a>
         <a class="finance-tool-card" href="tools/payroll/">
-          <span class="tool-num">03</span><div class="tool-icon">薪</div>
+          <span class="plan-badge free">免费</span><span class="tool-num">03</span><div class="tool-icon">薪</div>
           <h3>工资与用工成本</h3>
           <p>测算到手工资、五险一金、个人所得税及企业成本。</p>
           <span class="tool-link">立即使用 →</span>
         </a>
         <a class="finance-tool-card" href="tools/quote/">
-          <span class="tool-num">04</span><div class="tool-icon">报</div>
+          <span class="plan-badge free">免费</span><span class="tool-num">04</span><div class="tool-icon">报</div>
           <h3>报价单</h3>
           <p>制作报价与业务单据，并衔接客户和收款记录。</p>
           <span class="tool-link">立即使用 →</span>
         </a>
         <a class="finance-tool-card compact" href="tools/number-chinese/">
-          <span class="tool-num">05</span><div class="tool-icon">万</div>
+          <span class="plan-badge free">免费</span><span class="tool-num">05</span><div class="tool-icon">万</div>
           <h3>人民币大写转换</h3>
           <p>将数字金额转换为规范人民币大写，支持批量处理。</p>
           <span class="tool-link">立即使用 →</span>
         </a>
-        <a class="finance-tool-card compact" href="pro/?demo=1#/dashboard"><span class="tool-num">06</span><div class="tool-icon">台</div><h3>试用完整本地财务台</h3><p>带可操作演示数据，体验客户往来、应收、收款、报销、固定资产和月结检查；改动不保存。</p><span class="tool-link">进入演示工作台 →</span></a>
-        <a class="finance-tool-card compact" href="pro/?demo=1#/bank"><span class="tool-num">07</span><div class="tool-icon">流</div><h3>银行流水与收款匹配</h3><p>导入 Excel 银行流水，按金额匹配未收应收单，避免重复录入。</p><span class="tool-link">试用流水匹配 →</span></a>
-        <a class="finance-tool-card compact" href="pro/?demo=1#/bookkeeping"><span class="tool-num">08</span><div class="tool-icon">凭</div><h3>科目、凭证与经营报表</h3><p>使用常用科目和凭证模板记账，查看简化利润、资产负债与现金流结果。</p><span class="tool-link">试用凭证工作台 →</span></a>
+        <a class="finance-tool-card compact" href="pro/?demo=1#/dashboard"><span class="plan-badge pro">PRO · 限免</span><span class="tool-num">06</span><div class="tool-icon">台</div><h3>试用完整本地财务台</h3><p>带可操作演示数据，体验客户往来、应收、收款、报销、固定资产和月结检查；改动不保存。</p><span class="tool-link">进入演示工作台 →</span></a>
+        <a class="finance-tool-card compact" href="pro/?demo=1#/bank"><span class="plan-badge pro">PRO · 限免</span><span class="tool-num">07</span><div class="tool-icon">流</div><h3>银行流水与收款匹配</h3><p>导入 Excel 银行流水，按金额匹配未收应收单，避免重复录入。</p><span class="tool-link">试用流水匹配 →</span></a>
+        <a class="finance-tool-card compact" href="pro/?demo=1#/bookkeeping"><span class="plan-badge pro">PRO · 限免</span><span class="tool-num">08</span><div class="tool-icon">凭</div><h3>科目、凭证与经营报表</h3><p>使用常用科目和凭证模板记账，查看简化利润、资产负债与现金流结果。</p><span class="tool-link">试用凭证工作台 →</span></a>
       </div>
     </section>
 
+    <section id="compare" class="compare-section">
+      <div class="finance-section-head">
+        <div><span class="section-tag">FREE VS PRO</span><h2>按工作复杂度，选择合适版本</h2></div>
+        <p>免费工具负责单次快速计算；专业版负责需要持续管理、批量处理和形成业务闭环的财务工作。</p>
+      </div>
+      <div class="compare-grid">
+        <article class="compare-card free-card">
+          <span class="compare-kicker">FREE</span><h3>免费工具</h3><p>无需登录，打开即用，适合日常快速计算。</p>
+          <ul><li>价税分离与常用税率</li><li>个税、工资与用工成本</li><li>金额大写与基础报价单</li><li>本地计算与结果复制</li></ul>
+          <a href="#tools">立即免费使用</a>
+        </article>
+        <article class="compare-card pro-card">
+          <div class="limited-ribbon">内测限时免费</div><span class="compare-kicker">PRO</span><h3>财务专业版</h3><p>需要登录，适合企业持续、批量和流程化财务工作。</p>
+          <ul><li>客户、报价、应收与收款闭环</li><li>银行流水与 Excel 批量处理</li><li>费用、报销、资产、工资和凭证</li><li>月结检查、经营报表和多公司数据</li></ul>
+          <a href="pro/">登录并免费使用</a><small>当前不接入支付，不会自动扣费。</small>
+        </article>
+      </div>
+    </section>
     <section id="workspace" class="workspace-section">
       <div class="workspace-copy">
-        <span class="section-tag light">LOCAL-FIRST BETA</span>
-        <h2>本地保存，不上传业务数据</h2>
+        <span class="section-tag light">UTILORA PRO · LIMITED FREE</span>
+        <h2>财务专业版：从单次计算走向完整工作流</h2>
         <p>Utilora 本地财务台 Beta 用于管理客户、报价、应收单与收款记录。数据仅保存在当前浏览器，不上传服务器，也不会跟随账号或设备同步。</p>
         <ul>
           <li>客户与联系人统一管理</li>
@@ -141,7 +161,7 @@
           <li>支持完整备份、恢复和多公司数据隔离</li>
           <li>银行流水匹配、凭证模板与月结校验</li>
         </ul>
-        <div class="hero-actions"><a class="primary-cta" href="pro/">创建本地公司</a><a class="secondary-cta" href="pro/?demo=1#/dashboard">先试用演示数据</a></div>
+        <div class="hero-actions"><a class="primary-cta" href="pro/">登录并免费使用专业版</a><a class="secondary-cta" href="pro/?demo=1#/dashboard">先试用演示数据</a></div>
       </div>
       <div class="workspace-board workspace-demo" aria-hidden="true">
         <div class="board-head"><span>财务概览</span><i></i><i></i><i></i></div>
@@ -182,7 +202,9 @@
     <div class="footer-main">
       <a class="finance-brand footer-brand" href="./"><span class="finance-brand-mark">U</span><span><strong>Utilora</strong><small>财务工具</small></span></a>
       <p>为小微企业财务人员提供清楚、可靠、顺手的在线工具。</p>
-      <div><a href="#tools">财税工具</a><a href="pro/">本地财务台 Beta</a><a href="policies/">政策版本</a><a href="feedback/">功能建议</a></div>
+      <div><a href="#tools">免费工具</a>
+        <a href="#compare">版本对比</a>
+        <a class="nav-pro-link" href="pro/">财务专业版 <em>限免</em></a><a href="pro/">本地财务台 Beta</a><a href="policies/">政策版本</a><a href="feedback/">功能建议</a></div>
     </div>
     <div class="footer-bottom"><span>© <span id="year"></span> Utilora</span><span>结果仅供辅助测算</span></div>
   </footer>
@@ -197,6 +219,7 @@
     const calc=()=>{const gross=Math.max(0,Number(amount.value)||0),r=(Number(rate.value)||0)/100,net=Math.round(gross/(1+r)*100)/100;document.getElementById("home-vat-net").textContent=fmt.format(net);document.getElementById("home-vat-tax").textContent=fmt.format(Math.round((gross-net)*100)/100);};amount?.addEventListener("input",calc);rate?.addEventListener("change",calc);calc();
   </script>
   <script src="assets/js/app.js?v=12"></script>
+  <script type="module" src="/src/main.ts"></script>
   <script src="assets/js/analytics.js"></script>
 </body>
 </html>

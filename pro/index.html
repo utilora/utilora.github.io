@@ -3,20 +3,32 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>本地财务台 Beta - Utilora</title>
-  <meta name="description" content="本地优先的客户、报价、应收单、收款与费用工作台。数据不上传、不跟随账号。">
+  <title>Utilora 财务专业版｜内测限时免费</title>
+  <meta name="description" content="面向小微企业的专业财务工作台。登录后限时免费使用客户、报价、应收、收款、费用、凭证与报表功能。">
   <link rel="icon" type="image/svg+xml" href="../favicon.svg">
   <link rel="stylesheet" href="../assets/css/site.css">
   <link rel="stylesheet" href="pro.css?v=11">
 </head>
 <body class="crater-body">
   <header class="crater-top">
-    <a class="crater-logo" href="./">Utilora <small>本地财务台 Beta</small></a>
+    <a class="crater-logo" href="../">Utilora <small>财务专业版</small></a>
+    <span class="pro-limited">内测限时免费</span>
+    <span class="crater-free" id="pro-account-status">正在验证账户…</span>
     <span class="crater-free" id="save-state">正在打开公司数据…</span>
     <button class="secondary" type="button" data-install-app>安装到电脑</button>
     <a href="../">返回首页</a>
   </header>
-  <div class="crater-shell">
+  <section class="pro-gate" id="pro-gate" hidden>
+    <div class="pro-gate-card">
+      <span>UTILORA PRO</span>
+      <h1>专业财务工作台<br>内测期间限时免费</h1>
+      <p>登录后即可使用客户往来、报价与应收、银行流水、费用报销、凭证、月结检查和经营报表。暂不收取费用，正式收费前会提前通知。</p>
+      <div class="pro-gate-features"><b>多公司数据隔离</b><b>Excel 批量处理</b><b>本地数据与备份</b><b>完整财务工作流</b></div>
+      <div class="actions"><a class="gate-primary" data-pro-login href="../login/">登录并免费使用</a><a class="gate-secondary" href="?demo=1#/dashboard">先看演示工作台</a></div>
+      <small>当前不接入支付，不会自动扣费。</small>
+    </div>
+  </section>
+  <div class="crater-shell" id="pro-shell" hidden>
     <aside class="crater-side" id="sidebar">
       <nav>
         <button data-route="dashboard" type="button">工作台</button>
@@ -37,7 +49,7 @@
       </nav>
     </aside>
     <main class="crater-main">
-      <div class="local-notice" id="local-notice"><b>本地模式</b> 数据只保存在当前浏览器，不上传服务器，也不跟随账号或设备同步。请定期在“数据与设置”中导出备份。</div>
+      <div class="local-notice" id="local-notice"><b>专业版 · 当前限时免费</b> 数据只保存在当前浏览器，不上传服务器，也不跟随账号或设备同步。请定期在“数据与设置”中导出备份。</div>
       <div class="crater-head">
         <button id="sidebar-toggle" class="ghost" type="button">☰</button>
         <h1 id="page-title">概览</h1>
@@ -48,10 +60,6 @@
   </div>
   <section class="print-sheet" id="sheet"></section>
   <div class="edit-drawer" id="edit-drawer" hidden><button class="drawer-mask" id="drawer-mask" aria-label="关闭"></button><section><header><h2 id="drawer-title">编辑</h2><button class="secondary" id="drawer-close">关闭</button></header><div id="drawer-fields" class="form-grid"></div><div class="actions"><button id="drawer-save">保存</button></div></section></div>
-  <script src="../assets/js/finance.js?v=11"></script>
-  <script src="../assets/js/csv.js?v=11"></script>
-  <script src="../assets/js/xlsx-lite.js?v=11"></script>
-  <script src="../assets/js/app.js?v=12"></script>
-  <script src="app.js?v=11"></script>
+  <script type="module" src="/src/pro.ts"></script>
 </body>
 </html>
