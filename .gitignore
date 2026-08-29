@@ -6,3 +6,4 @@ dist/
 .vite/
 coverage/
 preview.*.log
+supabase/.temp/
