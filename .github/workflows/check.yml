@@ -135,7 +135,7 @@ jobs:
           installer = pathlib.Path("assets/js/app.js").read_text(encoding="utf-8")
           for token in ("showInstallPanel", "utilora-install-panel", "Utilora.url", "beforeinstallprompt"):
               assert token in installer, f"安装流程缺少: {token}"
-          assert "本地财务台 Beta" in home and "不跟随账号" in home
+          assert "财务专业版内测限时免费" in home and "不会跟随账号" in home
           for token in ("indexedDB.open", "STORE_WORKSPACES", "STORE_RECOVERY", "导出完整备份", "导入备份", "清空当前公司数据", "载入演示数据", "应收账龄"):
               assert token in workbench, f"本地财务台缺少: {token}"
           assert "csvCell" in vat and "\\uFEFF" in vat and "\\r\\n" in vat, "CSV 转义或 Excel 兼容处理缺失"
