@@ -1,10 +1,17 @@
 import { getUser } from "./core/auth/session";
-import { getEffectiveEntitlement } from "./core/entitlements/service";
+import { getEffectiveEntitlement, resolveLocalEntitlement } from "./core/entitlements/service";
 
 const gate = document.getElementById("pro-gate") as HTMLElement;
 const shell = document.getElementById("pro-shell") as HTMLElement;
 const status = document.getElementById("pro-account-status");
 const demo = new URLSearchParams(location.search).get("demo") === "1";
+const STARTUP_TIMEOUT_MS = 4000;
+
+export const withTimeout = <T>(promise: Promise<T>, timeoutMs: number, fallback: T): Promise<T> =>
+  Promise.race([
+    promise,
+    new Promise<T>((resolve) => window.setTimeout(() => resolve(fallback), timeoutMs))
+  ]);
 
 const loadScript = (src: string): Promise<void> =>
   new Promise((resolve, reject) => {
@@ -43,8 +50,10 @@ const start = async (): Promise<void> => {
     return;
   }
 
-  const user = await getUser();
-  const entitlement = await getEffectiveEntitlement(user);
+  const user = await withTimeout(getUser(), STARTUP_TIMEOUT_MS, null);
+  const entitlement = user
+    ? await withTimeout(getEffectiveEntitlement(user), STARTUP_TIMEOUT_MS, resolveLocalEntitlement(user))
+    : resolveLocalEntitlement(null);
   if (user && entitlement.proAccess) {
     const name = user.user_metadata?.name || user.email?.split("@")[0] || "账户";
     await revealWorkspace(`${name} · 专业版限时免费`);
@@ -53,6 +62,7 @@ const start = async (): Promise<void> => {
 
   shell.hidden = true;
   gate.hidden = false;
+  if (status) status.textContent = "请登录后使用";
   const login = gate.querySelector<HTMLAnchorElement>("[data-pro-login]");
   if (login) login.href = "../login/?next=" + encodeURIComponent("../pro/");
 };
@@ -61,4 +71,8 @@ void start().catch((error) => {
   console.error("Professional workspace bootstrap failed", error);
   shell.hidden = true;
   gate.hidden = false;
+  if (status) {
+    status.textContent = "登录验证失败，请重试";
+    status.classList.add("error");
+  }
 });
