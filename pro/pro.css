@@ -78,8 +78,14 @@ a{color:inherit;text-decoration:none}button,input,select,textarea{font:inherit}
 .pill{display:inline-block;margin-top:4px;padding:2px 8px;border-radius:6px;font-size:11px;font-weight:800}
 .pill.overdue,.pill.void,.pill.expired{color:#fb7185;background:#ffe4ec}
 .pill.draft{color:#d97706;background:#fef3c7}
-.pill.paid,.pill.converted{color:#059669;background:#d1fae5}
-.pill.issued,.pill.partial{color:#0f8a70;background:#e4f6f1}
+.pill.paid,.pill.converted,.pill.issued{color:#059669;background:#d1fae5}
+.pill.matched,.pill.new{color:#059669;background:#d1fae5}
+.pill.unmatched,.pill.invalid{color:#b42318;background:#fee4e2}
+.pill.partial,.pill.duplicate{color:#b54708;background:#fef0c7}
+.bank-progress{min-height:1.4em;margin:8px 0 0;color:#344054;font-size:13px;font-weight:650}
+.bank-preview{margin-top:14px;padding-top:12px;border-top:1px solid var(--c-line)}
+.table-wrap{overflow-x:auto}
+
 .panel{background:#fff;border-radius:16px;padding:20px;box-shadow:0 8px 24px #5851d80c}
 .form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
 .field label{display:block;margin:0 0 6px;color:#6b7280;font-size:12px;font-weight:750}

@@ -38,6 +38,13 @@
     const invoiceStatusMap = { sent: "issued", viewed: "issued", accepted: "issued", rejected: "void" };
     next.estimates = next.estimates.map((item) => ({ ...item, status: estimateStatus[item.status] || item.status || "draft" }));
     next.invoices = next.invoices.map((item) => ({ ...item, status: invoiceStatusMap[item.status] || item.status || "draft" }));
+    const Bank = window.UtiloraBank;
+    next.bankTransactions = next.bankTransactions.map((tx) => ({
+      ...tx,
+      fingerprint: tx.fingerprint || (Bank ? Bank.transactionFingerprint(tx) : tx.fingerprint),
+      allocations: Array.isArray(tx.allocations) ? tx.allocations : [],
+      paymentId: tx.paymentId || ""
+    }));
     next.schemaVersion = 3;
     return next;
   };
@@ -642,13 +649,173 @@
   }
 
   function renderBank() {
-    const unmatched = db.bankTransactions.filter((x) => bankRemaining(x)>0);
-    view.innerHTML = `<div class="panel"><h2>导入银行流水</h2><p class="data-note">支持 .xlsx / CSV / TSV。可自动匹配，也可人工将一笔流水拆分到多张应收单。</p><input id="bank-file" type="file" accept=".xlsx,.csv,.tsv"><div class="actions"><button id="bank-auto"${unmatched.length ? "" : " disabled"}>自动匹配收款</button></div><p id="bank-msg" class="data-note"></p></div><div class="panel" style="margin-top:14px"><table class="sheet-table"><thead><tr><th>日期</th><th>摘要</th><th>金额</th><th>已匹配</th><th>待匹配</th><th></th></tr></thead><tbody>${db.bankTransactions.map((x) => `<tr><td>${esc(x.date)}</td><td>${esc(x.summary)}</td><td>${money(x.amount)}</td><td>${money(bankAllocated(x))}</td><td>${money(bankRemaining(x))}</td><td>${bankRemaining(x)>0?`<button class="secondary" data-bank-match="${x.id}">人工匹配 / 拆分</button>`:"已完成"}</td></tr>`).join("") || `<tr><td colspan="6">尚未导入银行流水</td></tr>`}</tbody></table></div>`;
+    const Bank = window.UtiloraBank;
+    if (!Bank) {
+      view.innerHTML = `<div class="panel"><p class="data-note">银行流水模块未能加载，请刷新页面。</p></div>`;
+      primary.hidden = true;
+      return;
+    }
+    const remainingOf = (tx) => Bank.fromFen(Bank.bankRemainingFen(tx));
+    const allocatedOf = (tx) => Bank.fromFen(Bank.bankAllocatedFen(tx));
+    const unmatched = db.bankTransactions.filter((tx) => Bank.bankRemainingFen(tx) > 0);
+    const collectables = db.invoices.filter((inv) => isCollectable(inv)).map((inv) => ({
+      id: inv.id, number: inv.number, balance: invoiceBalance(inv)
+    }));
+    const suggestions = Bank.suggestExactMatches(unmatched, collectables);
+    const counts = { matched: 0, partial: 0, unmatched: 0 };
+    db.bankTransactions.forEach((tx) => { counts[Bank.bankMatchState(tx)] += 1; });
+
+    view.innerHTML = `
+      <div class="panel">
+        <h2>导入银行流水</h2>
+        <p class="data-note">支持 .xlsx / CSV / TSV。导入前会预览新增、重复和无效行；同一文件再次导入不会重复入账。匹配建议可解释、可勾选确认，也可撤销。</p>
+        <input id="bank-file" type="file" accept=".xlsx,.csv,.tsv">
+        <p id="bank-progress" class="bank-progress" aria-live="polite"></p>
+        <p id="bank-msg" class="data-note"></p>
+        <div id="bank-preview" class="bank-preview" hidden></div>
+      </div>
+      <div class="stat-row" style="margin-top:14px">
+        <div class="stat-card"><div><b>${counts.unmatched}</b><span>未匹配</span></div></div>
+        <div class="stat-card"><div><b>${counts.partial}</b><span>部分匹配</span></div></div>
+        <div class="stat-card"><div><b>${counts.matched}</b><span>已匹配</span></div></div>
+        <div class="stat-card"><div><b>${suggestions.length}</b><span>可自动建议</span></div></div>
+      </div>
+      ${suggestions.length ? `<div class="panel" style="margin-top:14px">
+        <h2>匹配建议</h2>
+        <p class="data-note">仅列出金额完全相等且余额唯一的应收单。勾选后才会写入收款，不会超额分配。</p>
+        <div class="table-wrap"><table class="sheet-table"><thead><tr><th></th><th>流水</th><th>建议应收单</th><th>金额</th><th>原因</th></tr></thead>
+        <tbody>${suggestions.map((item, index) => {
+          const tx = db.bankTransactions.find((row) => row.id === item.txId) || {};
+          return `<tr><td><input type="checkbox" data-suggest="${index}" data-tx="${esc(item.txId)}" data-invoice="${esc(item.invoiceId)}" data-amount="${item.amount}" checked></td><td>${esc(tx.date)} · ${esc(tx.summary)}</td><td>${esc(item.invoiceNumber)}</td><td>${money(item.amount)}</td><td>${esc(item.reason)}</td></tr>`;
+        }).join("")}</tbody></table></div>
+        <div class="actions"><button id="bank-apply-suggest" type="button">确认勾选匹配</button></div>
+      </div>` : ""}
+      <div class="panel" style="margin-top:14px">
+        <h2>流水明细</h2>
+        <div class="table-wrap"><table class="sheet-table"><thead><tr><th>日期</th><th>摘要</th><th>金额</th><th>已匹配</th><th>待匹配</th><th>状态</th><th></th></tr></thead>
+        <tbody>${db.bankTransactions.map((tx) => {
+          const state = Bank.bankMatchState(tx);
+          const actions = [];
+          if (Bank.bankRemainingFen(tx) > 0) actions.push(`<button class="secondary" data-bank-match="${tx.id}" type="button">人工匹配 / 拆分</button>`);
+          if (allocatedOf(tx) > 0) actions.push(`<button class="secondary" data-bank-unmatch="${tx.id}" type="button">撤销匹配</button>`);
+          return `<tr><td>${esc(tx.date)}</td><td>${esc(tx.summary)}</td><td>${money(tx.amount)}</td><td>${money(allocatedOf(tx))}</td><td>${money(remainingOf(tx))}</td><td><span class="pill ${state}">${Bank.MATCH_STATE_LABEL[state]}</span></td><td>${actions.join(" ")}</td></tr>`;
+        }).join("") || `<tr><td colspan="7">尚未导入银行流水</td></tr>`}</tbody></table></div>
+      </div>`;
     primary.hidden = true;
-    document.getElementById("bank-file").onchange = async (event) => { const file=event.target.files?.[0]; if(!file)return; try { const rows=file.name.toLowerCase().endsWith(".xlsx")?await window.UtiloraXlsx.readFirstSheet(file):window.UtiloraCsv.parseCsv(await file.text()); const headers=rows[0].map((x)=>String(x).trim()); const pick=(names)=>headers.findIndex((h)=>names.some((n)=>h.includes(n))); const di=pick(["日期","交易日"]),si=pick(["摘要","用途","对方"]),ai=pick(["金额","收入","贷方"]); if([di,si,ai].some((i)=>i<0)) throw new Error("未找到日期、摘要或金额列"); const added=rows.slice(1).map((r)=>({id:uid("b"),date:normalizeImportedDate(r[di]),summary:String(r[si]||"").trim(),amount:F.roundFen(Number(String(r[ai]||"").replace(/,/g,""))),paymentId:""})).filter((x)=>x.date&&x.amount); await recoveryPoint("导入银行流水前"); db.bankTransactions.push(...added); await save(); draw(); } catch(error){document.getElementById("bank-msg").textContent=error.message||"导入失败";} };
-    const applyMatch=async(tx,invoiceId,amount)=>{const inv=db.invoices.find((x)=>x.id===invoiceId),left=inv?Math.max(0,compute(inv).inclusive-paidOf(inv.id)):0;amount=F.roundFen(Number(amount));if(!inv||!(amount>0)||amount>bankRemaining(tx)||amount>left||!guardOpen(tx.date)){window.alert("匹配金额不能超过流水未分配金额或应收余额。");return false;}const p={id:uid("p"),invoiceId:inv.id,date:tx.date,amount,method:"银行流水匹配",note:tx.summary};db.payments.push(p);tx.allocations=[...(tx.allocations||[]),{paymentId:p.id,invoiceId:inv.id,amount}];postVoucher("payment",p.id,p.date,tx.summary,amount);await save();draw();return true;};
-    view.querySelectorAll("[data-bank-match]").forEach((b)=>b.onclick=()=>{const tx=db.bankTransactions.find((x)=>x.id===b.dataset.bankMatch),invoices=db.invoices.filter((inv)=>Math.max(0,compute(inv).inclusive-paidOf(inv.id))>0);openDrawer("人工匹配银行流水",[{key:"invoiceId",label:"应收单",type:"select",value:invoices[0]?.id||"",options:invoices.map((inv)=>({value:inv.id,label:`${inv.number} · ${customer(inv.customerId).name} · 余额 ${money(compute(inv).inclusive-paidOf(inv.id))}`}))},{key:"amount",label:`本次匹配金额（流水剩余 ${money(bankRemaining(tx))}）`,value:bankRemaining(tx)}],(v)=>applyMatch(tx,v.invoiceId,v.amount));});
-    document.getElementById("bank-auto").onclick = async () => { let count=0; for(const tx of unmatched.filter((x)=>x.amount>0)){ const rest=bankRemaining(tx),candidates=db.invoices.filter((inv)=>Math.abs(Math.max(0,compute(inv).inclusive-paidOf(inv.id))-rest)<0.01); if(candidates.length===1&&await applyMatch(tx,candidates[0].id,rest))count+=1; } if(count===0)window.alert("没有找到金额唯一且完全相等的应收单，请使用人工匹配。"); };
+
+    const msg = document.getElementById("bank-msg");
+    const progress = document.getElementById("bank-progress");
+    const previewBox = document.getElementById("bank-preview");
+    const setProgress = (text) => { if (progress) progress.textContent = text || ""; };
+    const setMsg = (text) => { if (msg) msg.textContent = text || ""; };
+
+    const applyMatch = async (tx, invoiceId, amount, redraw = true) => {
+      if (!tx || !guardOpen(tx.date)) return false;
+      const inv = db.invoices.find((item) => item.id === invoiceId);
+      const planned = Bank.planAllocation(remainingOf(tx), inv ? invoiceBalance(inv) : 0, amount);
+      if (!planned.ok) {
+        window.alert(planned.error);
+        return false;
+      }
+      const payment = { id: uid("p"), invoiceId: inv.id, date: tx.date, amount: planned.amount, method: "银行流水匹配", note: tx.summary };
+      db.payments.push(payment);
+      tx.allocations = [...(tx.allocations || []), { paymentId: payment.id, invoiceId: inv.id, amount: planned.amount }];
+      tx.paymentId = "";
+      postVoucher("payment", payment.id, payment.date, tx.summary, planned.amount);
+      if (redraw) { await save(); draw(); }
+      return true;
+    };
+
+    document.getElementById("bank-file").onchange = async (event) => {
+      const file = event.target.files?.[0];
+      event.target.value = "";
+      if (!file) return;
+      setMsg("");
+      setProgress("正在读取文件…");
+      try {
+        const rows = file.name.toLowerCase().endsWith(".xlsx")
+          ? await window.UtiloraXlsx.readFirstSheet(file)
+          : window.UtiloraCsv.parseCsv(await file.text());
+        if (!rows.length) throw new Error("文件没有可读取的内容");
+        setProgress(`正在解析 ${Math.max(0, rows.length - 1)} 行…`);
+        const parsed = Bank.parseBankTable(rows[0], rows.slice(1));
+        const preview = Bank.previewBankImport(parsed, db.bankTransactions);
+        const tally = Bank.countPreview(preview);
+        setProgress(`已解析 ${parsed.length} 行 · 新增 ${tally.new} · 重复 ${tally.duplicate} · 无效 ${tally.invalid}`);
+        previewBox.hidden = false;
+        previewBox.innerHTML = `
+          <div class="table-wrap"><table class="sheet-table"><thead><tr><th>行</th><th>日期</th><th>摘要</th><th>金额</th><th>结果</th></tr></thead>
+          <tbody>${preview.map((row) => `<tr><td>${row.row}</td><td>${esc(row.date || "—")}</td><td>${esc(row.summary || "—")}</td><td>${row.error ? "—" : money(row.amount)}</td><td><span class="pill ${row.status}">${row.status === "new" ? "新增" : row.status === "duplicate" ? "重复" : row.error || "无效"}</span></td></tr>`).join("") || `<tr><td colspan="5">没有可导入的数据行</td></tr>`}</tbody></table></div>
+          <div class="actions"><button id="bank-commit" type="button" ${tally.new ? "" : "disabled"}>确认导入新增 ${tally.new} 笔</button></div>`;
+        const commit = document.getElementById("bank-commit");
+        if (commit) commit.onclick = async () => {
+          const incoming = preview.filter((row) => row.status === "new");
+          if (!incoming.length) return;
+          setProgress("正在写入新增流水…");
+          await recoveryPoint("导入银行流水前");
+          incoming.forEach((row) => {
+            db.bankTransactions.push({
+              id: uid("b"),
+              date: row.date,
+              summary: row.summary,
+              amount: row.amount,
+              fingerprint: row.fingerprint,
+              paymentId: "",
+              allocations: []
+            });
+          });
+          await save();
+          draw();
+        };
+      } catch (error) {
+        setProgress("");
+        previewBox.hidden = true;
+        setMsg(error.message || "导入失败");
+      }
+    };
+
+    view.querySelectorAll("[data-bank-match]").forEach((button) => {
+      button.onclick = () => {
+        const tx = db.bankTransactions.find((item) => item.id === button.dataset.bankMatch);
+        if (!tx) return;
+        const options = collectables.filter((inv) => inv.balance > 0);
+        openDrawer("人工匹配银行流水", [
+          { key: "invoiceId", label: "应收单", type: "select", value: options[0]?.id || "", options: options.map((inv) => ({ value: inv.id, label: `${inv.number} · ${customer(db.invoices.find((item) => item.id === inv.id)?.customerId).name} · 余额 ${money(inv.balance)}` })) },
+          { key: "amount", label: `本次匹配金额（流水剩余 ${money(remainingOf(tx))}）`, value: remainingOf(tx) }
+        ], (values) => applyMatch(tx, values.invoiceId, values.amount));
+      };
+    });
+
+    view.querySelectorAll("[data-bank-unmatch]").forEach((button) => {
+      button.onclick = async () => {
+        const tx = db.bankTransactions.find((item) => item.id === button.dataset.bankUnmatch);
+        if (!tx || !guardOpen(tx.date) || !window.confirm("撤销该流水的匹配？相关收款会删除，应收余额会恢复。")) return;
+        await recoveryPoint("撤销银行匹配前");
+        const paymentIds = tx.paymentId ? [tx.paymentId] : (tx.allocations || []).map((item) => item.paymentId).filter(Boolean);
+        db.payments = db.payments.filter((payment) => !paymentIds.includes(payment.id));
+        db.vouchers = db.vouchers.filter((voucher) => !(voucher.sourceType === "payment" && paymentIds.includes(voucher.sourceId)));
+        tx.paymentId = "";
+        tx.allocations = [];
+        await save();
+        draw();
+      };
+    });
+
+    const applySuggest = document.getElementById("bank-apply-suggest");
+    if (applySuggest) applySuggest.onclick = async () => {
+      const selected = [...view.querySelectorAll("[data-suggest]:checked")];
+      if (!selected.length) return;
+      setProgress(`正在匹配 0/${selected.length}`);
+      await recoveryPoint("自动匹配银行流水前");
+      let done = 0;
+      for (const box of selected) {
+        setProgress(`正在匹配 ${done + 1}/${selected.length}`);
+        const tx = db.bankTransactions.find((item) => item.id === box.dataset.tx);
+        if (await applyMatch(tx, box.dataset.invoice, Number(box.dataset.amount), false)) done += 1;
+      }
+      await save();
+      draw();
+    };
   }
 
   function renderPayroll() {

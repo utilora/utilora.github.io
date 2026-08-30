@@ -68,6 +68,14 @@ describe("product architecture", () => {
     expect(workbench).toContain("if (demoMode || !db || !workspaceId) return");
   });
 
+  it("previews bank imports and blocks duplicate commits", () => {
+    const workbench = read("pro/app.js");
+    expect(workbench).toContain("previewBankImport");
+    expect(workbench).toContain("确认导入新增");
+    expect(workbench).toContain("撤销匹配");
+    expect(read("src/pro.ts")).toContain("window.UtiloraBank");
+  });
+
   it("captures purchase intent without payment or service-role keys", () => {
 
     const migration = read("supabase/migrations/202608300001_purchase_intents.sql");
