@@ -124,7 +124,7 @@ S-07 停用账号后 refresh 立即失效。
 | 编号 | 状态 | 分支 | 最近提交 | 测试 |
 |------|------|------|----------|------|
 | S-01 | 已完成（待合并） | fix/security-hardening | a68c4539e6e0e3cd8fefc836ef369bfaf49a63f3 | 单元测试通过；迁移与 Edge Function 待生产部署后联调 |
-| S-02 | 已完成（待合并） | fix/security-hardening | bb6782c367b842ebb01583ecc40ffa1c9f3eae30 | 单元测试通过；迁移与 Edge Function 待生产部署后联调 |
+| S-02 | 已完成（待合并） | fix/security-hardening | 76c6c87a601008a74f1299f6b32f2f41fb20ccca | 单元测试通过；迁移与 Edge Function 待生产部署后联调 |
 | S-03 | 待开始 | fix/security-hardening | — | — |
 | S-04 | 待开始 | fix/security-hardening | — | — |
 | S-05 | 待开始 | fix/security-hardening | — | — |
