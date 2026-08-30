@@ -117,7 +117,7 @@
   const setSetting = async (key, value) => request(txStore(STORE_SETTINGS, "readwrite").put({ key, value }));
   const backupKey = () => `lastBackup:${workspaceId}`;
   const recoveryPoint = async (reason) => {
-    if (!db || !workspaceId) return;
+    if (demoMode || !db || !workspaceId) return;
     const createdAt = new Date().toISOString();
     await request(txStore(STORE_RECOVERY, "readwrite").put({ id: `${workspaceId}:${createdAt}`, workspaceId, createdAt, reason, data: db }));
   };
@@ -1069,6 +1069,7 @@
     else if (r.name === "settings") renderSettings();
     else if (r.name === "estimate") renderEditor(true, r.id);
     else if (r.name === "invoice") renderEditor(false, r.id);
+    else if (r.name === "receivables") location.hash = "#/invoices";
     else location.hash = "#/dashboard";
   }
 

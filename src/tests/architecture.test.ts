@@ -13,6 +13,10 @@ describe("product architecture", () => {
     expect(document.querySelectorAll(".plan-badge.free")).toHaveLength(5);
     expect(document.querySelectorAll(".plan-badge.pro")).toHaveLength(3);
     expect(home).toContain("财务专业版内测限时免费");
+    expect(home).toContain("pro/?demo=1#/dashboard");
+    expect(home).toContain("pro/?demo=1#/invoices");
+    expect(home).toContain("pro/?demo=1#/reports");
+    expect(home).not.toContain("#/receivables");
   });
 
   it("gates the professional workspace behind the TypeScript bootstrap", () => {
@@ -23,6 +27,8 @@ describe("product architecture", () => {
     expect(pro).not.toContain("access.js");
     const vite = read("vite.config.ts");
     expect(vite).not.toContain('{ src: "pro", dest: "." }');
+    expect(vite).toContain('{ src: "pro/app.js", dest: "." }');
+    expect(vite).toContain('{ src: "pro/pro.css", dest: "." }');
   });
 
   it("requires an email OTP before registration completes", () => {
@@ -53,6 +59,13 @@ describe("product architecture", () => {
     expect(migration).toContain("get_my_effective_entitlement");
     expect(migration).toContain("'pro-launch-free'");
     expect(migration).toContain('"payment_required":false');
+  });
+
+  it("keeps demo mode from writing local company or recovery data", () => {
+    const workbench = read("pro/app.js");
+    expect(workbench).toContain('get("demo") === "1"');
+    expect(workbench).toContain("if (demoMode) { setSaveState(\"演示模式 · 改动不保存\"); return; }");
+    expect(workbench).toContain("if (demoMode || !db || !workspaceId) return");
   });
 
   it("captures purchase intent without payment or service-role keys", () => {
