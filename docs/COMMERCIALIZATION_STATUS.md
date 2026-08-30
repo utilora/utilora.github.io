@@ -6,7 +6,7 @@ Last reviewed date: 2026-08-30
 
 ## Current phase
 
-P1 is complete. Near-term work follows docs/PRODUCT_OPTIMIZATION.md, currently M1-W1. P2 trial and cloud remain unauthorized.
+P1 is complete. Near-term work follows docs/PRODUCT_OPTIMIZATION.md, currently M1-W2. P2 trial and cloud remain unauthorized.
 
 ## Current production model
 
@@ -32,7 +32,8 @@ P1 is complete. Near-term work follows docs/PRODUCT_OPTIMIZATION.md, currently M
 - [x] P1.2 receivable aging, customer debt overview and collection progress excluding draft/void.
 - [x] P1.3 month-end completion score, unresolved close lists and exportable Excel/CSV result.
 - [x] P1.4 complete local backup, stale reminders, v2/v3 restore compatibility and demo non-persistence.
-- [x] Production build and 39 automated tests passed.
+- [x] M1-W1 explainable matching: unique amount, customer name in summary, near due date.
+- [x] Production build and 42 automated tests passed.
 - [x] GitHub Pages uses workflow-only publishing; compiled artifact guards reject raw TypeScript entrypoints.
 
 ## Reusable capabilities
@@ -58,23 +59,24 @@ P1 is complete. Near-term work follows docs/PRODUCT_OPTIMIZATION.md, currently M
 
 ## Next Authorized Step
 
-- [ ] M1-W1: explainable bank matching beyond unique exact-amount matches.
+- [ ] M1-W2: partial matching — split one bank row across invoices, still reversible.
 
-See docs/PRODUCT_OPTIMIZATION.md. Implementation requires an explicit request to begin M1-W1.
+See docs/PRODUCT_OPTIMIZATION.md. Implementation requires an explicit request to begin M1-W2.
 
-Do not start M1-W2 or later weeks, P2, payment or cloud sync.
+Do not start M1-W3 or later weeks, P2, payment or cloud sync.
 
 ### Scope
 
-- Inspect current exact-amount suggestions first.
-- Add explainable rules such as amount+near date and customer name in the bank summary.
-- Keep matches reversible.
-- Do not rewrite bank import from P1.1.
+- Inspect current allocation and applyMatch first.
+- Allow one unmatched bank row to be planned against more than one open invoice without exceeding remaining amounts.
+- Keep suggestions explainable and reversible.
+- Do not change import fingerprinting from P1.1.
 
 ### Acceptance criteria
 
-- Suggestions state why they matched.
-- Unique exact-amount behavior from P1.1 still works.
+- A bank row can allocate to multiple invoices in one confirmation.
+- Over-allocation is rejected.
+- Unique exact-amount and M1-W1 explainable suggestions still work.
 - Demo changes are not persisted.
 - Targeted tests and production build pass.
 

@@ -28,7 +28,12 @@ export interface CollectableInvoice {
   id: string;
   number: string;
   balance: number;
+  customerName?: string;
+  dueDate?: string;
+  date?: string;
 }
+
+export type MatchConfidence = "high" | "medium";
 
 export interface MatchSuggestion {
   txId: string;
@@ -36,10 +41,11 @@ export interface MatchSuggestion {
   invoiceNumber: string;
   amount: number;
   reason: string;
-  confidence: "high";
+  confidence: MatchConfidence;
 }
 
 const FEN_EPS = 1;
+export const DATE_NEAR_DAYS = 3;
 
 export const toFen = (value: number | string): number => {
   const n = typeof value === "number" ? value : Number(String(value).replace(/,/g, ""));
@@ -184,32 +190,114 @@ export const planAllocation = (
   return { ok: true, amount: fromFen(value) };
 };
 
-export const suggestExactMatches = (
+export const daysApart = (left?: string, right?: string): number | null => {
+  if (!left || !right) return null;
+  const start = Date.parse(`${left}T00:00:00`);
+  const end = Date.parse(`${right}T00:00:00`);
+  if (!Number.isFinite(start) || !Number.isFinite(end)) return null;
+  return Math.abs(Math.floor((start - end) / 86400000));
+};
+
+const compactText = (value: string): string => normalizeSummary(value).replace(/\s+/g, "");
+
+export const customerNamesInSummary = (summary: string, names: string[]): string[] => {
+  const haystack = compactText(summary);
+  const cleaned = [...new Set(names.map((name) => normalizeSummary(name)).filter((name) => compactText(name).length >= 2))];
+  const hits = cleaned.filter((name) => haystack.includes(compactText(name)));
+  return hits.filter((name) => !hits.some((other) => other !== name && compactText(other).includes(compactText(name))));
+};
+
+type WorkingInvoice = CollectableInvoice & { balanceFen: number };
+
+const sameAmount = (invoice: WorkingInvoice, remainingFen: number): boolean =>
+  invoice.balanceFen > 0 && Math.abs(invoice.balanceFen - remainingFen) <= FEN_EPS;
+
+const invoiceAnchorDate = (invoice: CollectableInvoice): string | undefined => invoice.dueDate || invoice.date;
+
+export const suggestMatches = (
   transactions: Array<BankTransactionLike & { id: string }>,
   invoices: CollectableInvoice[]
 ): MatchSuggestion[] => {
-  const working = invoices
+  const working: WorkingInvoice[] = invoices
     .filter((invoice) => toFen(invoice.balance) > 0)
     .map((invoice) => ({ ...invoice, balanceFen: toFen(invoice.balance) }));
   const suggestions: MatchSuggestion[] = [];
+  const usedTx = new Set<string>();
 
-  transactions.forEach((tx) => {
-    const remaining = bankRemainingFen(tx);
-    if (remaining <= 0) return;
-    const candidates = working.filter((invoice) => Math.abs(invoice.balanceFen - remaining) <= FEN_EPS);
-    if (candidates.length !== 1) return;
-    const invoice = candidates[0];
-    if (!invoice) return;
+  const consume = (tx: BankTransactionLike & { id: string }, invoice: WorkingInvoice, reason: string, confidence: MatchConfidence) => {
     suggestions.push({
       txId: tx.id,
       invoiceId: invoice.id,
       invoiceNumber: invoice.number,
-      amount: fromFen(remaining),
-      reason: `金额 ${fromFen(remaining).toFixed(2)} 与应收单 ${invoice.number} 余额完全相等，且该余额唯一`,
-      confidence: "high"
+      amount: fromFen(bankRemainingFen(tx)),
+      reason,
+      confidence
     });
     invoice.balanceFen = 0;
+    usedTx.add(tx.id);
+  };
+
+  transactions.forEach((tx) => {
+    const remaining = bankRemainingFen(tx);
+    if (remaining <= 0) return;
+    const candidates = working.filter((invoice) => sameAmount(invoice, remaining));
+    if (candidates.length !== 1 || !candidates[0]) return;
+    const invoice = candidates[0];
+    consume(
+      tx,
+      invoice,
+      `金额 ${fromFen(remaining).toFixed(2)} 与应收单 ${invoice.number} 余额完全相等，且该余额唯一`,
+      "high"
+    );
+  });
+
+  transactions.forEach((tx) => {
+    if (usedTx.has(tx.id)) return;
+    const remaining = bankRemainingFen(tx);
+    if (remaining <= 0) return;
+    const names = customerNamesInSummary(
+      String(tx.summary || ""),
+      working.filter((invoice) => invoice.balanceFen > 0).map((invoice) => invoice.customerName || "")
+    );
+    if (names.length !== 1 || !names[0]) return;
+    const customerName = names[0];
+    const candidates = working.filter((invoice) =>
+      sameAmount(invoice, remaining) && normalizeSummary(invoice.customerName || "") === customerName
+    );
+    if (candidates.length !== 1 || !candidates[0]) return;
+    const invoice = candidates[0];
+    consume(
+      tx,
+      invoice,
+      `摘要含客户「${customerName}」，金额 ${fromFen(remaining).toFixed(2)} 与应收单 ${invoice.number} 余额相等`,
+      "high"
+    );
+  });
+
+  transactions.forEach((tx) => {
+    if (usedTx.has(tx.id)) return;
+    const remaining = bankRemainingFen(tx);
+    if (remaining <= 0) return;
+    const dated = working
+      .filter((invoice) => sameAmount(invoice, remaining))
+      .map((invoice) => ({ invoice, days: daysApart(String(tx.date || ""), invoiceAnchorDate(invoice)) }))
+      .filter((item) => item.days !== null && item.days <= DATE_NEAR_DAYS);
+    if (dated.length !== 1 || !dated[0]) return;
+    const { invoice, days } = dated[0];
+    consume(
+      tx,
+      invoice,
+      `金额 ${fromFen(remaining).toFixed(2)} 与应收单 ${invoice.number} 余额相等，且流水日期与到期日相差 ${days} 天`,
+      "medium"
+    );
   });
 
   return suggestions;
 };
+
+export const suggestExactMatches = (
+  transactions: Array<BankTransactionLike & { id: string }>,
+  invoices: CollectableInvoice[]
+): MatchSuggestion[] =>
+  suggestMatches(transactions, invoices).filter((item) => item.reason.includes("该余额唯一"));
+

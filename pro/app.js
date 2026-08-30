@@ -584,7 +584,16 @@
       let matchHint = "";
       if (!isEst && Bank && invoiceBalance(selected) > 0) {
         const unmatched = db.bankTransactions.filter((tx) => Bank.bankRemainingFen(tx) > 0);
-        const suggestion = Bank.suggestExactMatches(unmatched, [{ id: selected.id, number: selected.number, balance: invoiceBalance(selected) }])[0];
+        const suggestion = Bank.suggestMatches
+          ? Bank.suggestMatches(unmatched, db.invoices.filter((inv) => isCollectable(inv)).map((inv) => ({
+            id: inv.id,
+            number: inv.number,
+            balance: invoiceBalance(inv),
+            customerName: customer(inv.customerId).name || "",
+            dueDate: inv.dueDate || "",
+            date: inv.date || ""
+          }))).find((item) => item.invoiceId === selected.id)
+          : Bank.suggestExactMatches(unmatched, [{ id: selected.id, number: selected.number, balance: invoiceBalance(selected) }])[0];
         if (suggestion) matchHint = `<p class="data-note match-hint"><b>可解释匹配建议</b> ${esc(suggestion.reason)}。<a href="#/bank">去银行流水确认</a></p>`;
       }
       document.getElementById("preview").innerHTML = `
@@ -751,16 +760,21 @@
     const allocatedOf = (tx) => Bank.fromFen(Bank.bankAllocatedFen(tx));
     const unmatched = db.bankTransactions.filter((tx) => Bank.bankRemainingFen(tx) > 0);
     const collectables = db.invoices.filter((inv) => isCollectable(inv)).map((inv) => ({
-      id: inv.id, number: inv.number, balance: invoiceBalance(inv)
+      id: inv.id,
+      number: inv.number,
+      balance: invoiceBalance(inv),
+      customerName: customer(inv.customerId).name || "",
+      dueDate: inv.dueDate || "",
+      date: inv.date || ""
     }));
-    const suggestions = Bank.suggestExactMatches(unmatched, collectables);
+    const suggestions = Bank.suggestMatches ? Bank.suggestMatches(unmatched, collectables) : Bank.suggestExactMatches(unmatched, collectables);
     const counts = { matched: 0, partial: 0, unmatched: 0 };
     db.bankTransactions.forEach((tx) => { counts[Bank.bankMatchState(tx)] += 1; });
 
     view.innerHTML = `
       <div class="panel">
         <h2>导入银行流水</h2>
-        <p class="data-note">支持 .xlsx / CSV / TSV。导入前会预览新增、重复和无效行；同一文件再次导入不会重复入账。匹配建议可解释、可勾选确认，也可撤销。</p>
+        <p class="data-note">支持 .xlsx / CSV / TSV。导入前会预览新增、重复和无效行；同一文件再次导入不会重复入账。匹配建议会说明原因；金额唯一或摘要含客户名默认勾选，日期接近的中等把握需手动确认。</p>
         <input id="bank-file" type="file" accept=".xlsx,.csv,.tsv">
         <p id="bank-progress" class="bank-progress" aria-live="polite"></p>
         <p id="bank-msg" class="data-note"></p>
@@ -774,11 +788,12 @@
       </div>
       ${suggestions.length ? `<div class="panel" style="margin-top:14px">
         <h2>匹配建议</h2>
-        <p class="data-note">仅列出金额完全相等且余额唯一的应收单。勾选后才会写入收款，不会超额分配。</p>
-        <div class="table-wrap"><table class="sheet-table"><thead><tr><th></th><th>流水</th><th>建议应收单</th><th>金额</th><th>原因</th></tr></thead>
+        <p class="data-note">优先匹配金额唯一的应收；金额重复时，再用摘要中的客户名或接近的到期日。勾选后才会写入收款，可撤销，不会超额分配。</p>
+        <div class="table-wrap"><table class="sheet-table"><thead><tr><th></th><th>流水</th><th>建议应收单</th><th>金额</th><th>把握</th><th>原因</th></tr></thead>
         <tbody>${suggestions.map((item, index) => {
           const tx = db.bankTransactions.find((row) => row.id === item.txId) || {};
-          return `<tr><td><input type="checkbox" data-suggest="${index}" data-tx="${esc(item.txId)}" data-invoice="${esc(item.invoiceId)}" data-amount="${item.amount}" checked></td><td>${esc(tx.date)} · ${esc(tx.summary)}</td><td>${esc(item.invoiceNumber)}</td><td>${money(item.amount)}</td><td>${esc(item.reason)}</td></tr>`;
+          const checked = item.confidence === "high" ? " checked" : "";
+          return `<tr><td><input type="checkbox" data-suggest="${index}" data-tx="${esc(item.txId)}" data-invoice="${esc(item.invoiceId)}" data-amount="${item.amount}"${checked}></td><td>${esc(tx.date)} · ${esc(tx.summary)}</td><td>${esc(item.invoiceNumber)}</td><td>${money(item.amount)}</td><td>${item.confidence === "high" ? "高" : "中"}</td><td>${esc(item.reason)}</td></tr>`;
         }).join("")}</tbody></table></div>
         <div class="actions"><button id="bank-apply-suggest" type="button">确认勾选匹配</button></div>
       </div>` : ""}

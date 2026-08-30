@@ -74,6 +74,7 @@ describe("product architecture", () => {
   it("previews bank imports and blocks duplicate commits", () => {
     const workbench = read("pro/app.js");
     expect(workbench).toContain("previewBankImport");
+    expect(workbench).toContain("suggestMatches");
     expect(workbench).toContain("确认导入新增");
     expect(workbench).toContain("撤销匹配");
     expect(read("src/pro.ts")).toContain("window.UtiloraBank");

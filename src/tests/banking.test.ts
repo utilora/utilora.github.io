@@ -5,7 +5,8 @@ import {
   parseBankTable,
   planAllocation,
   previewBankImport,
-  suggestExactMatches
+  suggestExactMatches,
+  suggestMatches
 } from "../core/banking/local";
 
 const headers = ["交易日期", "摘要", "贷方发生额"];
@@ -72,5 +73,45 @@ describe("bank matching", () => {
     expect(suggestions.map((item) => item.txId)).toEqual(["b1", "b3"]);
     expect(suggestions[0]?.invoiceNumber).toBe("AR-00001");
     expect(suggestions[1]?.invoiceNumber).toBe("AR-00002");
+  });
+
+  it("uses a customer name in the summary when two invoices share the same amount", () => {
+    const suggestions = suggestMatches(
+      [
+        { id: "b1", date: "2026-08-20", summary: "星海贸易货款", amount: 8480, allocations: [] },
+        { id: "b2", date: "2026-08-20", summary: "转账", amount: 8480, allocations: [] }
+      ],
+      [
+        { id: "v1", number: "AR-00001", balance: 8480, customerName: "星海贸易", dueDate: "2026-09-01" },
+        { id: "v2", number: "AR-00002", balance: 8480, customerName: "北岸工作室", dueDate: "2026-09-01" }
+      ]
+    );
+    expect(suggestions).toHaveLength(1);
+    expect(suggestions[0]).toMatchObject({ txId: "b1", invoiceId: "v1", confidence: "high" });
+    expect(suggestions[0]?.reason).toContain("摘要含客户「星海贸易」");
+  });
+
+  it("uses a near due date when the amount is not unique and no customer name matches", () => {
+    const suggestions = suggestMatches(
+      [{ id: "b1", date: "2026-08-30", summary: "客户回款", amount: 600, allocations: [] }],
+      [
+        { id: "v1", number: "AR-00001", balance: 600, customerName: "星海贸易", dueDate: "2026-08-29" },
+        { id: "v2", number: "AR-00002", balance: 600, customerName: "北岸工作室", dueDate: "2026-07-01" }
+      ]
+    );
+    expect(suggestions).toHaveLength(1);
+    expect(suggestions[0]).toMatchObject({ txId: "b1", invoiceId: "v1", confidence: "medium" });
+    expect(suggestions[0]?.reason).toContain("相差 1 天");
+  });
+
+  it("does not guess when two invoices remain equally plausible", () => {
+    const suggestions = suggestMatches(
+      [{ id: "b1", date: "2026-08-30", summary: "转账", amount: 600, allocations: [] }],
+      [
+        { id: "v1", number: "AR-00001", balance: 600, customerName: "星海贸易", dueDate: "2026-08-29" },
+        { id: "v2", number: "AR-00002", balance: 600, customerName: "北岸工作室", dueDate: "2026-08-28" }
+      ]
+    );
+    expect(suggestions).toEqual([]);
   });
 });
