@@ -3,19 +3,12 @@
  * - action=check：注册/发码前查询是否还可注册
  * - action=record：验证成功后记账（需用户 access_token）
  * IP 从请求头读取，不信任客户端传入。
+ * S-06: 经 withEdgeGuard（拒绝 service-role、超时、日调用上限）
  */
 
-const cors = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, apikey, content-type, x-client-info",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-};
+import { withEdgeGuard, jsonResponse as json, corsHeaders } from "../_shared/edge_guard.ts";
 
-const json = (body: unknown, status = 200) =>
-  new Response(JSON.stringify(body), {
-    status,
-    headers: { ...cors, "Content-Type": "application/json; charset=utf-8" },
-  });
+const cors = corsHeaders();
 
 function clientIp(req: Request): string {
   const xf = req.headers.get("x-forwarded-for") || "";
@@ -77,8 +70,7 @@ async function userIdFromToken(
   return data?.id || null;
 }
 
-Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response(null, { headers: cors });
+async function handler(req: Request): Promise<Response> {
   if (req.method !== "POST") return json({ error: "Method not allowed" }, 405);
 
   const apiUrl = Deno.env.get("SUPABASE_URL") || "";
@@ -154,4 +146,6 @@ Deno.serve(async (req) => {
       500,
     );
   }
-});
+}
+
+Deno.serve(withEdgeGuard("registration-limit", handler));

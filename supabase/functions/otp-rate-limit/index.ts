@@ -3,19 +3,10 @@
  * - action=check：发码前查询邮箱/IP 是否超限
  * - action=record：点发送时记账（超限拒绝）
  * IP 从请求头读取；邮箱由客户端传入并在服务端规范化。
+ * S-06: 经 withEdgeGuard（拒绝 service-role、超时、日调用上限）
  */
 
-const cors = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, apikey, content-type, x-client-info",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-};
-
-const json = (body: unknown, status = 200) =>
-  new Response(JSON.stringify(body), {
-    status,
-    headers: { ...cors, "Content-Type": "application/json; charset=utf-8" },
-  });
+import { withEdgeGuard, jsonResponse as json } from "../_shared/edge_guard.ts";
 
 function clientIp(req: Request): string {
   const xf = req.headers.get("x-forwarded-for") || "";
@@ -74,8 +65,7 @@ function limitMessage(reason: string | null | undefined): string {
   return "该邮箱发送验证码次数已达上限，请稍后再试。";
 }
 
-Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response(null, { headers: cors });
+async function handler(req: Request): Promise<Response> {
   if (req.method !== "POST") return json({ error: "Method not allowed" }, 405);
 
   const apiUrl = Deno.env.get("SUPABASE_URL") || "";
@@ -162,4 +152,6 @@ Deno.serve(async (req) => {
       500,
     );
   }
-});
+}
+
+Deno.serve(withEdgeGuard("otp-rate-limit", handler));
