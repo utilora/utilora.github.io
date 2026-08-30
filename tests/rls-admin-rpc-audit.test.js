@@ -25,6 +25,7 @@ const TABLES_DENY_ANON = [
   "subscriptions",
   "profiles",
   "feedback",
+  "edge_function_call_log",
 ];
 
 /** 禁止 anon EXECUTE 的 admin / 内部 RPC */
@@ -52,6 +53,8 @@ const RPC_DENY_ANON = [
   "record_login_failure",
   "clear_login_failures",
   "account_is_disabled",
+  "check_edge_function_call_allowed",
+  "record_edge_function_call",
 ];
 
 /** 允许 anon 的写入口（不返回列表/敏感行） */
