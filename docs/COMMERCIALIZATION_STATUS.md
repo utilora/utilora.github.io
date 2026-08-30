@@ -57,6 +57,7 @@ P1 is complete. Near-term work follows docs/PRODUCT_OPTIMIZATION.md, currently M
 - Entitlements do not yet expose feature-level limits.
 - Payment and billing operations are intentionally absent.
 - Service worker cache is utilora-v20; old v11/v12 query-string precache entries were removed.
+- Registration UI sends /auth/v1/otp. Supabase Confirm signup / Magic Link templates must use supabase/templates/*.html (`{{ .Token }}`) or the inbox still receives a confirmation link instead of a 6-digit code.
 
 ## Next Authorized Step
 

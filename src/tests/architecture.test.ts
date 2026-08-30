@@ -39,7 +39,11 @@ describe("product architecture", () => {
     expect(login).toContain('id="otp-field" hidden');
     expect(login).toContain('autocomplete="one-time-code"');
     expect(logic).toContain('await auth.verifyOtp');
-    expect(logic).toContain('await auth.resend(pendingEmail)');
+    expect(logic).toContain('await auth.sendOtp');
+    expect(logic).toContain('await auth.setPassword');
+    expect(read("assets/js/auth.js")).toContain("/auth/v1/otp");
+    expect(read("supabase/templates/confirmation.html")).toContain("{{ .Token }}");
+    expect(read("supabase/templates/magic_link.html")).toContain("{{ .Token }}");
   });
 
   it("enables RLS for every organization-owned finance table", () => {

@@ -133,20 +133,24 @@
     return { type };
   };
 
-  const signup = async (email, password, name) => {
+  const sendOtp = async (email, name) => {
     try {
-      return await request("/auth/v1/signup?redirect_to=" + encodeURIComponent(REDIRECT), {
+      return await request("/auth/v1/otp", {
         method: "POST",
         headers: headers(),
-        body: JSON.stringify({ email, password, data: { name } }),
+        body: JSON.stringify({
+          email,
+          create_user: true,
+          data: name ? { name } : {}
+        })
       });
     } catch (error) {
-      error.message = friendlyError(error, "验证邮件发送失败");
+      error.message = friendlyError(error, "验证码发送失败");
       throw error;
     }
   };
 
-  const sendOtp = (email, name) => signup(email, undefined, name);
+  const signup = async (email, password, name) => sendOtp(email, name);
 
   const verifyOtp = async (email, token) => {
     const types = ["email", "signup", "recovery"];
@@ -203,18 +207,7 @@
     }
   };
 
-  const resend = async (email) => {
-    try {
-      return await request("/auth/v1/resend?redirect_to=" + encodeURIComponent(REDIRECT), {
-        method: "POST",
-        headers: headers(),
-        body: JSON.stringify({ type: "signup", email, options: { emailRedirectTo: REDIRECT } }),
-      });
-    } catch (error) {
-      error.message = friendlyError(error, "发送失败");
-      throw error;
-    }
-  };
+  const resend = async (email, name) => sendOtp(email, name);
 
   const updateUser = async (body) => {
     const session = await refreshIfNeeded();

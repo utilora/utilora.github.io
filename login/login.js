@@ -25,6 +25,8 @@
 
   let mode = "in";
   let pendingEmail = "";
+  let pendingPassword = "";
+  let pendingName = "";
   let cooldown = 0;
   let cooldownTimer = 0;
 
@@ -64,6 +66,7 @@
     toggleMode.textContent = isUp || isRecover || isVerify ? "返回登录" : "没有账号？注册";
     toggleRecover.hidden = isRecover || isVerify;
     resend.hidden = !pendingEmail || !isVerify;
+    resend.textContent = cooldown > 0 ? resend.textContent : "重新发送验证码";
     strength.hidden = !(isUp && passwordInput.value);
   };
 
@@ -87,7 +90,7 @@
     const tick = () => {
       if (cooldown <= 0) {
         resend.disabled = false;
-        resend.textContent = "重新发送验证邮件";
+        resend.textContent = "重新发送验证码";
         return;
       }
       resend.textContent = "重新发送（" + cooldown + "s）";
@@ -145,22 +148,22 @@
     paint();
   });
 
-  const sendMail = async (email, name) => {
-    const password = passwordInput.value;
-    if (password) await auth.signup(email, password, name);
-    else await auth.resend(email);
+  const sendMail = async (email, name, password) => {
+    pendingPassword = password || pendingPassword;
+    pendingName = name || pendingName;
+    await auth.sendOtp(email, pendingName);
     pendingEmail = email;
     mode = "verify";
     startCooldown(60);
     paint();
-    setMsg(formMsg, "验证码已发送到 " + email + "。请输入邮件中的数字验证码；QQ / 网易邮箱请同时检查垃圾箱。");
+    setMsg(formMsg, "验证码已发送到 " + email + "。请输入邮件中的 6 位数字；QQ / 网易邮箱请同时检查垃圾箱。");
   };
 
   resend.addEventListener("click", async () => {
     if (!pendingEmail || cooldown > 0) return;
     resend.disabled = true;
     try {
-      await auth.resend(pendingEmail);
+      await auth.resend(pendingEmail, pendingName);
       startCooldown(60);
       setMsg(formMsg, "新的验证码已发送，请查收邮件。");
     } catch (error) {
@@ -186,10 +189,14 @@
         const token = otpInput.value.trim();
         if (!/^\d{6,8}$/.test(token)) throw new Error("请输入邮件中的 6 位验证码");
         await auth.verifyOtp(pendingEmail || email, token);
+        if (pendingPassword) {
+          try { await auth.setPassword(pendingPassword); } catch { /* 会话已建立时密码稍后可在账户页设置 */ }
+        }
         if (await auth.isDisabled()) {
           await auth.logout();
           throw new Error("账号已被停用，请联系管理员");
         }
+        pendingPassword = "";
         trackLoginSuccess();
         goAccount();
 
@@ -198,7 +205,7 @@
       if (mode === "up") {
         const issue = passwordIssue(password, confirm);
         if (issue) throw new Error(issue);
-        await sendMail(email, name);
+        await sendMail(email, name, password);
         return;
       }
       try {
@@ -212,7 +219,7 @@
 
       } catch (error) {
         if (/尚未验证|not_confirmed|confirm/i.test((error.code || "") + error.message)) {
-          await sendMail(email);
+          await sendMail(email, name, password);
           return;
         }
         throw error;
