@@ -42,7 +42,7 @@
 |----|------|--------|------|
 | 用户端 | feat/user-workspace | U-01 | 待开始 |
 | 管理端 | feat/admin-ops | A-01 | 待开始 |
-| 安全 | fix/security-hardening | S-05 | 待开始 |
+| 安全 | fix/security-hardening | S-06 | 待开始 |
 
 ## AI 开工前必读
 
@@ -127,6 +127,6 @@ S-07 停用账号后 refresh 立即失效。
 | S-02 | 已完成（待合并） | fix/security-hardening | 76c6c87a601008a74f1299f6b32f2f41fb20ccca | 单元测试通过；迁移与 Edge Function 待生产部署后联调 |
 | S-03 | 已完成（待合并） | fix/security-hardening | 1c656862089063d4b0b743672902c70bad4c1891 | 单元测试通过；迁移与 Edge Function 待生产部署后联调 |
 | S-04 | 已完成（待合并） | fix/security-hardening | 0d9dd2bfc986c9e1eca59949b02ac7d2bfae4b12 | 单元测试通过；Edge Function 与 Turnstile 密钥待生产部署后联调 |
-| S-05 | 待开始 | fix/security-hardening | — | — |
+| S-05 | 已完成（待合并） | fix/security-hardening | PENDING_SHA | 单元测试通过；迁移待生产部署后联调 |
 | S-06 | 待开始 | fix/security-hardening | — | — |
 | S-07 | 待开始 | fix/security-hardening | — | — |
