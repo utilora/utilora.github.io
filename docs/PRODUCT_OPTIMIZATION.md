@@ -17,7 +17,7 @@
 - 完成后必须更新本文件的进度、当前项，以及 STATUS 的 Next Authorized Step
 
 Last reviewed branch: main  
-Last reviewed commit: pending-m1-w1  
+Last reviewed commit: 345cd49d98caae759563cd502d7c9f5e58ec2cbe  
 Last reviewed date: 2026-08-30
 
 ## 进度更新协议
@@ -45,7 +45,7 @@ Last reviewed date: 2026-08-30
 
 - [x] **M1-W1** 银行匹配增强：金额相等之外，加「金额 + 日期接近」「客户名出现在摘要」；建议必须可解释。  
   验收：同一笔回款不再全靠手点。  
-  提交：pending-m1-w1  
+  提交：345cd49d98caae759563cd502d7c9f5e58ec2cbe  
   测试：npm test 42 passed；npm run build PASS  
   遗留：金额仍须相等才会建议；拆单/部分金额是 M1-W2。
 
