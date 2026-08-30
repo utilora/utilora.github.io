@@ -17,7 +17,7 @@
 - 完成后必须更新本文件的进度、当前项，以及 STATUS 的 Next Authorized Step
 
 Last reviewed branch: main  
-Last reviewed commit: pending-opt-doc  
+Last reviewed commit: 45dec4d59564440a61b74bd4e1d34b70fdaf97b3  
 Last reviewed date: 2026-08-30
 
 ## 进度更新协议
