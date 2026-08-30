@@ -1,7 +1,7 @@
 # Utilora Commercialization Status
 
 Last reviewed branch: main
-Last reviewed commit: 840c806d0d1d38bf2e5835ac89b41408f6e24dac
+Last reviewed commit: 163b771
 Last reviewed date: 2026-08-30
 
 ## Current phase
@@ -32,6 +32,7 @@ P1.2 is implemented on main. Later P1 items require an explicit user request.
 - [x] P1.2 receivable aging, customer debt overview and collection progress excluding draft/void.
 - [x] Production build and 29 automated tests passed.
 - [x] GitHub Pages uses workflow-only publishing; compiled artifact guards reject raw TypeScript entrypoints.
+- [x] Live Pro anonymous gate and demo dashboard verified after the Pages fix with zero console errors.
 
 ## Reusable capabilities
 
