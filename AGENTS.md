@@ -71,12 +71,11 @@ Correctness comes first. These efficiency rules are intended to eliminate unnece
 Before product, entitlement, analytics, billing, storage, or Pro workspace changes, read:
 
 1. docs/PRODUCT_OPTIMIZATION.md
-2. docs/COMMERCIALIZATION_STATUS.md
 
 The current code and applied Supabase migrations are the source of truth.
 
 - Default branch workflow: fetch and synchronize `main`, read from `main`, and make authorized changes directly on `main` unless the user explicitly requests another branch.
-- Work only on the single current item in PRODUCT_OPTIMIZATION.md. STATUS Next Authorized Step must match that item.
+- Work only on the single current item in PRODUCT_OPTIMIZATION.md.
 - After P1, follow the 3-month optimization plan before P2 trial or cloud work.
 - Revalidate the documented state against the current branch before editing.
 - Keep every existing tool under tools/ anonymous, login-free, and permanently free.
@@ -84,7 +83,7 @@ The current code and applied Supabase migrations are the source of truth.
 - Do not expand into AP, tax e-filing, collection tickets, or ERP-wide refactors.
 - Never expose Supabase service-role keys, payment secrets, or privileged credentials in frontend code.
 - Trial or subscription expiry must never block viewing or complete export of user data.
-- After an authorized item, update PRODUCT_OPTIMIZATION.md progress (checkbox, commit SHA, tests) and COMMERCIALIZATION_STATUS.md with exactly one next step.
+- After an authorized item, update PRODUCT_OPTIMIZATION.md progress (checkbox, commit SHA, tests) and keep exactly one current item.
 - Do not mark work complete until its acceptance criteria and relevant tests pass.
 
 

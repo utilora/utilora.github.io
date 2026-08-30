@@ -1,6 +1,6 @@
 # Utilora 近 3 个月产品优化计划
 
-其他 AI 拉取代码后必须阅读本文件，并与 `docs/COMMERCIALIZATION_STATUS.md` 对照。
+其他 AI 拉取代码后必须阅读本文件。这是 **唯一** 的待办与当前项来源。
 
 本文件是 **P1 之后、P2 试用/云同步之前** 的工作清单。  
 目标：小微财务能稳定跑完「导入流水 → 对回款 → 催逾期 → 月结导出 → 备份」。
@@ -14,7 +14,9 @@
 - 状态：未开始
 - 内容：部分匹配：一笔流水可拆到多张应收；匹配仍可撤销
 - 开始前：用户需明确说「做 M1-W2」或「做部分匹配」
-- 完成后必须更新本文件的进度、当前项，以及 STATUS 的 Next Authorized Step
+- 完成后必须更新本文件的进度和「当前项」
+- 范围：先看现有 allocation / applyMatch；一笔未匹配流水可拆到多张未结应收，金额不得超过剩余未收；建议仍须可解释、可撤销；不要改 P1.1 的导入指纹
+- 验收：一次确认可把一笔流水分到多张应收；超额分配被拒绝；精确金额和 M1-W1 建议仍可用；演示改动不落库；`npm test` 与 `npm run build` 通过
 
 Last reviewed branch: main  
 Last reviewed commit: 345cd49d98caae759563cd502d7c9f5e58ec2cbe  
@@ -26,10 +28,9 @@ Last reviewed date: 2026-08-30
 
 1. 把本文件对应周次改成 `[x]`，写下提交 SHA、测试结果、遗留问题。
 2. 把「当前项」改成下一周，且只保留一个当前项。
-3. 同步修改 `docs/COMMERCIALIZATION_STATUS.md` 的 Next Authorized Step。
-4. 未通过 `npm test` 和 `npm run build` 不得勾选完成。
-5. 不得跳周，不得顺便做 P2/P3、支付、云同步。
-6. 不得把「催收备忘」做成工单系统，不得做应付/报税直连。
+3. 未通过 `npm test` 和 `npm run build` 不得勾选完成。
+4. 不得跳周，不得顺便做 P2/P3、支付、云同步。
+5. 不得把「催收备忘」做成工单系统，不得做应付/报税直连。
 
 ## 原则
 
@@ -129,11 +130,10 @@ Last reviewed date: 2026-08-30
 - P1.3：月结完成度与 Excel/CSV 底稿
 - P1.4：完整备份、过期提醒、v2/v3 恢复、演示不落库
 
-## 与商业化文档的关系
+## 生产现状（不要回退）
 
-| 文件 | 作用 |
-|---|---|
-| `docs/PRODUCT_OPTIMIZATION.md` | 近 3 个月要改什么、做到哪了 |
-| `docs/COMMERCIALIZATION_STATUS.md` | 唯一当前授权项（必须与本文件「当前项」一致） |
+- 支付未接通；云同步默认关闭。
+- 财务数据在本机 IndexedDB（`pro/app.js`），与 Supabase 财务表不同步。
+- 注册走 6 位验证码，邮件模板见 `supabase/templates/README.md`。
 
-P2 试用和 P3 支付仍须用户另外授权。本计划完成前，默认下一步是本文件的当前项，不是 P2。
+P2 试用和 P3 支付仍须用户另外授权。默认下一步是本文件的当前项，不是 P2。
