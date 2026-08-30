@@ -5,6 +5,7 @@
   const REDIRECT = "https://utilora.github.io/account/";
   const REG_LIMIT_FN = API + "/functions/v1/registration-limit";
   const OTP_LIMIT_FN = API + "/functions/v1/otp-rate-limit";
+  const LOGIN_COOLDOWN_FN = API + "/functions/v1/login-cooldown";
 
   const headers = (token) => ({
     apikey: KEY,
@@ -21,6 +22,9 @@
     }
     if (/otp_rate_limit/i.test(code + raw)) {
       return raw || "验证码发送次数已达上限，请稍后再试。";
+    }
+    if (/login_cooldown|失败次数过多/i.test(code + raw)) {
+      return raw || "登录失败次数过多，请稍后再试。";
     }
     if (/rate_limit|too many|429/i.test(code + raw)) return "发信通道这小时次数已用完（不是你点错）。请稍后再发验证码。";
     if (/otp_expired|expired/i.test(code + raw)) return "验证码已过期，请重新发送。";
@@ -131,7 +135,6 @@
       }
     } catch (error) {
       if (error && error.code === "registration_ip_limit_exceeded") throw error;
-      // 记账失败不阻断已验证会话
     }
   };
 
@@ -181,10 +184,76 @@
       throw err;
     }
     if (!response.ok) {
-      // 服务端记账失败时不阻断发码，避免误伤；真正限额以部署后为准
       return { skipped: true };
     }
     return data;
+  };
+
+  /** S-03: 登录前检查邮箱/IP 是否在冷却期 */
+  const checkLoginCooldown = async (email) => {
+    try {
+      const response = await fetch(LOGIN_COOLDOWN_FN, {
+        method: "POST",
+        credentials: "omit",
+        cache: "no-store",
+        headers: headers(),
+        body: JSON.stringify({ action: "check", email: String(email || "").trim().toLowerCase() }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok && response.status !== 429) return { allowed: true, skipped: true };
+      if (data && data.allowed === false) {
+        const err = new Error(
+          data.message || "登录失败次数过多，请稍后再试。",
+        );
+        err.code = "login_cooldown";
+        err.status = 429;
+        throw err;
+      }
+      return data;
+    } catch (error) {
+      if (error && error.code === "login_cooldown") throw error;
+      return { allowed: true, skipped: true };
+    }
+  };
+
+  /** S-03: 密码错误后记账；达上限返回冷却错误 */
+  const recordLoginFailure = async (email) => {
+    try {
+      const response = await fetch(LOGIN_COOLDOWN_FN, {
+        method: "POST",
+        credentials: "omit",
+        cache: "no-store",
+        headers: headers(),
+        body: JSON.stringify({ action: "record_failure", email: String(email || "").trim().toLowerCase() }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (response.status === 429 || data.error === "login_cooldown") {
+        const err = new Error(
+          data.message || "登录失败次数过多，请稍后再试。",
+        );
+        err.code = "login_cooldown";
+        err.status = 429;
+        throw err;
+      }
+      return data;
+    } catch (error) {
+      if (error && error.code === "login_cooldown") throw error;
+      return { skipped: true };
+    }
+  };
+
+  /** S-03: 登录成功后清零失败计数 */
+  const clearLoginFailures = async (email) => {
+    try {
+      await fetch(LOGIN_COOLDOWN_FN, {
+        method: "POST",
+        credentials: "omit",
+        cache: "no-store",
+        headers: headers(),
+        body: JSON.stringify({ action: "clear_success", email: String(email || "").trim().toLowerCase() }),
+      });
+    } catch {
+    }
   };
 
   const fetchUser = (token) => request("/auth/v1/user", { headers: headers(token) });
@@ -247,7 +316,6 @@
       try {
         await recordRegistrationSuccess(access);
       } catch {
-        /* 重定向场景下记账失败不阻断 */
       }
     }
     recordActivity("login", "auth", { source: "redirect", type });
@@ -292,9 +360,7 @@
           try {
             await recordRegistrationSuccess(session.access_token);
           } catch (limitError) {
-            // 已验证成功：仍保留会话，但向用户提示限额（极端并发）
             limitError.message = friendlyError(limitError, limitError.message);
-            // 不 throw，避免阻断首次进入账户；限额已在服务端记录或拒绝重复
           }
         }
         recordActivity("login", "auth", { source: "otp" });
@@ -318,15 +384,33 @@
 
   const login = async (email, password) => {
     try {
+      await checkLoginCooldown(email);
       const data = await request("/auth/v1/token?grant_type=password", {
         method: "POST",
         headers: headers(),
         body: JSON.stringify({ email, password }),
       });
       const session = await saveTokens(data);
+      await clearLoginFailures(email);
       recordActivity("login", "auth", { source: "password" });
       return session;
     } catch (error) {
+      const code = String(error && (error.code || error.error_code) || "");
+      const msg = String(error && error.message || "");
+      if (error && error.code === "login_cooldown") {
+        error.message = friendlyError(error, "登录失败次数过多，请稍后再试。");
+        throw error;
+      }
+      if (/invalid login|invalid_credentials|invalid.*password|邮箱或密码/i.test(code + msg)) {
+        try {
+          await recordLoginFailure(email);
+        } catch (cooldownError) {
+          if (cooldownError && cooldownError.code === "login_cooldown") {
+            cooldownError.message = friendlyError(cooldownError, cooldownError.message);
+            throw cooldownError;
+          }
+        }
+      }
       error.message = friendlyError(error, "登录失败");
       throw error;
     }
