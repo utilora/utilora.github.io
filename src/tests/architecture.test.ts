@@ -17,6 +17,8 @@ describe("product architecture", () => {
     expect(home).toContain("pro/?demo=1#/invoices");
     expect(home).toContain("pro/?demo=1#/reports");
     expect(home).not.toContain("#/receivables");
+    expect(home).toContain("做成可交付的结果");
+    expect(home).not.toContain("减少重复录入");
   });
 
   it("gates the professional workspace behind the TypeScript bootstrap", () => {
