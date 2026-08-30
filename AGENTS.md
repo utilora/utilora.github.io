@@ -75,6 +75,8 @@ Before product, entitlement, analytics, billing, storage, or Pro workspace chang
 
 The current code and applied Supabase migrations are the source of truth.
 
+- Default branch workflow: fetch and synchronize `main`, read from `main`, and make authorized changes directly on `main` unless the user explicitly requests another branch.
+
 - Work only on an item explicitly authorized by the user.
 - Revalidate the documented state against the current branch before editing.
 - Keep every existing tool under tools/ anonymous, login-free, and permanently free.

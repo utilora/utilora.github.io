@@ -1,4 +1,4 @@
-﻿# Utilora Commercialization Status
+# Utilora Commercialization Status
 
 Last reviewed branch: main
 Last reviewed commit: 5b2f8d603251be8a65dedf6db2f7bd7bde5191f3
@@ -87,7 +87,7 @@ Implementation requires an explicit request to begin P1.1.
 - Uploading local finance data to Supabase.
 - Cloud backup/sync.
 - Team or enterprise features.
-- Merging a feature branch into main.
+- Switching away from main or creating a feature branch.
 
 ## Status update protocol
 

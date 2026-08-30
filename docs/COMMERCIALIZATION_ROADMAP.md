@@ -1,4 +1,4 @@
-﻿# Utilora Commercialization Roadmap
+# Utilora Commercialization Roadmap
 
 ## Purpose
 
@@ -89,6 +89,6 @@ Track product funnel and lifecycle events only. Never include customer names, ba
 
 - Work on one authorized item at a time.
 - General optimization does not authorize payment, cloud sync, P2 or P3.
-- Use feature branches; do not merge main without explicit approval.
+- Default to synchronized `main` for reading and authorized changes; use another branch only when the user explicitly requests it.
 - Add new migrations; never edit an applied migration.
 - Update COMMERCIALIZATION_STATUS.md after completed commercialization work.
