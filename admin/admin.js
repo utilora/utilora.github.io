@@ -882,6 +882,31 @@ document.querySelectorAll('[data-page]').forEach((btn) => {
 document.getElementById('sidebar-toggle').addEventListener('click', () => {
   document.body.classList.toggle('sidebar-open');
 });
+const sidebarKey = 'utilora_admin_sidebar';
+function desktopNav() {
+  return window.matchMedia('(min-width: 981px)').matches;
+}
+function applySidebarWidth() {
+  const shell = document.getElementById('manager-panel');
+  const collapse = document.getElementById('sidebar-collapse');
+  const narrow = localStorage.getItem(sidebarKey) === 'narrow';
+  if (shell) shell.classList.toggle('sidebar-narrow', narrow);
+  if (collapse) {
+    collapse.textContent = narrow ? '›' : '‹';
+    collapse.setAttribute('aria-label', narrow ? '展开侧栏' : '收窄侧栏');
+    collapse.title = narrow ? '展开侧栏' : '收窄侧栏';
+  }
+}
+function toggleSidebarWidth() {
+  if (!desktopNav()) {
+    document.body.classList.toggle('sidebar-open');
+    return;
+  }
+  localStorage.setItem(sidebarKey, localStorage.getItem(sidebarKey) === 'narrow' ? 'wide' : 'narrow');
+  applySidebarWidth();
+}
+document.getElementById('sidebar-collapse')?.addEventListener('click', toggleSidebarWidth);
+applySidebarWidth();
 document.getElementById('analytics-range').addEventListener('change', () => {
   const custom = document.getElementById('analytics-range').value === 'custom';
   document.getElementById('custom-range').hidden = !custom;

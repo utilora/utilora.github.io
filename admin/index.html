@@ -31,22 +31,25 @@
 
     <div id="manager-panel" class="admin-shell" hidden>
       <aside class="admin-sidebar">
-        <a class="side-brand" href="../"><span>U</span>Utilora 管理</a>
+        <div class="side-head">
+          <a class="side-brand" href="../" title="返回网站"><span>U</span><em>Utilora 管理</em></a>
+          <button id="sidebar-collapse" class="side-collapse" type="button" aria-label="收窄侧栏" title="收窄侧栏">‹</button>
+        </div>
         <nav class="side-nav">
           <p>运营</p>
-          <button class="side-link active" data-page="overview" type="button">工作台</button>
-          <button class="side-link" data-page="analytics" type="button" id="tab-analytics">访问统计</button>
-          <button class="side-link" data-page="feedback" type="button" id="tab-feedback">用户留言 <b id="feedback-count" hidden></b></button>
-          <button class="side-link" data-page="intents" type="button" id="tab-intents">购买意向 <b id="intents-count" hidden></b></button>
-          <button class="side-link" data-page="promotions" type="button">生产折扣</button>
-          <button class="side-link" data-page="logs" type="button">操作日志</button>
+          <button class="side-link active" data-page="overview" type="button" title="工作台"><i aria-hidden="true">台</i><span>工作台</span></button>
+          <button class="side-link" data-page="analytics" type="button" id="tab-analytics" title="访问统计"><i aria-hidden="true">统</i><span>访问统计</span></button>
+          <button class="side-link" data-page="feedback" type="button" id="tab-feedback" title="用户留言"><i aria-hidden="true">言</i><span>用户留言</span> <b id="feedback-count" hidden></b></button>
+          <button class="side-link" data-page="intents" type="button" id="tab-intents" title="购买意向"><i aria-hidden="true">购</i><span>购买意向</span> <b id="intents-count" hidden></b></button>
+          <button class="side-link" data-page="promotions" type="button" title="生产折扣"><i aria-hidden="true">折</i><span>生产折扣</span></button>
+          <button class="side-link" data-page="logs" type="button" title="操作日志"><i aria-hidden="true">志</i><span>操作日志</span></button>
           <p>账号</p>
-          <button class="side-link" data-page="users" type="button">用户管理</button>
-          <button class="side-link" data-page="entitlements" type="button">权益一览</button>
+          <button class="side-link" data-page="users" type="button" title="用户管理"><i aria-hidden="true">户</i><span>用户管理</span></button>
+          <button class="side-link" data-page="entitlements" type="button" title="权益一览"><i aria-hidden="true">权</i><span>权益一览</span></button>
         </nav>
         <div class="side-foot">
           <strong id="admin-email">管理员</strong>
-          <button id="logout" class="secondary" type="button">退出登录</button>
+          <button id="logout" class="secondary" type="button" title="退出登录">退出登录</button>
           <a href="../">返回网站</a>
         </div>
       </aside>
