@@ -82,6 +82,13 @@
     } catch {}
   };
 
+  const readCaptchaToken = () => {
+    const input = document.querySelector('[name="cf-turnstile-response"]');
+    if (input && input.value) return input.value.trim();
+    if (window.__turnstileToken) return String(window.__turnstileToken).trim();
+    return "";
+  };
+
 
 
   const startCooldown = (seconds) => {
@@ -151,7 +158,7 @@
   const sendMail = async (email, name, password) => {
     pendingPassword = password || pendingPassword;
     pendingName = name || pendingName;
-    await auth.sendOtp(email, pendingName);
+    await auth.sendOtp(email, pendingName, readCaptchaToken());
     pendingEmail = email;
     mode = "verify";
     startCooldown(60);
