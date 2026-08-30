@@ -41,7 +41,7 @@
 | 线 | 分支 | 当前项 | 状态 |
 |----|------|--------|------|
 | 用户端 | feat/user-workspace | U-01 | 待开始 |
-| 管理端 | feat/admin-ops | A-03 | 待开始 |
+| 管理端 | feat/admin-ops | A-02 | 受阻（见进度表说明） |
 | 安全 | fix/security-hardening | S-01 | 待开始 |
 
 ## AI 开工前必读
@@ -101,7 +101,7 @@ A-08 邀请预埋：库表记邀请人 / 被邀请人 / 状态（已绑定、待
 | 编号 | 状态 | 分支 | 最近提交 | 测试 |
 |------|------|------|----------|------|
 | A-01 | 待合并 | feat/admin-ops | 2306fd4 | npm test 通过；需执行 migrations/202608310001_admin_grant_entitlement.sql 后联调 |
-| A-02 | 待合并 | feat/admin-ops | 28d9065 | 风控台 RPC + UI 接线完成；admin-ops.sql 已自 main 恢复正文；npm test 通过。需执行 migrations/202608310002_admin_risk_console.sql 后联调。 |
+| A-02 | 受阻 | feat/admin-ops | f11dcd8 | RPC migration `202608310002` 与 `risk-console.js` 已在分支；本地已完成 index.html/admin.js 接线与 admin-ops.sql 自 main 恢复，且 npm test 通过；**未能**经 GitHub API 将大文件完整推送到远程（HTTPS 无凭据、API 易截断）。需具备 git 写权限的环境推送 `admin/index.html`、`admin/admin.js`、`supabase/admin-ops.sql`。 |
 | A-03 | 待开始 | feat/admin-ops | — | — |
 | A-04 | 待开始 | feat/admin-ops | — | — |
 | A-05 | 待开始 | feat/admin-ops | — | — |
