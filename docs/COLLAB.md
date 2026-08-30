@@ -41,7 +41,7 @@
 | 线 | 分支 | 当前项 | 状态 |
 |----|------|--------|------|
 | 用户端 | feat/user-workspace | U-01 | 待开始 |
-| 管理端 | feat/admin-ops | A-02 | 受阻（见进度表说明） |
+| 管理端 | feat/admin-ops | A-03 | 待开始 |
 | 安全 | fix/security-hardening | S-01 | 待开始 |
 
 ## AI 开工前必读
@@ -101,7 +101,7 @@ A-08 邀请预埋：库表记邀请人 / 被邀请人 / 状态（已绑定、待
 | 编号 | 状态 | 分支 | 最近提交 | 测试 |
 |------|------|------|----------|------|
 | A-01 | 待合并 | feat/admin-ops | 2306fd4 | npm test 通过；需执行 migrations/202608310001_admin_grant_entitlement.sql 后联调 |
-| A-02 | 受阻 | feat/admin-ops | 316a883 | RPC migration `202608310002` 与 `risk-console.js` 已在分支；**未**将风控页接入 `index.html`/`admin.js`；`admin-ops.sql` 正文请以 main 为准恢复。阻塞原因：大文件经 GitHub API 推送易被截断。 |
+| A-02 | 待合并 | feat/admin-ops | 28d9065 | 风控台 RPC + UI 接线完成；admin-ops.sql 已自 main 恢复正文；npm test 通过。需执行 migrations/202608310002_admin_risk_console.sql 后联调。 |
 | A-03 | 待开始 | feat/admin-ops | — | — |
 | A-04 | 待开始 | feat/admin-ops | — | — |
 | A-05 | 待开始 | feat/admin-ops | — | — |
