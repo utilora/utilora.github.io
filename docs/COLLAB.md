@@ -42,7 +42,7 @@
 |----|------|--------|------|
 | 用户端 | feat/user-workspace | U-01 | 待开始 |
 | 管理端 | feat/admin-ops | A-01 | 待开始 |
-| 安全 | fix/security-hardening | S-03 | 待开始 |
+| 安全 | fix/security-hardening | S-04 | 待开始 |
 
 ## AI 开工前必读
 
@@ -125,7 +125,7 @@ S-07 停用账号后 refresh 立即失效。
 |------|------|------|----------|------|
 | S-01 | 已完成（待合并） | fix/security-hardening | a68c4539e6e0e3cd8fefc836ef369bfaf49a63f3 | 单元测试通过；迁移与 Edge Function 待生产部署后联调 |
 | S-02 | 已完成（待合并） | fix/security-hardening | 76c6c87a601008a74f1299f6b32f2f41fb20ccca | 单元测试通过；迁移与 Edge Function 待生产部署后联调 |
-| S-03 | 待开始 | fix/security-hardening | — | — |
+| S-03 | 已完成（待合并） | fix/security-hardening | 1c656862089063d4b0b743672902c70bad4c1891 | 单元测试通过；迁移与 Edge Function 待生产部署后联调 |
 | S-04 | 待开始 | fix/security-hardening | — | — |
 | S-05 | 待开始 | fix/security-hardening | — | — |
 | S-06 | 待开始 | fix/security-hardening | — | — |
