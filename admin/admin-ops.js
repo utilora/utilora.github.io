@@ -227,7 +227,7 @@
   }
 
   async function loadFunnel() {
-    const apply = (counts) => {
+    const apply = (counts, rangeLabel) => {
       const get = (key) => Number(counts?.[key] || 0).toLocaleString();
       fill('funnel-demo', get('demo_enter'));
       fill('funnel-pricing', get('pricing_view'));
@@ -236,20 +236,22 @@
       fill('funnel-workspace', get('workspace_enter'));
       fill('funnel-bank', get('bank_use'));
       fill('overview-demo', get('demo_enter'));
+      const em = document.getElementById('overview-demo-range');
+      if (em) em.textContent = rangeLabel || '查看漏斗';
     };
+    const range = typeof selectedRange === 'function' ? selectedRange() : { days: 30, label: '最近 30 天' };
     if (isPreview() && !getSession()) {
       const title = document.getElementById('funnel-title');
-      if (title) title.textContent = '商业化漏斗（预览）';
-      apply({ demo_enter: 18, pricing_view: 41, purchase_intent: 6, login_success: 22, workspace_enter: 14, bank_use: 9 });
+      if (title) title.textContent = `商业化漏斗（${range.label || '预览'}）`;
+      apply({ demo_enter: 18, pricing_view: 41, purchase_intent: 6, login_success: 22, workspace_enter: 14, bank_use: 9 }, range.label);
       return;
     }
     try {
-      const range = typeof selectedRange === 'function' ? selectedRange() : { days: 30, label: '最近 30 天' };
       const title = document.getElementById('funnel-title');
       if (title) title.textContent = `商业化漏斗（${range.label || `最近 ${range.days} 天`}）`;
       const response = await request('rpc/admin_product_funnel', { method: 'POST', body: JSON.stringify({ p_days: range.days || 30 }) });
       const data = await response.json();
-      apply(data.counts || data);
+      apply(data.counts || data, range.label);
     } catch {
       ['funnel-demo', 'funnel-pricing', 'funnel-intent', 'funnel-login', 'funnel-workspace', 'funnel-bank', 'overview-demo'].forEach((id) => fill(id, '—'));
     }
@@ -622,4 +624,11 @@
     openDossier,
     closeDossier,
   };
+
+  if (getSession() || isPreview()) {
+    showManager();
+    refreshAll();
+  } else {
+    showLogin();
+  }
 })();

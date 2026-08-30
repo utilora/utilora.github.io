@@ -176,6 +176,9 @@ describe("product architecture", () => {
     expect(read("admin/index.html")).toContain('id="dossier"');
     expect(read("admin/index.html")).toContain('id="export-logs"');
     expect(sql).toContain("admin_overview_stats");
+    expect(read("admin/index.html")).not.toContain("不要现在上生产");
+    expect(read("admin/admin.js")).toContain("邮箱或密码不对");
+    expect(read("admin/admin-ops.js")).toContain("refreshAll()");
     expect(read("assets/js/auth.js")).toContain("record_user_activity");
     expect(read("assets/js/analytics.js")).toContain("record_user_activity");
     expect(read("src/core/auth/session.ts")).toContain("record_user_activity");

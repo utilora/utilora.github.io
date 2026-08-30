@@ -129,6 +129,15 @@ function todayISO() {
   return local.toISOString().slice(0, 10);
 }
 
+function loginErrorText(raw) {
+  const text = String(raw || '').trim();
+  if (/invalid login credentials|invalid_grant|invalid email or password/i.test(text)) return '邮箱或密码不对';
+  if (/email not confirmed/i.test(text)) return '邮箱尚未验证';
+  if (/too many requests|rate limit/i.test(text)) return '尝试次数过多，请稍后再试';
+  if (/failed to fetch|networkerror|load failed/i.test(text)) return '网络异常，请稍后重试';
+  return text || '登录失败';
+}
+
 function addDays(iso, days) {
   const date = new Date(`${iso}T00:00:00`);
   date.setDate(date.getDate() + days);
@@ -151,14 +160,14 @@ loginForm.addEventListener('submit', async (event) => {
       }),
     });
     const data = await response.json();
-    if (!response.ok) throw new Error(data.error_description || data.msg || '登录失败');
+    if (!response.ok) throw new Error(loginErrorText(data.error_description || data.msg || data.error));
     sessionStorage.setItem(sessionKey, JSON.stringify(data));
     document.getElementById('password').value = '';
     showManager();
     await recordAdminAuth('login');
     await refreshAll();
   } catch (error) {
-    setMessage(loginMessage, error.message, true);
+    setMessage(loginMessage, loginErrorText(error.message), true);
   } finally {
     button.disabled = false;
   }
@@ -349,9 +358,10 @@ function buildQuery() {
 
 async function loadFeedback() {
   if (isPreview() && !getSession()) {
-    document.getElementById('overview-feedback').textContent = '12';
     feedbackLoadState = 'ok';
-    feedbackCache = [];
+    feedbackCache = mockFeedback;
+    renderRows(feedbackCache);
+    setMessage(managerMessage, '当前为界面预览数据。');
     setPageSummary('预览数据');
     return;
   }
@@ -835,19 +845,19 @@ startInput.value = addDays(endInput.value, -29);
 endInput.max = todayISO();
 startInput.max = todayISO();
 
-if (getSession() || isPreview()) {
-  showManager();
-  refreshAll();
-} else {
-  showLogin();
-}
-
-
 const mockUsers = [
   { id: '1', email: 'admin@utilora.local', name: '站长', created_at: '2026-03-01T08:00:00Z', last_sign_in_at: '2026-08-20T08:12:00Z', email_confirmed_at: '2026-03-01T08:10:00Z', is_admin: true, is_disabled: false },
   { id: '2', email: 'li@example.com', name: '李然', created_at: '2026-06-18T02:00:00Z', last_sign_in_at: '2026-08-19T13:40:00Z', email_confirmed_at: '2026-06-18T02:20:00Z', is_admin: false, is_disabled: false },
   { id: '3', email: 'unverified@example.com', name: '待验证', created_at: '2026-08-12T09:00:00Z', last_sign_in_at: null, email_confirmed_at: null, is_admin: false, is_disabled: false },
   { id: '4', email: 'paused@example.com', name: '已停用账号', created_at: '2026-05-02T04:00:00Z', last_sign_in_at: '2026-07-01T10:00:00Z', email_confirmed_at: '2026-05-02T04:10:00Z', is_admin: false, is_disabled: true },
+];
+const mockIntents = [
+  { id: 'i1', email: 'demo-bookkeeper@example.com', use_case: '银行流水', company_size: '1-10', intended_plan: 'pro', created_at: '2026-08-20T08:00:00Z', follow_status: 'new', follow_note: '' },
+  { id: 'i2', email: 'finance@example.com', use_case: '应收回款', company_size: '11-50', intended_plan: 'pro', created_at: '2026-08-22T11:20:00Z', follow_status: 'contacted', follow_note: '已电话确认' },
+];
+const mockFeedback = [
+  { id: 'f1', created_at: '2026-08-28T09:12:00Z', name: '林青', title: '银行导入', message: '导入预览后想批量确认匹配。', contact: 'qing@example.com', status: 'new' },
+  { id: 'f2', created_at: '2026-08-21T14:40:00Z', name: '周敏', title: '月结导出', message: '希望月底导出能带上未匹配流水。', contact: 'min@example.com', status: 'processing' },
 ];
 
 function formatTime(value) {
@@ -1026,11 +1036,6 @@ renderRows = function(rows) {
   originalRenderRows(rows);
   document.getElementById('overview-feedback').textContent = String(rows.length);
 };
-
-const mockIntents = [
-  { id: 'i1', email: 'demo-bookkeeper@example.com', use_case: '银行流水', company_size: '1-10', intended_plan: 'pro', created_at: '2026-08-20T08:00:00Z', follow_status: 'new', follow_note: '' },
-  { id: 'i2', email: 'finance@example.com', use_case: '应收回款', company_size: '11-50', intended_plan: 'pro', created_at: '2026-08-22T11:20:00Z', follow_status: 'contacted', follow_note: '已电话确认' },
-];
 
 function filteredIntents() {
   const q = (document.getElementById('intent-search')?.value || '').trim().toLowerCase();

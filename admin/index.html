@@ -90,7 +90,7 @@
               <button class="overview-card" data-page="analytics" type="button">
                 <span>演示进入</span>
                 <strong id="overview-demo">—</strong>
-                <em>近 30 天漏斗</em>
+                <em id="overview-demo-range">查看漏斗</em>
               </button>
               <button class="overview-card" data-page="promotions" type="button">
                 <span>生效折扣</span>
@@ -113,7 +113,7 @@
                 <em>未关闭的购买意向</em>
               </button>
             </div>
-            <p class="hint">SQL 请稍后一次性执行 supabase/admin-ops.sql，不要现在上生产。本分支不接支付、不改账本。</p>
+            <p class="hint">支付未接通。财务数据仍在本地，管理端不改账本。</p>
           </section>
 
       <section id="analytics-section" class="analytics-panel" hidden aria-labelledby="analytics-title">
@@ -413,7 +413,7 @@
       </section>
 
       <section id="promotions-section" hidden>
-        <p class="hint">生产控制型折扣：只改 promotions 配置，强制不收款。SQL 未执行前仅显示预览数据。</p>
+        <p class="hint">生产控制型折扣：只改 promotions 配置，强制不收款。</p>
         <form id="promo-form" class="filters promo-form">
           <div>
             <label for="promo-code">代码</label>
@@ -460,9 +460,11 @@
           <div class="filter-actions">
             <label class="check"><input id="promo-active" type="checkbox" checked> 立即生效</label>
             <button type="submit">保存折扣</button>
-            <button type="button" class="secondary" id="export-promos">导出 CSV</button>
           </div>
         </form>
+        <div class="users-toolbar">
+          <button type="button" class="secondary" id="export-promos">导出 CSV</button>
+        </div>
         <div id="promotions-message" class="message" role="status"></div>
         <div class="table-wrap">
           <table>
