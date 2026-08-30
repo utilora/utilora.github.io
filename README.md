@@ -1,65 +1,45 @@
-# Utilora 在线实用工具箱
+# Utilora
 
-Utilora 是一个基于 HTML、CSS 和 JavaScript 的免费在线工具集合，使用 GitHub Pages 自动发布。处理尽量只在浏览器中完成。
+免费财税工具 + 专业财务工作台。顺手的工具，不该复杂。
 
-## 在线访问
+- 免费工具：永久免费、匿名、无需登录，计算留在浏览器里。
+- 专业版：登录后使用。当前内测限免，**未接支付**，不会自动扣费。
+- 财务账本：存在本机 IndexedDB，不默认上云。
 
 https://utilora.github.io/
 
-## 这次更新
+## 能做什么
 
-- 增值税价税分离、报价单、个人所得税、到手工资
-- JSON / YAML / CSV 互转
-- 图片批量压缩并打包下载
-- 二维码识别
-- 词级简繁转换
-- Markdown 预览与公众号 HTML
-- 工具页可分享链接（`?q=`）
-- 身份证号码结构校验
+**免费工具**（打开即用）
 
-## 目录结构
+- [增值税价税分离](https://utilora.github.io/tools/vat-split/)
+- [个人所得税测算](https://utilora.github.io/tools/income-tax/)
+- [工资与用工成本](https://utilora.github.io/tools/payroll/)
+- [报价单](https://utilora.github.io/tools/quote/)
+- [人民币大写](https://utilora.github.io/tools/number-chinese/)
 
-```text
-.
-├─ index.html
-├─ assets/
-│  ├─ css/site.css
-│  ├─ js/
-│  └─ vendor/
-└─ tools/
-   ├─ data-convert/
-   ├─ image-compress/
-   ├─ markdown-preview/
-   └─ ...
-```
+**专业财务工作台**（登录或 [演示](https://utilora.github.io/pro/?demo=1#/dashboard)）
 
-每个工具目录包含自己的 `index.html` 和 `tool.js`。
+- 银行流水导入与收款匹配
+- 应收回款、账龄、催收进度
+- 月结检查与 Excel/CSV 底稿
+- 本机完整备份与恢复（演示里的改动不保存）
 
-## 发布更新
+## 本地开发
 
 ```bash
-git add .
-git commit -m "更新网站"
-git push
+npm install
+npm run dev
+npm test
+npm run build
 ```
 
-GitHub Pages 会在推送后自动重新发布网站。
+`main` 经 GitHub Actions 构建后发布到 GitHub Pages。前端只用 Supabase 的 publishable/anon key，不要把 service-role 写进仓库。
 
-## 新版架构
+## 约定
 
-项目正在从静态脚本逐步迁移到 Vite + TypeScript + Supabase：
-
-- 免费工具保持匿名、无需登录和本地优先；
-- 财务专业版通过 Supabase Auth、会员权益和企业成员权限控制；
-- 当前登录用户在内测活动期间获得专业版限时免费权益；
-- 数据库迁移、RLS 和活动配置位于 supabase/migrations/；
-- 近期工作清单见 docs/PRODUCT_OPTIMIZATION.md，当前状态见 docs/COMMERCIALIZATION_STATUS.md。
-
-本地开发：
-
-    npm install
-    npm run dev
-    npm test
-    npm run build
-
-main 分支通过 GitHub Actions 构建 dist 并部署到 GitHub Pages。浏览器端只允许使用 Supabase publishable/anon key，禁止写入 service-role key。
+- 默认在 `main` 上改。一次只做 [docs/PRODUCT_OPTIMIZATION.md](docs/PRODUCT_OPTIMIZATION.md) 里的当前项。
+- 当前状态：[docs/COMMERCIALIZATION_STATUS.md](docs/COMMERCIALIZATION_STATUS.md)
+- 给 AI 的规矩：[AGENTS.md](AGENTS.md)
+- 验证码邮件模板：[supabase/templates/README.md](supabase/templates/README.md)
+- 未授权不要接支付、不要做云同步、不要上传本地财务数据。
