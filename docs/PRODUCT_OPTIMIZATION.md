@@ -135,7 +135,5 @@ Last reviewed date: 2026-08-30
 |---|---|
 | `docs/PRODUCT_OPTIMIZATION.md` | 近 3 个月要改什么、做到哪了 |
 | `docs/COMMERCIALIZATION_STATUS.md` | 唯一当前授权项（必须与本文件「当前项」一致） |
-| `docs/COMMERCIALIZATION_ROADMAP.md` | 长期方向；P2/P3 仍需额外批准 |
-| `docs/COMMERCIALIZATION_REQUIREMENTS.md` | P2/P3 需求，现在不要实施 |
 
 P2 试用和 P3 支付仍须用户另外授权。本计划完成前，默认下一步是本文件的当前项，不是 P2。

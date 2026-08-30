@@ -53,7 +53,7 @@ GitHub Pages 会在推送后自动重新发布网站。
 - 财务专业版通过 Supabase Auth、会员权益和企业成员权限控制；
 - 当前登录用户在内测活动期间获得专业版限时免费权益；
 - 数据库迁移、RLS 和活动配置位于 supabase/migrations/；
-- 架构说明见 docs/architecture.md，数据库运维见 docs/database.md。
+- 近期工作清单见 docs/PRODUCT_OPTIMIZATION.md，当前状态见 docs/COMMERCIALIZATION_STATUS.md。
 
 本地开发：
 
