@@ -66,3 +66,20 @@ Do not provide long explanations of routine exploration or unchanged files unles
 
 ## Priority
 Correctness comes first. These efficiency rules are intended to eliminate unnecessary work, not necessary reasoning, validation, or safety checks.
+## Commercialization Workflow
+
+Before product, entitlement, analytics, billing, storage, or Pro workspace changes, read:
+
+1. docs/COMMERCIALIZATION_ROADMAP.md
+2. docs/COMMERCIALIZATION_STATUS.md
+
+The current code and applied Supabase migrations are the source of truth.
+
+- Work only on an item explicitly authorized by the user.
+- Revalidate the documented state against the current branch before editing.
+- Keep every existing tool under tools/ anonymous, login-free, and permanently free.
+- Do not connect payment, start a later phase, force cloud sync, or upload local financial data without explicit approval.
+- Never expose Supabase service-role keys, payment secrets, or privileged credentials in frontend code.
+- Trial or subscription expiry must never block viewing or complete export of user data.
+- After an authorized commercialization task, update COMMERCIALIZATION_STATUS.md with validation, risks, and exactly one recommended next step.
+- Do not mark work complete until its acceptance criteria and relevant tests pass.
