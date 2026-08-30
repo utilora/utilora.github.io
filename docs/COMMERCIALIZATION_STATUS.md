@@ -56,6 +56,7 @@ P1 is complete. Near-term work follows docs/PRODUCT_OPTIMIZATION.md, currently M
 - Local finance data and Supabase finance tables are not synchronized; never imply that they are.
 - Entitlements do not yet expose feature-level limits.
 - Payment and billing operations are intentionally absent.
+- Service worker cache is utilora-v20; old v11/v12 query-string precache entries were removed.
 
 ## Next Authorized Step
 
