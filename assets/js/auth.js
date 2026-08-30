@@ -6,6 +6,7 @@
   const REG_LIMIT_FN = API + "/functions/v1/registration-limit";
   const OTP_LIMIT_FN = API + "/functions/v1/otp-rate-limit";
   const LOGIN_COOLDOWN_FN = API + "/functions/v1/login-cooldown";
+  const CAPTCHA_FN = API + "/functions/v1/verify-captcha";
 
   const headers = (token) => ({
     apikey: KEY,
@@ -25,6 +26,9 @@
     }
     if (/login_cooldown|失败次数过多/i.test(code + raw)) {
       return raw || "登录失败次数过多，请稍后再试。";
+    }
+    if (/captcha_required|captcha_failed|人机验证/i.test(code + raw)) {
+      return raw || "请完成人机验证后再提交。";
     }
     if (/rate_limit|too many|429/i.test(code + raw)) return "发信通道这小时次数已用完（不是你点错）。请稍后再发验证码。";
     if (/otp_expired|expired/i.test(code + raw)) return "验证码已过期，请重新发送。";
@@ -84,6 +88,32 @@
       }
     }
     throw lastError;
+  };
+
+  /** S-04: 人机验证服务端验票；purpose=register|feedback|purchase_intent */
+  const verifyCaptcha = async (token, purpose) => {
+    const response = await fetch(CAPTCHA_FN, {
+      method: "POST",
+      credentials: "omit",
+      cache: "no-store",
+      headers: headers(),
+      body: JSON.stringify({
+        action: "verify",
+        token: String(token || "").trim(),
+        purpose: String(purpose || "").trim().toLowerCase(),
+      }),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (data && data.skipped) return data;
+    if (!response.ok || data.allowed === false) {
+      const err = new Error(
+        data.message || "请完成人机验证后再提交。",
+      );
+      err.code = data.error || "captcha_failed";
+      err.status = response.status;
+      throw err;
+    }
+    return data;
   };
 
   /** S-01: 查询当前 IP 今日是否仍可成功注册（失败时不阻断，避免误伤；真正记账在 record） */
@@ -322,8 +352,9 @@
     return { type };
   };
 
-  const sendOtp = async (email, name) => {
+  const sendOtp = async (email, name, captchaToken) => {
     try {
+      await verifyCaptcha(captchaToken, "register");
       await checkRegistrationLimit();
       await checkOtpRateLimit(email);
       await recordOtpSend(email);
@@ -519,5 +550,6 @@
     isVerified,
     friendlyError,
     checkRegistrationLimit,
+    verifyCaptcha,
   };
 })();
