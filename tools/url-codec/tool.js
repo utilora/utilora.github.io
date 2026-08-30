@@ -1,4 +1,0 @@
-const input=document.getElementById('input'),output=document.getElementById('output'),message=document.getElementById('message');
-document.getElementById('encode').onclick=()=>{output.textContent=encodeURIComponent(input.value);message.className='message';message.textContent='编码完成'};
-document.getElementById('decode').onclick=()=>{try{output.textContent=decodeURIComponent(input.value);message.className='message';message.textContent='解码完成'}catch(e){message.className='message error';message.textContent='无法解码：请检查百分号编码是否完整'}};
-document.getElementById('copy').onclick=async()=>{if(output.textContent==='—')return;await navigator.clipboard.writeText(output.textContent);message.textContent='已复制'};
