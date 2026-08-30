@@ -64,6 +64,8 @@ Implementation requires an explicit request to begin P2. Do not start P2, paymen
 
 ### Scope when authorized
 
+Detailed functional requirements: COMMERCIALIZATION_REQUIREMENTS.md.
+
 - Introduce a no-card trial, initially 30 days.
 - Add feature-level entitlements and organization limits.
 - Add trial start, expiry, reminder and downgrade behavior.

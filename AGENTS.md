@@ -71,7 +71,8 @@ Correctness comes first. These efficiency rules are intended to eliminate unnece
 Before product, entitlement, analytics, billing, storage, or Pro workspace changes, read:
 
 1. docs/COMMERCIALIZATION_ROADMAP.md
-2. docs/COMMERCIALIZATION_STATUS.md
+2. docs/COMMERCIALIZATION_REQUIREMENTS.md
+3. docs/COMMERCIALIZATION_STATUS.md
 
 The current code and applied Supabase migrations are the source of truth.
 

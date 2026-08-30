@@ -108,6 +108,10 @@ Requires explicit approval.
 
 Track product funnel and lifecycle events only. Never include customer names, bank descriptions, amounts, invoices, tax identifiers, payroll or other financial content.
 
+## Functional requirements
+
+Detailed, testable requirements and acceptance criteria are maintained in COMMERCIALIZATION_REQUIREMENTS.md. That document does not authorize implementation; COMMERCIALIZATION_STATUS.md controls the next authorized step.
+
 ## Change control
 
 - Work on one authorized item at a time.
