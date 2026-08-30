@@ -3,6 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="turnstile-site-key" content="">
   <title>功能建议 - Utilora</title>
   <link rel="stylesheet" href="../assets/css/site.css">
 </head>
@@ -18,13 +19,37 @@
         <div class="field"><label for="detail">使用场景或详细说明</label><textarea id="detail" required minlength="5" maxlength="2000" placeholder="请描述你希望它解决什么问题……"></textarea></div>
         <div class="field"><label for="contact">联系方式（选填）</label><input id="contact" maxlength="100" autocomplete="email" placeholder="邮箱或其他联系方式"></div>
         <div hidden aria-hidden="true"><label for="website">网站</label><input id="website" tabindex="-1" autocomplete="off"></div>
+        <div id="turnstile-slot" class="field" hidden></div>
         <button id="submit" type="submit">提交建议</button>
       </form>
       <div id="form-message" class="message" role="status" aria-live="polite"></div>
       <div class="result">留言仅管理员可在 Supabase 后台查看。请勿提交密码、验证码等敏感信息。</div>
     </div>
   </main>
-  <script src="config.js"></script>
+  <script>
+    (function () {
+      var meta = document.querySelector('meta[name="turnstile-site-key"]');
+      var siteKey = (window.__TURNSTILE_SITE_KEY || (meta && meta.content) || "").trim();
+      if (!siteKey) return;
+      var slot = document.getElementById("turnstile-slot");
+      if (slot) slot.hidden = false;
+      window.__onTurnstile = function (token) { window.__turnstileToken = token; };
+      var s = document.createElement("script");
+      s.src = "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit";
+      s.async = true;
+      s.onload = function () {
+        if (!window.turnstile || !slot) return;
+        window.turnstile.render(slot, {
+          sitekey: siteKey,
+          callback: window.__onTurnstile,
+          "error-callback": function () { window.__turnstileToken = ""; },
+          "expired-callback": function () { window.__turnstileToken = ""; }
+        });
+      };
+      document.head.appendChild(s);
+    })();
+  </script>
+<script src="config.js"></script>
   <script src="feedback.js"></script>
 <script src="../assets/js/analytics.js"></script></body>
 </html>

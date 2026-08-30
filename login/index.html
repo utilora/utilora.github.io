@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="robots" content="noindex,nofollow">
+  <meta name="turnstile-site-key" content="">
   <title>登录 - Utilora</title>
   <meta name="description" content="使用邮箱登录 Utilora。注册会向真实邮箱发送验证码，验证成功后才能登录。">
   <link rel="icon" type="image/svg+xml" href="../favicon.svg">
@@ -42,6 +43,7 @@
           <input id="otp" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="8" pattern="[0-9]{6,8}" placeholder="请输入邮件中的验证码">
           <p class="hint tight">验证码为 6 到 8 位数字，请按邮件里的完整数字填写。</p>
         </div>
+        <div id="turnstile-slot" class="field" hidden></div>
         <button id="submit" type="submit">登录</button>
       </form>
       <p id="form-msg" class="message" role="status"></p>
@@ -52,9 +54,32 @@
       </div>
     </div>
   </main>
-  <script src="../assets/js/auth.js?v=15"></script>
+  <script src="../assets/js/auth.js?v=16"></script>
   <script src="../assets/js/analytics.js"></script>
-  <script src="login.js?v=16"></script>
+  <script>
+    (function () {
+      var meta = document.querySelector('meta[name="turnstile-site-key"]');
+      var siteKey = (window.__TURNSTILE_SITE_KEY || (meta && meta.content) || "").trim();
+      if (!siteKey) return;
+      var slot = document.getElementById("turnstile-slot");
+      if (slot) slot.hidden = false;
+      window.__onTurnstile = function (token) { window.__turnstileToken = token; };
+      var s = document.createElement("script");
+      s.src = "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit";
+      s.async = true;
+      s.onload = function () {
+        if (!window.turnstile || !slot) return;
+        window.turnstile.render(slot, {
+          sitekey: siteKey,
+          callback: window.__onTurnstile,
+          "error-callback": function () { window.__turnstileToken = ""; },
+          "expired-callback": function () { window.__turnstileToken = ""; }
+        });
+      };
+      document.head.appendChild(s);
+    })();
+  </script>
+  <script src="login.js?v=17"></script>
 
 </body>
 </html>
