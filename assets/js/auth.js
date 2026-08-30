@@ -30,6 +30,9 @@
     if (/captcha_required|captcha_failed|人机验证/i.test(code + raw)) {
       return raw || "请完成人机验证后再提交。";
     }
+    if (/account_disabled|账号已停用/i.test(code + raw)) {
+      return raw || "该账号已停用，请联系管理员。";
+    }
     if (/rate_limit|too many|429/i.test(code + raw)) return "发信通道这小时次数已用完（不是你点错）。请稍后再发验证码。";
     if (/otp_expired|expired/i.test(code + raw)) return "验证码已过期，请重新发送。";
     if (/invalid.*token|otp_disabled|token.*invalid/i.test(code + raw)) return "验证码不对，请核对后重试。";
@@ -233,7 +236,7 @@
       if (!response.ok && response.status !== 429) return { allowed: true, skipped: true };
       if (data && data.allowed === false) {
         const err = new Error(
-          data.message || "登录失败次数过多，请稍后再试。",
+          data.message || "验证码发送次数已达上限，请稍后再试。",
         );
         err.code = "login_cooldown";
         err.status = 429;
@@ -302,11 +305,32 @@
     return session;
   };
 
+  /** S-07: 若账号已停用，清除本地会话；refresh 失败（服务端已撤销 sessions）同样清会话 */
+  const enforceActiveAccount = async (session) => {
+    if (!session || !session.access_token) return null;
+    try {
+      const data = await request("/rest/v1/rpc/account_is_disabled", {
+        method: "POST",
+        headers: headers(session.access_token),
+        body: "{}",
+      }, 1);
+      if (data === true) {
+        clearSession();
+        return null;
+      }
+    } catch {
+      /* 网络失败不误杀；停用后 sessions 已删，下次 refresh 会失败并清会话 */
+    }
+    return session;
+  };
+
   const refreshIfNeeded = async () => {
     const session = readSession();
     if (!session) return null;
     const skew = 60;
-    if (session.expires_at && session.expires_at - skew > Date.now() / 1000) return session;
+    if (session.expires_at && session.expires_at - skew > Date.now() / 1000) {
+      return enforceActiveAccount(session);
+    }
     if (!session.refresh_token) {
       clearSession();
       return null;
@@ -317,7 +341,8 @@
         headers: headers(),
         body: JSON.stringify({ refresh_token: session.refresh_token }),
       });
-      return saveTokens(data);
+      const next = await saveTokens(data);
+      return enforceActiveAccount(next);
     } catch {
       clearSession();
       return null;
@@ -421,7 +446,13 @@
         headers: headers(),
         body: JSON.stringify({ email, password }),
       });
-      const session = await saveTokens(data);
+      let session = await saveTokens(data);
+      session = await enforceActiveAccount(session);
+      if (!session) {
+        const err = new Error("该账号已停用，请联系管理员。");
+        err.code = "account_disabled";
+        throw err;
+      }
       await clearLoginFailures(email);
       recordActivity("login", "auth", { source: "password" });
       return session;
@@ -430,6 +461,10 @@
       const msg = String(error && error.message || "");
       if (error && error.code === "login_cooldown") {
         error.message = friendlyError(error, "登录失败次数过多，请稍后再试。");
+        throw error;
+      }
+      if (error && error.code === "account_disabled") {
+        error.message = friendlyError(error, "该账号已停用，请联系管理员。");
         throw error;
       }
       if (/invalid login|invalid_credentials|invalid.*password|邮箱或密码/i.test(code + msg)) {
@@ -525,7 +560,11 @@
         headers: headers(session.access_token),
         body: "{}",
       }, 1);
-      return data === true;
+      if (data === true) {
+        clearSession();
+        return true;
+      }
+      return false;
     } catch {
       return false;
     }
