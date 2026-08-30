@@ -101,7 +101,7 @@ A-08 邀请预埋：库表记邀请人 / 被邀请人 / 状态（已绑定、待
 | 编号 | 状态 | 分支 | 最近提交 | 测试 |
 |------|------|------|----------|------|
 | A-01 | 待合并 | feat/admin-ops | 2306fd4 | npm test 通过；需执行 migrations/202608310001_admin_grant_entitlement.sql 后联调 |
-| A-02 | 待合并 | feat/admin-ops | PENDING_SHA | npm test 通过；需执行 migrations/202608310002_admin_risk_console.sql 后联调 |
+| A-02 | 待合并 | feat/admin-ops | 5e328ac | npm test 通过；需执行 migrations/202608310002_admin_risk_console.sql 后联调；UI 见同提交 |
 | A-03 | 待开始 | feat/admin-ops | — | — |
 | A-04 | 待开始 | feat/admin-ops | — | — |
 | A-05 | 待开始 | feat/admin-ops | — | — |
