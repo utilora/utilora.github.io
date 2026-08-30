@@ -4,6 +4,7 @@
   const SESSION_KEY = "utilora_sb_session";
   const REDIRECT = "https://utilora.github.io/account/";
   const REG_LIMIT_FN = API + "/functions/v1/registration-limit";
+  const OTP_LIMIT_FN = API + "/functions/v1/otp-rate-limit";
 
   const headers = (token) => ({
     apikey: KEY,
@@ -17,6 +18,9 @@
     const code = String(error && (error.code || error.error_code) || "");
     if (/registration_ip_limit|今日该网络注册/i.test(code + raw)) {
       return raw || "今日该网络注册次数已达上限，请明日再试或更换网络。";
+    }
+    if (/otp_rate_limit/i.test(code + raw)) {
+      return raw || "验证码发送次数已达上限，请稍后再试。";
     }
     if (/rate_limit|too many|429/i.test(code + raw)) return "发信通道这小时次数已用完（不是你点错）。请稍后再发验证码。";
     if (/otp_expired|expired/i.test(code + raw)) return "验证码已过期，请重新发送。";
@@ -131,6 +135,58 @@
     }
   };
 
+  /** S-02: 发码前检查邮箱/IP 小时限额 */
+  const checkOtpRateLimit = async (email) => {
+    try {
+      const response = await fetch(OTP_LIMIT_FN, {
+        method: "POST",
+        credentials: "omit",
+        cache: "no-store",
+        headers: headers(),
+        body: JSON.stringify({ action: "check", email: String(email || "").trim().toLowerCase() }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok && response.status !== 429) return { allowed: true, skipped: true };
+      if (data && data.allowed === false) {
+        const err = new Error(
+          data.message || "验证码发送次数已达上限，请稍后再试。",
+        );
+        err.code = "otp_rate_limit_exceeded";
+        err.status = 429;
+        throw err;
+      }
+      return data;
+    } catch (error) {
+      if (error && error.code === "otp_rate_limit_exceeded") throw error;
+      return { allowed: true, skipped: true };
+    }
+  };
+
+  /** S-02: 点发送即记账；超限则拒绝发送 */
+  const recordOtpSend = async (email) => {
+    const response = await fetch(OTP_LIMIT_FN, {
+      method: "POST",
+      credentials: "omit",
+      cache: "no-store",
+      headers: headers(),
+      body: JSON.stringify({ action: "record", email: String(email || "").trim().toLowerCase() }),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (response.status === 429 || data.error === "otp_rate_limit_exceeded") {
+      const err = new Error(
+        data.message || "验证码发送次数已达上限，请稍后再试。",
+      );
+      err.code = "otp_rate_limit_exceeded";
+      err.status = 429;
+      throw err;
+    }
+    if (!response.ok) {
+      // 服务端记账失败时不阻断发码，避免误伤；真正限额以部署后为准
+      return { skipped: true };
+    }
+    return data;
+  };
+
   const fetchUser = (token) => request("/auth/v1/user", { headers: headers(token) });
 
   const saveTokens = async (payload) => {
@@ -201,6 +257,8 @@
   const sendOtp = async (email, name) => {
     try {
       await checkRegistrationLimit();
+      await checkOtpRateLimit(email);
+      await recordOtpSend(email);
       return await request("/auth/v1/otp", {
         method: "POST",
         headers: headers(),
