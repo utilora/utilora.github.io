@@ -140,46 +140,6 @@
     document.body.prepend(bar);
   };
 
-  const commercializeHome = () => {
-    if (location.pathname !== "/" && !location.pathname.endsWith("/index.html")) return;
-    const heroLabel = document.querySelector(".hero-label");
-    const heroTitle = document.querySelector(".hero-copy h1");
-    const heroText = document.querySelector(".hero-copy > p");
-    const actions = document.querySelector(".hero-actions");
-    const notice = document.querySelector(".notice-bar");
-    if (!heroLabel || !heroTitle || !heroText || !actions) return;
-
-    heroLabel.textContent = "免费财务工具 + 专业财务工作台";
-    heroTitle.innerHTML = "把日常财务问题<br><em>更快变成可交付的工作结果</em>";
-    heroText.textContent = "免费工具永久免费、匿名、无需登录；需要连续管理时，再用专业财务工作台处理银行流水、应收回款、月结检查和经营报表。";
-    if (notice) notice.innerHTML = '<strong>Pro 当前内测免费</strong> · 预计 ¥19/月 · 正式收费前提前通知 · 免费工具永久免费。<a href="pro/?demo=1#/dashboard">体验演示</a>';
-
-    const primary = actions.querySelector(".primary-cta");
-    const pro = actions.querySelector(".pro-cta");
-    if (primary) primary.innerHTML = '免费开始使用 <span>→</span>';
-    if (pro) {
-      pro.textContent = "体验完整演示";
-      pro.href = "pro/?demo=1#/dashboard";
-    }
-
-    if (!document.querySelector(".home-pro-value-grid")) {
-      const price = document.createElement("p");
-      price.className = "home-price-preview";
-      price.textContent = "Pro 预计 ¥19/月 · 当前内测免费 · 正式收费前提前通知";
-      actions.insertAdjacentElement("afterend", price);
-
-      const values = document.createElement("div");
-      values.className = "home-pro-value-grid";
-      values.setAttribute("aria-label", "Pro 核心价值");
-      values.innerHTML = '<a href="pro/?demo=1#/bank"><b>银行流水</b><span>导入流水，减少重复录入</span></a><a href="pro/?demo=1#/receivables"><b>应收回款</b><span>跟踪应收与收款进度</span></a><a href="pro/?demo=1#/checks"><b>月结检查</b><span>集中发现月末异常</span></a><a href="pro/?demo=1#/bookkeeping"><b>经营报表</b><span>从业务记录看到经营结果</span></a>';
-      price.insertAdjacentElement("afterend", values);
-
-      const style = document.createElement("style");
-      style.textContent = '.home-price-preview{margin:14px 0 10px;color:#536174;font-size:14px;font-weight:700}.home-pro-value-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:16px 0 18px}.home-pro-value-grid a{display:flex;flex-direction:column;gap:4px;padding:12px 14px;border:1px solid rgba(15,138,112,.18);border-radius:12px;background:rgba(255,255,255,.72);color:inherit;text-decoration:none}.home-pro-value-grid b{font-size:14px;color:#0b1730}.home-pro-value-grid span{font-size:12px;line-height:1.45;color:#667085}@media(max-width:760px){.home-pro-value-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}';
-      document.head.append(style);
-    }
-  };
-
   window.Utilora = {
     recent: () => read(RECENT_KEY),
     favorites: () => read(FAV_KEY),
@@ -194,7 +154,6 @@
     registerWorker();
     const slug = slugFromPath();
     if (slug) initToolChrome(slug);
-    commercializeHome();
     paintInstallButtons();
   };
 

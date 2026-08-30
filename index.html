@@ -3,33 +3,33 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <meta name="description" content="Utilora 为中国小微企业财务人员提供增值税、个人所得税、工资成本、报价单等专业财税测算工具。计算过程透明，重要规则注明适用范围。">
+  <meta name="description" content="Utilora 提供永久免费、匿名、无需登录的财务工具，以及覆盖银行流水、应收回款、月结检查和经营报表的专业财务工作台。">
   <meta name="theme-color" content="#0b1730">
   <meta name="robots" content="index,follow">
   <link rel="canonical" href="https://utilora.github.io/">
-  <meta property="og:title" content="Utilora 财务工具｜小微企业财税测算">
-  <meta property="og:description" content="面向中国小微企业的专业财税测算与财务效率工具。">
+  <meta property="og:title" content="Utilora｜免费财务工具 + 专业财务工作台">
+  <meta property="og:description" content="免费工具永久免费、匿名、无需登录。专业财务工作台处理银行流水、应收回款、月结检查和经营报表，当前内测免费。">
   <meta property="og:type" content="website">
   <meta property="og:url" content="https://utilora.github.io/">
   <meta name="twitter:card" content="summary">
-  <title>Utilora 财务工具｜小微企业财税测算</title>
+  <title>Utilora｜免费财务工具 + 专业财务工作台</title>
   <link rel="icon" type="image/svg+xml" href="favicon.svg">
   <link rel="apple-touch-icon" href="icon-192.png">
   <link rel="manifest" href="site.webmanifest">
   <link rel="stylesheet" href="assets/css/site.css">
-  <link rel="stylesheet" href="assets/css/finance-home.css?v=11">
+  <link rel="stylesheet" href="assets/css/finance-home.css?v=12">
   <script type="application/ld+json">
   {
     "@context":"https://schema.org",
     "@type":"WebSite",
     "name":"Utilora 财务工具",
     "url":"https://utilora.github.io/",
-    "description":"面向中国小微企业财务人员的专业财税测算与财务效率工具"
+    "description":"免费财务工具 + 专业财务工作台。免费工具永久免费、匿名、无需登录。"
   }
   </script>
 </head>
 <body class="finance-home">
-  <div class="notice-bar"><strong>财务专业版内测限时免费</strong> · 登录即可使用完整工作台，正式收费前会提前通知。<a href="pro/">立即体验</a></div>
+  <div class="notice-bar"><strong>财务专业版内测限时免费</strong> · Pro 预计 ¥19/月 · 正式收费前提前通知 · 免费工具永久免费。<a href="pro/?demo=1#/dashboard">体验完整演示</a></div>
   <header class="finance-header">
     <nav class="finance-nav" aria-label="主导航">
       <a class="finance-brand" href="./" aria-label="Utilora 财务工具首页">
@@ -40,12 +40,13 @@
       <div class="finance-nav-links">
         <a href="#tools">免费工具</a>
         <a href="#compare">版本对比</a>
-        <a class="nav-pro-link" href="pro/">财务专业版 <em>限免</em></a>
+        <a class="nav-pro-link" href="pro/?demo=1#/dashboard">财务专业版 <em>限免</em></a>
         <a href="#workspace">本地财务台</a>
         <a href="#method">计算说明</a>
         <a href="policies/">政策版本</a>
         <button class="nav-install" type="button" data-install-app>安装到电脑</button>
         <a href="feedback/">功能建议</a>
+        <a class="nav-login" href="login/">登录</a>
       </div>
     </nav>
   </header>
@@ -53,13 +54,21 @@
   <main>
     <section class="finance-hero">
       <div class="hero-copy">
-        <span class="hero-label">免费工具引流 · 专业财务提效</span>
-        <h1>免费工具随手即用<br><em>专业财务，登录限免</em></h1>
-        <p>从发工资、算个税、拆分价税，到客户应收、银行流水和凭证管理。一站完成小微企业日常财务工作。</p>
+        <span class="hero-label">免费财务工具 + 专业财务工作台</span>
+        <h1>把日常财务问题<br><em>更快变成可交付的工作结果</em></h1>
+        <p>免费工具永久免费、匿名、无需登录。需要连续管理时，再用专业财务工作台处理银行流水、应收回款、月结检查和经营报表。</p>
         <div class="hero-actions">
-          <a class="primary-cta" href="#tools">使用免费工具 <span>→</span></a>
-          <a class="secondary-cta pro-cta" href="pro/">登录使用财务专业版 · 限免</a>
+          <a class="primary-cta" href="#tools">免费开始使用 <span>→</span></a>
+          <a class="secondary-cta pro-cta" href="pro/?demo=1#/dashboard">体验完整演示</a>
           <button class="secondary-cta install-cta" type="button" data-install-app>安装到电脑</button>
+        </div>
+        <p class="hero-login-link">已有账号？<a href="login/">登录</a>后使用专业工作台</p>
+        <p class="home-price-preview">Pro 预计 ¥19/月 · 当前内测免费 · 正式收费前提前通知</p>
+        <div class="home-pro-value-grid" aria-label="Pro 核心价值">
+          <a href="pro/?demo=1#/bank"><b>银行流水</b><span>导入流水，减少重复录入</span></a>
+          <a href="pro/?demo=1#/receivables"><b>应收回款</b><span>跟踪应收与收款进度</span></a>
+          <a href="pro/?demo=1#/checks"><b>月结检查</b><span>集中发现月末异常</span></a>
+          <a href="pro/?demo=1#/bookkeeping"><b>经营报表</b><span>从业务记录看到经营结果</span></a>
         </div>
         <div class="hero-quick"><span>快速开始</span><a href="tools/vat-split/">价税分离</a><a href="tools/payroll/">工资成本</a><a href="tools/income-tax/">个税测算</a><a href="tools/number-chinese/">金额大写</a></div>
         <div class="trust-row" aria-label="产品特点">
@@ -76,7 +85,7 @@
           <div><small>不含税金额</small><strong id="home-vat-net">¥ 100,000.00</strong></div>
           <div><small>增值税额</small><strong id="home-vat-tax">¥ 13,000.00</strong></div>
         </div>
-        <p>可直接改金额和税率试算，数据不上传。</p>
+        <p>可直接改金额和税率试算，数据不上传。免费工具无需登录。</p>
       </div>
     </section>
 
@@ -92,7 +101,7 @@
     <section id="tools" class="finance-section">
       <div class="finance-section-head">
         <div><span class="section-tag">CORE TOOLS</span><h2>常用财税工具</h2></div>
-        <p>聚焦小微企业财务人员每天真正会用到的测算与单据场景。</p>
+        <p>聚焦小微企业财务人员每天真正会用到的测算与单据场景。全部免费工具永久免费、匿名、无需登录。</p>
       </div>
       <div class="finance-tool-grid">
         <a class="finance-tool-card featured" href="tools/vat-split/">
@@ -133,35 +142,35 @@
 
     <section id="compare" class="compare-section">
       <div class="finance-section-head">
-        <div><span class="section-tag">FREE VS PRO</span><h2>按工作复杂度，选择合适版本</h2></div>
-        <p>免费工具负责单次快速计算；专业版负责需要持续管理、批量处理和形成业务闭环的财务工作。</p>
+        <div><span class="section-tag">FREE VS PRO</span><h2>免费财务工具 + 专业财务工作台</h2></div>
+        <p>免费工具负责单次快速计算，永久免费且无需登录；专业版负责需要持续管理、批量处理和形成业务闭环的财务工作。</p>
       </div>
       <div class="compare-grid">
         <article class="compare-card free-card">
-          <span class="compare-kicker">FREE</span><h3>免费工具</h3><p>无需登录，打开即用，适合日常快速计算。</p>
+          <span class="compare-kicker">FREE</span><h3>免费工具</h3><p>永久免费、匿名、无需登录，打开即用，适合日常快速计算。</p>
           <ul><li>价税分离与常用税率</li><li>个税、工资与用工成本</li><li>金额大写与基础报价单</li><li>本地计算与结果复制</li></ul>
-          <a href="#tools">立即免费使用</a>
+          <a href="#tools">免费开始使用</a>
         </article>
         <article class="compare-card pro-card">
-          <div class="limited-ribbon">内测限时免费</div><span class="compare-kicker">PRO</span><h3>财务专业版</h3><p>需要登录，适合企业持续、批量和流程化财务工作。</p>
-          <ul><li>客户、报价、应收与收款闭环</li><li>银行流水与 Excel 批量处理</li><li>费用、报销、资产、工资和凭证</li><li>月结检查、经营报表和多公司数据</li></ul>
-          <a href="pro/">登录并免费使用</a><small>当前不接入支付，不会自动扣费。</small>
+          <div class="limited-ribbon">内测限时免费</div><span class="compare-kicker">PRO</span><h3>专业财务工作台</h3><p>把银行流水、应收回款、月结检查和经营报表放进同一套工作流。</p>
+          <ul><li>银行流水导入与收款匹配</li><li>应收回款进度持续跟踪</li><li>月结检查集中发现异常</li><li>经营报表看到业务结果</li></ul>
+          <a href="pro/?demo=1#/dashboard">体验完整演示</a><small>Pro 预计 ¥19/月 · 当前内测免费 · 正式收费前提前通知。当前不接入支付，不会自动扣费。</small>
         </article>
       </div>
     </section>
     <section id="workspace" class="workspace-section">
       <div class="workspace-copy">
         <span class="section-tag light">UTILORA PRO · LIMITED FREE</span>
-        <h2>财务专业版：从单次计算走向完整工作流</h2>
-        <p>Utilora 本地财务台 Beta 用于管理客户、报价、应收单与收款记录。数据仅保存在当前浏览器，不上传服务器，也不会跟随账号或设备同步。</p>
+        <h2>专业财务工作台：从问题走到可交付结果</h2>
+        <p>Utilora 本地财务台 Beta 用于管理银行流水、应收回款、月结检查和经营报表。数据仅保存在当前浏览器，不上传服务器，也不会跟随账号或设备同步。</p>
         <ul>
-          <li>客户与联系人统一管理</li>
-          <li>报价单快速生成并转为应收单</li>
-          <li>收款进度与历史单据清晰可查</li>
+          <li>银行流水导入、核对并匹配收款</li>
+          <li>应收回款进度与客户往来持续管理</li>
+          <li>月结检查异常、报销和未收单据</li>
+          <li>经营报表从业务记录看到经营结果</li>
           <li>支持完整备份、恢复和多公司数据隔离</li>
-          <li>银行流水匹配、凭证模板与月结校验</li>
         </ul>
-        <div class="hero-actions"><a class="primary-cta" href="pro/">登录并免费使用专业版</a><a class="secondary-cta" href="pro/?demo=1#/dashboard">先试用演示数据</a></div>
+        <div class="hero-actions"><a class="primary-cta" href="pro/?demo=1#/dashboard">体验完整演示</a><a class="secondary-cta" href="login/">登录使用专业版</a></div>
       </div>
       <div class="workspace-board workspace-demo" aria-hidden="true">
         <div class="board-head"><span>财务概览</span><i></i><i></i><i></i></div>
@@ -204,7 +213,7 @@
       <p>为小微企业财务人员提供清楚、可靠、顺手的在线工具。</p>
       <div><a href="#tools">免费工具</a>
         <a href="#compare">版本对比</a>
-        <a class="nav-pro-link" href="pro/">财务专业版 <em>限免</em></a><a href="pro/">本地财务台 Beta</a><a href="policies/">政策版本</a><a href="feedback/">功能建议</a></div>
+        <a class="nav-pro-link" href="pro/?demo=1#/dashboard">财务专业版 <em>限免</em></a><a href="pro/">本地财务台 Beta</a><a href="login/">登录</a><a href="policies/">政策版本</a><a href="feedback/">功能建议</a></div>
     </div>
     <div class="footer-bottom"><span>© <span id="year"></span> Utilora</span><span>结果仅供辅助测算</span></div>
   </footer>
@@ -218,7 +227,7 @@
     const amount=document.getElementById("home-vat-amount"),rate=document.getElementById("home-vat-rate"),fmt=new Intl.NumberFormat("zh-CN",{style:"currency",currency:"CNY"});
     const calc=()=>{const gross=Math.max(0,Number(amount.value)||0),r=(Number(rate.value)||0)/100,net=Math.round(gross/(1+r)*100)/100;document.getElementById("home-vat-net").textContent=fmt.format(net);document.getElementById("home-vat-tax").textContent=fmt.format(Math.round((gross-net)*100)/100);};amount?.addEventListener("input",calc);rate?.addEventListener("change",calc);calc();
   </script>
-  <script src="assets/js/app.js?v=12"></script>
+  <script src="assets/js/app.js?v=13"></script>
   <script type="module" src="/src/main.ts"></script>
   <script src="assets/js/analytics.js"></script>
 </body>
