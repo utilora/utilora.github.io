@@ -6,7 +6,7 @@ Last reviewed date: 2026-08-30
 
 ## Current phase
 
-P1.4 is implemented on main. P1 workflow reliability is complete. Later phases require an explicit user request.
+P1 is complete. Near-term work follows docs/PRODUCT_OPTIMIZATION.md, currently M1-W1. P2 trial and cloud remain unauthorized.
 
 ## Current production model
 
@@ -58,23 +58,30 @@ P1.4 is implemented on main. P1 workflow reliability is complete. Later phases r
 
 ## Next Authorized Step
 
-- [ ] P2: no-card trial and optional cloud foundations.
+- [ ] M1-W1: explainable bank matching beyond unique exact-amount matches.
 
-Implementation requires an explicit request to begin P2. Do not start P2, payment or cloud sync without that request.
+See docs/PRODUCT_OPTIMIZATION.md. Implementation requires an explicit request to begin M1-W1.
 
-### Scope when authorized
+Do not start M1-W2 or later weeks, P2, payment or cloud sync.
 
-Detailed functional requirements: COMMERCIALIZATION_REQUIREMENTS.md.
+### Scope
 
-- Introduce a no-card trial, initially 30 days.
-- Add feature-level entitlements and organization limits.
-- Add trial start, expiry, reminder and downgrade behavior.
-- Improve multi-workspace experience.
-- Design optional encrypted cloud backup; keep it disabled by default.
+- Inspect current exact-amount suggestions first.
+- Add explainable rules such as amount+near date and customer name in the bank summary.
+- Keep matches reversible.
+- Do not rewrite bank import from P1.1.
+
+### Acceptance criteria
+
+- Suggestions state why they matched.
+- Unique exact-amount behavior from P1.1 still works.
+- Demo changes are not persisted.
+- Targeted tests and production build pass.
 
 ## Requires Explicit Approval
 
-- Any work beyond the requested item.
+- P2 trial, cloud backup and P3 payment.
+- Any optimization week beyond the current item in PRODUCT_OPTIMIZATION.md.
 - Real trial countdown.
 - Payment, checkout, monthly or annual billing.
 - Payment secrets or webhook infrastructure.

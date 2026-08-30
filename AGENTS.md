@@ -72,18 +72,21 @@ Before product, entitlement, analytics, billing, storage, or Pro workspace chang
 
 1. docs/COMMERCIALIZATION_ROADMAP.md
 2. docs/COMMERCIALIZATION_REQUIREMENTS.md
-3. docs/COMMERCIALIZATION_STATUS.md
+3. docs/PRODUCT_OPTIMIZATION.md
+4. docs/COMMERCIALIZATION_STATUS.md
 
 The current code and applied Supabase migrations are the source of truth.
 
 - Default branch workflow: fetch and synchronize `main`, read from `main`, and make authorized changes directly on `main` unless the user explicitly requests another branch.
-- Work only on the single next authorized step in COMMERCIALIZATION_STATUS.md.
+- Work only on the single current item in PRODUCT_OPTIMIZATION.md. STATUS Next Authorized Step must match that item.
+- After P1, follow the 3-month optimization plan before P2 trial or cloud work.
 - Revalidate the documented state against the current branch before editing.
 - Keep every existing tool under tools/ anonymous, login-free, and permanently free.
 - Do not connect payment, start a later phase, force cloud sync, or upload local financial data without explicit approval.
-- Do not expand into AP, tax e-filing, collection tickets, or ERP-wide refactors during P1.
+- Do not expand into AP, tax e-filing, collection tickets, or ERP-wide refactors.
 - Never expose Supabase service-role keys, payment secrets, or privileged credentials in frontend code.
 - Trial or subscription expiry must never block viewing or complete export of user data.
-- After an authorized commercialization task, update COMMERCIALIZATION_STATUS.md with validation, risks, and exactly one recommended next step.
+- After an authorized item, update PRODUCT_OPTIMIZATION.md progress (checkbox, commit SHA, tests) and COMMERCIALIZATION_STATUS.md with exactly one next step.
 - Do not mark work complete until its acceptance criteria and relevant tests pass.
+
 

@@ -77,6 +77,16 @@ Implement in order. One authorized item at a time.
 
 Exit: bank import -> matching -> payment -> month-end works reliably; duplicates and destructive mistakes are prevented or reversible; demo never persists; backup/restore tests pass.
 
+## After P1 — 3-month product optimization
+
+P1 is done on main. Before P2 trial or cloud work, follow docs/PRODUCT_OPTIMIZATION.md:
+
+1. Month 1: explainable matching, partial allocation, collection notes, today-only dashboard.
+2. Month 2: stricter month-end, reconciling close export, safer backup/restore, real-use fixes.
+3. Month 3: 5-10 real workspaces, then decide whether to request P2.
+
+Other AIs must read that file, work only the current item, and update its progress after each completed change.
+
 ## P2 — Trial and optional cloud foundations
 
 Requires explicit approval.
@@ -110,7 +120,9 @@ Track product funnel and lifecycle events only. Never include customer names, ba
 
 ## Functional requirements
 
-Detailed, testable requirements and acceptance criteria are maintained in COMMERCIALIZATION_REQUIREMENTS.md. That document does not authorize implementation; COMMERCIALIZATION_STATUS.md controls the next authorized step.
+Detailed, testable requirements and acceptance criteria are maintained in COMMERCIALIZATION_REQUIREMENTS.md. That document does not authorize implementation.
+
+Near-term product work is listed in PRODUCT_OPTIMIZATION.md. COMMERCIALIZATION_STATUS.md and that file must name the same current item.
 
 ## Change control
 
@@ -118,5 +130,5 @@ Detailed, testable requirements and acceptance criteria are maintained in COMMER
 - General optimization does not authorize payment, cloud sync, P2 or P3.
 - Default to synchronized `main` for reading and authorized changes; use another branch only when the user explicitly requests it.
 - Add new migrations; never edit an applied migration.
-- Update COMMERCIALIZATION_STATUS.md after completed commercialization work.
+- Update PRODUCT_OPTIMIZATION.md progress and COMMERCIALIZATION_STATUS.md after completed work.
 - Keep exactly one recommended next step in the status file.

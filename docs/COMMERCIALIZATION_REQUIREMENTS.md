@@ -2,7 +2,9 @@
 
 ## Purpose
 
-Testable requirements for moving from permanent free tools to optional Pro trial and paid capabilities. This document defines behavior but does not authorize implementation. COMMERCIALIZATION_STATUS.md controls the single next authorized step.
+Testable requirements for moving from permanent free tools to optional Pro trial and paid capabilities. This document defines P2/P3 behavior but does not authorize implementation.
+
+Until the 3-month plan in PRODUCT_OPTIMIZATION.md is finished or the user explicitly starts P2, do not implement requirements from this file. COMMERCIALIZATION_STATUS.md and PRODUCT_OPTIMIZATION.md control the single current item.
 
 Priority: MUST before public trial/charging; SHOULD after MUST is stable; LATER requires separate approval.
 
