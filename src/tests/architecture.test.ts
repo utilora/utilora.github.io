@@ -68,6 +68,7 @@ describe("product architecture", () => {
     expect(workbench).toContain('get("demo") === "1"');
     expect(workbench).toContain("if (demoMode) { setSaveState(\"演示模式 · 改动不保存\"); return; }");
     expect(workbench).toContain("if (demoMode || !db || !workspaceId) return");
+    expect(workbench).toContain("if (!demoMode) setSetting(backupKey(), exportedAt)");
   });
 
   it("previews bank imports and blocks duplicate commits", () => {
@@ -90,6 +91,14 @@ describe("product architecture", () => {
     expect(read("pro/app.js")).toContain("monthEndPack");
     expect(read("pro/app.js")).toContain("导出月结 Excel");
     expect(read("pro/app.js")).toContain("未匹配银行流水");
+  });
+
+  it("exports a complete finance backup and reminds when it is stale", () => {
+    expect(read("src/pro.ts")).toContain("window.UtiloraBackup");
+    expect(read("pro/app.js")).toContain("buildBackup");
+    expect(read("pro/app.js")).toContain("parseBackup");
+    expect(read("pro/app.js")).toContain("backupStatus");
+    expect(read("pro/app.js")).toContain("完整备份包含客户、应收、收款、银行流水、费用和科目");
   });
 
   it("captures purchase intent without payment or service-role keys", () => {

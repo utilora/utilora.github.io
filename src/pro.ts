@@ -1,3 +1,4 @@
+import * as UtiloraBackup from "./core/backup/local";
 import * as UtiloraBank from "./core/banking/local";
 import * as UtiloraMonthEnd from "./core/month-end/local";
 import * as UtiloraReceivables from "./core/receivables/local";
@@ -12,6 +13,7 @@ declare global {
     UtiloraBank: typeof UtiloraBank;
     UtiloraReceivables: typeof UtiloraReceivables;
     UtiloraMonthEnd: typeof UtiloraMonthEnd;
+    UtiloraBackup: typeof UtiloraBackup;
   }
 }
 
@@ -45,12 +47,13 @@ const loadWorkspace = async (): Promise<void> => {
   window.UtiloraBank = UtiloraBank;
   window.UtiloraReceivables = UtiloraReceivables;
   window.UtiloraMonthEnd = UtiloraMonthEnd;
+  window.UtiloraBackup = UtiloraBackup;
   for (const src of [
     "../assets/js/finance.js?v=11",
     "../assets/js/csv.js?v=11",
     "../assets/js/xlsx-lite.js?v=11",
     "../assets/js/app.js?v=13",
-    "app.js?v=17"
+    "app.js?v=18"
 
   ]) {
     await loadScript(src);

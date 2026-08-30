@@ -1,12 +1,12 @@
 # Utilora Commercialization Status
 
 Last reviewed branch: main
-Last reviewed commit: 4d66a55ee1521d48753417ba164600eb1f500a81
+Last reviewed commit: pending-p1.4
 Last reviewed date: 2026-08-30
 
 ## Current phase
 
-P1.3 is implemented on main. Later P1 items require an explicit user request.
+P1.4 is implemented on main. P1 workflow reliability is complete. Later phases require an explicit user request.
 
 ## Current production model
 
@@ -31,7 +31,8 @@ P1.3 is implemented on main. Later P1 items require an explicit user request.
 - [x] P1.1 local bank import preview, duplicate fingerprints, match states and reversible exact-amount suggestions.
 - [x] P1.2 receivable aging, customer debt overview and collection progress excluding draft/void.
 - [x] P1.3 month-end completion score, unresolved close lists and exportable Excel/CSV result.
-- [x] Production build and 33 automated tests passed.
+- [x] P1.4 complete local backup, stale reminders, v2/v3 restore compatibility and demo non-persistence.
+- [x] Production build and 39 automated tests passed.
 - [x] GitHub Pages uses workflow-only publishing; compiled artifact guards reject raw TypeScript entrypoints.
 
 ## Reusable capabilities
@@ -44,6 +45,7 @@ P1.3 is implemented on main. Later P1 items require an explicit user request.
 - src/core/banking/local.ts: fingerprints, import preview, remaining amounts and non-overallocating match plans.
 - src/core/receivables/local.ts: aging buckets, customer debt and collection progress.
 - src/core/month-end/local.ts: close steps, completion score and export sheets.
+- src/core/backup/local.ts: complete export payload, restore parsing and stale backup reminders.
 - pro/app.js: IndexedDB workspaces, demo, bank matching, receivables, month-end, backup and restore.
 - Supabase migrations: finance schema, RLS, entitlements, promotions and grants.
 
@@ -51,35 +53,26 @@ P1.3 is implemented on main. Later P1 items require an explicit user request.
 
 - pro/app.js is monolithic; avoid unrelated refactoring.
 - Local finance data and Supabase finance tables are not synchronized; never imply that they are.
-- Backup reminders and restore regression coverage need strengthening.
 - Entitlements do not yet expose feature-level limits.
 - Payment and billing operations are intentionally absent.
 
 ## Next Authorized Step
 
-- [ ] P1.4: backup reminders, complete export and restore compatibility.
+- [ ] P2: no-card trial and optional cloud foundations.
 
-Implementation requires an explicit request to begin P1.4.
+Implementation requires an explicit request to begin P2. Do not start P2, payment or cloud sync without that request.
 
-### Scope
+### Scope when authorized
 
-- Inspect settings backup/restore, IndexedDB and demo isolation first.
-- Show last backup time and remind when it is stale.
-- Keep a complete export of customers, invoices, payments, bank, expenses and accounts.
-- Add restore compatibility coverage for current workspace data.
-- Do not enable cloud sync.
-
-### Acceptance criteria
-
-- Last backup time is visible in the workspace.
-- A stale backup produces a reminder.
-- Exported backup restores into a readable workspace.
-- Demo changes are not persisted.
-- Targeted tests and production build pass.
+- Introduce a no-card trial, initially 30 days.
+- Add feature-level entitlements and organization limits.
+- Add trial start, expiry, reminder and downgrade behavior.
+- Improve multi-workspace experience.
+- Design optional encrypted cloud backup; keep it disabled by default.
 
 ## Requires Explicit Approval
 
-- Any P1 work beyond the requested item.
+- Any work beyond the requested item.
 - Real trial countdown.
 - Payment, checkout, monthly or annual billing.
 - Payment secrets or webhook infrastructure.

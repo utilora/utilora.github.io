@@ -442,9 +442,10 @@
     getSetting(backupKey()).then((item) => {
       const node = document.getElementById("dashboard-backup");
       if (!node) return;
-      const age = item?.value ? Math.floor((Date.now() - new Date(item.value).getTime()) / 86400000) : Infinity;
-      node.classList.toggle("warn", age > 7);
-      node.textContent = item?.value ? `最近备份：${new Date(item.value).toLocaleString("zh-CN")} · ${age > 7 ? "建议立即备份" : "状态正常"}` : "尚未导出备份 · 建议立即备份";
+      const status = window.UtiloraBackup ? window.UtiloraBackup.backupStatus(item?.value || null) : { stale: !item?.value, reminder: item?.value ? `最近备份：${new Date(item.value).toLocaleString("zh-CN")}` : "尚未导出备份 · 建议立即备份" };
+      node.classList.toggle("warn", status.stale);
+      node.textContent = `${status.reminder} · 打开数据与设置`;
+      node.onclick = () => go("settings");
     });
   }
 
@@ -1107,10 +1108,9 @@
     const storage = navigator.storage?.estimate ? await navigator.storage.estimate() : null;
     const storageLabel = storage?.usage != null ? `${(storage.usage / 1024 / 1024).toFixed(1)} MB / ${(storage.quota / 1024 / 1024).toFixed(0)} MB` : "浏览器未提供";
     const recovery = await latestRecovery();
-    const backupAge = backup?.value ? Math.floor((Date.now() - new Date(backup.value).getTime()) / 86400000) : Infinity;
-    const backupLabel = backup?.value ? `${new Date(backup.value).toLocaleString("zh-CN")} · ${backupAge > 7 ? "建议立即备份" : "状态正常"}` : "尚未备份 · 建议立即备份";
+    const backupInfo = window.UtiloraBackup ? window.UtiloraBackup.backupStatus(backup?.value || null) : { stale: true, label: "尚未导出备份", reminder: "尚未导出备份 · 建议立即备份" };
     view.innerHTML = `<div class="panel settings-section"><h2>当前公司</h2><p class="data-note">每家公司在 IndexedDB 中独立保存。数据不上传，也不会跟随 Utilora 账号或设备同步。</p><div class="actions"><button class="secondary" type="button" data-install-app>安装到电脑，以后从桌面双击打开</button></div>
-      <div class="data-health"><span><b>数据位置</b>当前浏览器</span><span><b>当前公司</b>${esc(db.company.name)}</span><span><b>本地占用 / 配额</b>${esc(storageLabel)}</span><span class="${backupAge > 7 ? "warn" : ""}"><b>最近备份</b>${esc(backupLabel)}</span></div>
+      <div class="data-health"><span><b>数据位置</b>当前浏览器</span><span><b>当前公司</b>${esc(db.company.name)}</span><span><b>本地占用 / 配额</b>${esc(storageLabel)}</span><span class="${backupInfo.stale ? "warn" : ""}"><b>最近备份</b>${esc(backupInfo.reminder)}</span></div>
       <div class="workspace-row"><select id="workspace-select">${workspaces.map((item) => `<option value="${item.id}"${item.id === workspaceId ? " selected" : ""}>${esc(item.name)}</option>`).join("")}</select><button id="workspace-new" type="button">新建公司</button></div>
     </div>
     <div class="panel settings-section"><h2>企业信息</h2><div class="form-grid">
@@ -1122,7 +1122,7 @@
       <div class="field"><label>收款账户</label><input id="co-pay" value="${esc(c.payInfo)}"></div>
     </div><div class="actions"><button id="co-save" type="button">保存企业信息</button></div><p id="co-msg" class="empty"></p></div>
     <div class="panel settings-section"><h2>数据与备份</h2>
-      <p class="data-note"><b>重要：</b>清理浏览器数据、使用无痕模式或更换设备都可能导致本地数据丢失。请定期导出完整备份。</p>
+      <p class="data-note"><b>重要：</b>清理浏览器数据、使用无痕模式或更换设备都可能导致本地数据丢失。完整备份包含客户、应收、收款、银行流水、费用和科目。演示模式不会写入真实公司。</p>
       <div class="actions">
         <button id="data-export" type="button">导出完整备份</button>
         <button id="data-import" class="secondary" type="button">导入备份</button>
@@ -1197,31 +1197,40 @@
     document.getElementById("business-export").onclick = exportOperations;
     document.getElementById("aging-csv").onclick = exportAgingCsv;
     document.getElementById("data-export").onclick = () => {
+      const Backup = window.UtiloraBackup;
       const safeName = (db.company.name || "公司").replace(/[\\/:*?"<>|]/g, "-");
       const exportedAt = new Date().toISOString();
-      downloadJson(`utilora-backup-${safeName}-${today()}.json`, { type: "utilora-finance-backup", version: 3, exportedAt, summary: { company: db.company.name, customers: db.customers.length, invoices: db.invoices.length, payments: db.payments.length }, data: db });
-      setSetting(backupKey(), exportedAt);
-      document.getElementById("data-msg").textContent = "备份已下载。请妥善保管，文件中包含客户和财务信息。";
+      const payload = Backup ? Backup.buildBackup(db, exportedAt) : { type: "utilora-finance-backup", version: 3, exportedAt, data: db };
+      downloadJson(`utilora-backup-${safeName}-${today()}.json`, payload);
+      if (!demoMode) setSetting(backupKey(), exportedAt);
+      document.getElementById("data-msg").textContent = demoMode ? "演示数据已下载，不会记入真实公司的备份时间。" : "完整备份已下载。请妥善保管，文件中包含客户和财务信息。";
     };
-    document.getElementById("data-import").onclick = () => document.getElementById("data-file").click();
+    document.getElementById("data-import").onclick = () => {
+      if (demoMode) return window.alert("演示模式不会导入到真实公司。请退出演示后再导入备份。");
+      document.getElementById("data-file").click();
+    };
     document.getElementById("data-recover").onclick = async () => {
+      if (demoMode) return window.alert("演示模式不会写入真实公司。");
       if (!recovery || !window.confirm(`恢复到 ${new Date(recovery.createdAt).toLocaleString("zh-CN")} 的公司数据？当前状态会先生成新的恢复点。`)) return;
       await recoveryPoint("手动恢复前");
       db = normalizeData(recovery.data);
       await save(); draw();
     };
-    document.getElementById("data-undo").onclick = async () => { if (!undo?.value) return; db = normalizeData(undo.value); await save(false); await setSetting(`undo:${workspaceId}`, null); draw(); };
+    document.getElementById("data-undo").onclick = async () => { if (demoMode) return window.alert("演示模式不会写入真实公司。"); if (!undo?.value) return; db = normalizeData(undo.value); await save(false); await setSetting(`undo:${workspaceId}`, null); draw(); };
     document.getElementById("data-file").onchange = async (event) => {
       const file = event.target.files?.[0];
       if (!file) return;
       const msg = document.getElementById("data-msg");
       try {
+        if (demoMode) throw new Error("演示模式不会导入到真实公司");
         const payload = JSON.parse(await file.text());
-        if (payload.type !== "utilora-finance-backup" || ![2, 3].includes(payload.version) || !payload.data?.company || !Array.isArray(payload.data.customers) || !Array.isArray(payload.data.invoices) || !Array.isArray(payload.data.payments)) throw new Error("备份格式、版本或必要数据不完整");
-        const summary = `公司：${payload.data.company.name || "未命名"}\n客户：${payload.data.customers.length}\n应收单：${payload.data.invoices.length}\n收款：${payload.data.payments.length}\n导出时间：${payload.exportedAt || "未知"}`;
-        if (!window.confirm(`导入预览\n\n${summary}\n\n确认创建为独立公司吗？`)) return;
+        const parsed = window.UtiloraBackup ? window.UtiloraBackup.parseBackup(payload) : { ok: payload.type === "utilora-finance-backup" && [2, 3].includes(payload.version), backup: payload, error: "备份格式、版本或必要数据不完整" };
+        if (!parsed.ok || !parsed.backup) throw new Error(parsed.error || "备份格式、版本或必要数据不完整");
+        const summary = parsed.backup.summary;
+        const lines = `公司：${summary.company}\n客户：${summary.customers}\n应收单：${summary.invoices}\n收款：${summary.payments}\n银行流水：${summary.bankTransactions}\n费用：${summary.expenses}\n科目：${summary.accounts}\n导出时间：${parsed.backup.exportedAt || "未知"}`;
+        if (!window.confirm(`导入预览\n\n${lines}\n\n确认创建为独立公司吗？`)) return;
         await recoveryPoint("导入前自动恢复点");
-        await createWorkspace(`${payload.data.company.name || "导入公司"}（导入）`, payload.data);
+        await createWorkspace(`${parsed.backup.data.company.name || "导入公司"}（导入）`, parsed.backup.data);
         msg.textContent = "导入成功，已创建独立公司；原公司已保留恢复点";
         draw();
       } catch (error) {
