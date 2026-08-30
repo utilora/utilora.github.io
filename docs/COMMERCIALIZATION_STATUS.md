@@ -1,7 +1,7 @@
 # Utilora Commercialization Status
 
 Last reviewed branch: main
-Last reviewed commit: pending-p1.3
+Last reviewed commit: 4d66a55ee1521d48753417ba164600eb1f500a81
 Last reviewed date: 2026-08-30
 
 ## Current phase
