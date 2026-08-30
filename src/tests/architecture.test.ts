@@ -83,6 +83,13 @@ describe("product architecture", () => {
     expect(read("pro/app.js")).toContain("collectionProgress");
   });
 
+  it("builds a month-end pack with a score and exportable result", () => {
+    expect(read("src/pro.ts")).toContain("window.UtiloraMonthEnd");
+    expect(read("pro/app.js")).toContain("monthEndPack");
+    expect(read("pro/app.js")).toContain("导出月结 Excel");
+    expect(read("pro/app.js")).toContain("未匹配银行流水");
+  });
+
   it("captures purchase intent without payment or service-role keys", () => {
 
     const migration = read("supabase/migrations/202608300001_purchase_intents.sql");

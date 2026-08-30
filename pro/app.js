@@ -249,6 +249,53 @@
     db.reimbursements.filter((r) => !r.hasInvoice && r.amount > 0).forEach((r) => anomalies.push({ where: `报销 ${r.date} ${r.claimant}`, issue: "未标记票据", fix: "核实票据或补充附件" }));
     return anomalies;
   }
+  const monthEndSnapshot = (month) => {
+    const Bank = window.UtiloraBank;
+    const Rec = window.UtiloraReceivables;
+    const remainingOfTx = (tx) => Bank ? Bank.fromFen(Bank.bankRemainingFen(tx)) : bankRemaining(tx);
+    const openReceivables = Rec
+      ? Rec.openReceivables(receivableRows()).map((row) => ({
+        id: row.id,
+        number: row.number,
+        customerName: row.customerName,
+        dueDate: row.dueDate || "",
+        remaining: Rec.remainingOf(row)
+      }))
+      : db.invoices.filter((inv) => isCollectable(inv)).map((inv) => ({
+        id: inv.id,
+        number: inv.number,
+        customerName: customer(inv.customerId).name || "未选客户",
+        dueDate: inv.dueDate || "",
+        remaining: invoiceBalance(inv)
+      }));
+    return {
+      month,
+      closed: db.closedMonths.includes(month),
+      bankImported: db.bankTransactions.length > 0,
+      bankCount: db.bankTransactions.length,
+      unmatchedBank: db.bankTransactions.filter((tx) => remainingOfTx(tx) > 0).map((tx) => ({
+        id: tx.id, date: tx.date, summary: tx.summary, remaining: remainingOfTx(tx)
+      })),
+      openReceivables,
+      anomalies: collectAnomalies(),
+      expenses: [
+        ...db.expenses.filter((item) => String(item.date || "").startsWith(month)).map((item) => ({
+          id: item.id, date: item.date, kind: "费用", party: item.vendor || item.category || "", amount: Number(item.amount || 0)
+        })),
+        ...db.reimbursements.filter((item) => String(item.date || "").startsWith(month)).map((item) => ({
+          id: item.id, date: item.date, kind: "报销", party: item.claimant || "", amount: Number(item.amount || 0)
+        }))
+      ]
+    };
+  };
+  const monthEndPack = (month) => {
+    const Close = window.UtiloraMonthEnd;
+    const input = monthEndSnapshot(month);
+    return Close ? { input, result: Close.buildMonthEnd(input) } : {
+      input,
+      result: { month, closed: input.closed, steps: [], done: 0, total: 1, percent: 0, openReceivableTotal: 0, unmatchedTotal: 0, expenseTotal: 0 }
+    };
+  };
   const workflowStrip = (labels = {}) => `<div class="workflow-strip" aria-label="快捷工作流">
       <button data-go="bank" type="button"${labels.bankWarn ? ' class="warn"' : ""}><b>1. 银行流水</b><span>${esc(labels.bank || "导入并匹配回款")}</span></button>
       <button data-go="invoices" type="button"${labels.arWarn ? ' class="warn"' : ""}><b>2. 应收/回款</b><span>${esc(labels.ar || "跟进本月待收")}</span></button>
@@ -332,14 +379,10 @@
     const dues = monthPendingInvoices.slice().sort((a, b) => String(a.dueDate || today()).localeCompare(String(b.dueDate || today()))).slice(0, 8);
     const recentPayments = db.payments.slice().sort((a, b) => String(b.date).localeCompare(String(a.date))).slice(0, 6);
     const anomalies = collectAnomalies();
-    const closeSteps = [
-      { ok: db.bankTransactions.length > 0, label: "已导入银行流水" },
-      { ok: db.bankTransactions.length > 0 && unmatched.length === 0, label: "流水已全部匹配" },
-      { ok: anomalies.length === 0, label: "无校验异常" },
-      { ok: db.closedMonths.includes(month), label: "本月已月结" },
-    ];
-    const closeDone = closeSteps.filter((step) => step.ok).length;
-    const closePct = Math.round((closeDone / closeSteps.length) * 100);
+    const { result: closePack } = monthEndPack(month);
+    const closeSteps = closePack.steps;
+    const closeDone = closePack.done;
+    const closePct = closePack.percent;
     const todos = [];
     if (unmatched.length) todos.push({ go: "bank", title: "匹配银行流水", detail: `${unmatched.length} 笔未匹配 · ${money(unmatchedAmount)}` });
     if (monthPendingAmount > 0) todos.push({ go: "invoices", title: "跟进应收回款", detail: `本月待收 ${money(monthPendingAmount)}${overdue.length ? ` · 逾期 ${overdue.length} 张` : ""}` });
@@ -903,13 +946,63 @@
   }
 
   function renderChecks() {
-    const month = new Date().toISOString().slice(0, 7);
-    const anomalies = collectAnomalies();
-    view.innerHTML = `<div class="panel"><h2>月结</h2><p class="data-note">月结后，该月的应收、收款、费用和报销不再允许修改；可随时重开。</p><div class="form-grid"><div class="field"><label>月份</label><input id="close-month" type="month" value="${month}"></div></div><div class="actions"><button id="close-toggle"></button></div><p class="data-note">已月结：${db.closedMonths.sort().join("、") || "暂无"}</p></div><div class="panel" style="margin-top:14px"><h2>数据校验日志</h2><p class="data-note">检查时间：${new Date().toLocaleString("zh-CN")}</p><div class="validation-list">${anomalies.length ? anomalies.map((x) => `<div class="validation-item"><b>${esc(x.where)}：${esc(x.issue)}</b><small>修复建议：${esc(x.fix)}</small></div>`).join("") : `<p class="empty">未发现明显异常。请仍按原始凭证复核。</p>`}</div></div>`;
-    primary.hidden = true;
-    const paint = () => { const value = document.getElementById("close-month").value; document.getElementById("close-toggle").textContent = db.closedMonths.includes(value) ? "重开该月" : "完成该月月结"; };
-    document.getElementById("close-month").onchange = paint; paint();
-    document.getElementById("close-toggle").onclick = async () => { const value = document.getElementById("close-month").value; if (!value) return; if (db.closedMonths.includes(value)) db.closedMonths = db.closedMonths.filter((x) => x !== value); else db.closedMonths.push(value); await save(); draw(); };
+    const Close = window.UtiloraMonthEnd;
+    let month = today().slice(0, 7);
+    const paint = () => {
+      const { input, result } = monthEndPack(month);
+      view.innerHTML = `
+        <div class="panel">
+          <h2>月结检查</h2>
+          <p class="data-note">关账底稿给老板或会计：未收应收、未匹配流水、异常、当月费用。完成度与下列步骤一致。月结后该月应收、收款、费用和报销不可改，可随时重开。</p>
+          <div class="form-grid">
+            <div class="field"><label>月份</label><input id="close-month" type="month" value="${month}"></div>
+          </div>
+          <div class="stat-row" style="margin-top:14px">
+            <div class="stat-card${result.percent < 100 ? " warn" : ""}"><div><b>${result.percent}%</b><span>月结完成度</span><small>${result.done}/${result.total} 项已完成</small></div></div>
+            <div class="stat-card${result.openReceivableTotal > 0 ? " warn" : ""}"><div><b>${money(result.openReceivableTotal)}</b><span>未收应收</span><small>${input.openReceivables.length} 张</small></div></div>
+            <div class="stat-card${input.unmatchedBank.length ? " warn" : ""}"><div><b>${money(result.unmatchedTotal)}</b><span>未匹配流水</span><small>${input.unmatchedBank.length} 笔</small></div></div>
+            <div class="stat-card${input.anomalies.length ? " warn" : ""}"><div><b>${input.anomalies.length}</b><span>异常</span><small>当月费用 ${money(result.expenseTotal)}</small></div></div>
+          </div>
+          <div class="month-progress" aria-label="月结完成度"><i style="width:${result.percent}%"></i></div>
+          <div class="close-steps">${result.steps.map((step) => `<div class="close-step ${step.ok ? "ok" : "wait"}"><b>${esc(step.label)}</b><small>${esc(step.detail)}</small></div>`).join("")}</div>
+          <div class="actions">
+            <button id="close-toggle" type="button"></button>
+            <button id="close-export-xlsx" class="secondary" type="button">导出月结 Excel</button>
+            <button id="close-export-csv" class="secondary" type="button">导出月结 CSV</button>
+          </div>
+          <p class="data-note">${result.percent < 100 && !result.closed ? "仍有未完成项，仍可月结，之后可以重开。" : ""}已月结：${db.closedMonths.slice().sort().join("、") || "暂无"}</p>
+        </div>
+        <div class="panel" style="margin-top:14px"><h2>未收应收</h2><div class="table-wrap"><table class="sheet-table"><thead><tr><th>客户</th><th>单号</th><th>到期日</th><th>未收</th></tr></thead><tbody>${input.openReceivables.map((row) => `<tr><td>${esc(row.customerName)}</td><td>${esc(row.number)}</td><td>${esc(row.dueDate || "—")}</td><td>${money(row.remaining)}</td></tr>`).join("") || `<tr><td colspan="4">没有未收应收</td></tr>`}</tbody></table></div></div>
+        <div class="panel" style="margin-top:14px"><h2>未匹配银行流水</h2><div class="table-wrap"><table class="sheet-table"><thead><tr><th>日期</th><th>摘要</th><th>待匹配</th></tr></thead><tbody>${input.unmatchedBank.map((row) => `<tr><td>${esc(row.date)}</td><td>${esc(row.summary)}</td><td>${money(row.remaining)}</td></tr>`).join("") || `<tr><td colspan="3">没有未匹配流水</td></tr>`}</tbody></table></div></div>
+        <div class="panel" style="margin-top:14px"><h2>当月费用与报销</h2><div class="table-wrap"><table class="sheet-table"><thead><tr><th>日期</th><th>类型</th><th>对象</th><th>金额</th></tr></thead><tbody>${input.expenses.map((row) => `<tr><td>${esc(row.date)}</td><td>${esc(row.kind)}</td><td>${esc(row.party)}</td><td>${money(row.amount)}</td></tr>`).join("") || `<tr><td colspan="4">当月暂无费用或报销</td></tr>`}</tbody></table></div></div>
+        <div class="panel" style="margin-top:14px"><h2>数据校验</h2><p class="data-note">检查时间：${new Date().toLocaleString("zh-CN")}</p><div class="validation-list">${input.anomalies.length ? input.anomalies.map((x) => `<div class="validation-item"><b>${esc(x.where)}：${esc(x.issue)}</b><small>修复建议：${esc(x.fix)}</small></div>`).join("") : `<p class="empty">未发现明显异常。请仍按原始凭证复核。</p>`}</div></div>`;
+      primary.hidden = true;
+      document.getElementById("close-toggle").textContent = result.closed ? "重开该月" : "完成该月月结";
+      document.getElementById("close-month").onchange = (event) => {
+        month = event.target.value || month;
+        paint();
+      };
+      document.getElementById("close-toggle").onclick = async () => {
+        if (!month) return;
+        if (db.closedMonths.includes(month)) db.closedMonths = db.closedMonths.filter((value) => value !== month);
+        else db.closedMonths.push(month);
+        await save();
+        draw();
+      };
+      const exportSheets = () => Close ? Close.monthEndExportSheets(input, result) : [];
+      document.getElementById("close-export-xlsx").onclick = () => {
+        const sheets = exportSheets();
+        if (!sheets.length) return;
+        downloadText(`utilora-月结-${month}.xls`, excelWorkbook(sheets), "application/vnd.ms-excel");
+      };
+      document.getElementById("close-export-csv").onclick = () => {
+        const sheets = exportSheets();
+        if (!sheets.length) return;
+        const text = sheets.map((sheet) => [sheet.name, csvText(sheet.rows[0], sheet.rows.slice(1))].join("\r\n")).join("\r\n\r\n");
+        downloadText(`utilora-月结-${month}.csv`, text);
+      };
+    };
+    paint();
   }
 
   const downloadJson = (filename, payload) => {

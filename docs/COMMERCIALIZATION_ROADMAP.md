@@ -2,7 +2,15 @@
 
 ## Purpose
 
-This is the stable direction for moving Utilora from a fully free product to a Free + Pro model. Current code, migrations, and production configuration remain the source of truth.
+Stable direction from a fully free toolbox to Free + Pro. Current code, applied migrations and production configuration remain the source of truth.
+
+## Who this is for
+
+Small-business and bookkeeping finance staff. They are not replacing a full ERP.
+
+Daily work: bank matching and collection follow-up.  
+Monthly peak: payroll/tax tools, then a close pack the owner or accountant can take.  
+Anytime: backup and complete export. Data loss is unacceptable.
 
 ## Product principles
 
@@ -14,6 +22,18 @@ This is the stable direction for moving Utilora from a fully free product to a F
 6. Entitlements use trusted server state, not frontend hiding alone.
 7. No privileged credential is shipped to the browser.
 8. Analytics never contain financial business data.
+
+## Usage priority
+
+| Frequency | Work | Product surface |
+|---|---|---|
+| Daily | Bank import, match receipts, see who still owes | Pro bank + receivables |
+| During billing | VAT split, amount in Chinese, quotes | Free tools |
+| Monthly | Payroll/tax estimates | Free tools |
+| Month-end | Unresolved AR, unmatched bank, anomalies, expenses, close score, export | Pro month-end |
+| Anytime | Backup, restore, complete export | Pro settings |
+
+Do not add AP, tax e-filing, collection tickets, cloud sync or payment until the table above is reliable.
 
 ## Product tiers
 
@@ -32,28 +52,23 @@ This is the stable direction for moving Utilora from a fully free product to a F
 
 ## Entitlement lifecycle
 
-guest -> free
-authenticated user -> free
-trial started/active -> pro_trial
-trial expired -> free with read/export
-payment confirmed -> pro
-canceled but paid period active -> pro
-subscription expired -> free with read/export
+guest -> free  
+authenticated user -> free  
+trial started/active -> pro_trial  
+trial expired -> free with read/export  
+payment confirmed -> pro  
+canceled but paid period active -> pro  
+subscription expired -> free with read/export  
 
 Extend the existing plans, subscriptions, promotions, entitlement_grants, and get_my_effective_entitlement architecture. Add feature-level capabilities later instead of replacing it.
 
 ## P0 — Commercial intent validation
 
-- Value-led homepage, free tools, complete demo and expected pricing.
-- Protected purchase-intent collection.
-- Lightweight first-party funnel analytics.
-- Pro remains free during promotion; no payment.
-
-Exit: intent collection, P0 events, funnel measurement, production migrations and UI are verified.
+Done on main. Homepage, demo, expected pricing, purchase intent and funnel analytics. No payment.
 
 ## P1 — Workflow reliability
 
-Implement in order:
+Implement in order. One authorized item at a time.
 
 1. Bank import: preview, stable duplicate fingerprint, explicit states, progress, confidence, batch confirmation and reversible decisions.
 2. Receivables: aging, customer debt overview, collection progress and explainable matching suggestions.
@@ -64,22 +79,30 @@ Exit: bank import -> matching -> payment -> month-end works reliably; duplicates
 
 ## P2 — Trial and optional cloud foundations
 
+Requires explicit approval.
+
 - Introduce a no-card trial, initially 30 days.
 - Add feature-level entitlements and organization limits.
 - Add trial start, expiry, reminder and downgrade behavior.
 - Improve multi-workspace experience.
 - Design optional encrypted cloud backup; disabled by default.
 
-Exit: server-authoritative trial, safe expiry, local-only support and explicit cloud consent.
-
 ## P3 — Paid conversion
+
+Requires explicit approval.
 
 - Start with an invite-only purchase-intent cohort and one simple Pro plan.
 - Consider ¥19 monthly and ¥199 annually only after validation.
 - Add provider-neutral orders, signed webhooks, idempotency, cancellation, refunds and reconciliation.
 - Add team/enterprise features only after individual Pro retention is proven.
 
-Payment requires server-side secrets, webhook verification, replay safety, clear renewal/cancellation/refund policies, monitoring and manual recovery.
+## Deferred until P1 exit
+
+- Accounts payable / inbound invoices
+- Multi-wallet auto-reconciliation
+- Tax filing connections
+- Collection task systems
+- Cloud sync and billing
 
 ## Analytics privacy
 
@@ -92,3 +115,4 @@ Track product funnel and lifecycle events only. Never include customer names, ba
 - Default to synchronized `main` for reading and authorized changes; use another branch only when the user explicitly requests it.
 - Add new migrations; never edit an applied migration.
 - Update COMMERCIALIZATION_STATUS.md after completed commercialization work.
+- Keep exactly one recommended next step in the status file.

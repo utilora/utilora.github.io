@@ -1,12 +1,12 @@
 # Utilora Commercialization Status
 
 Last reviewed branch: main
-Last reviewed commit: 163b771
+Last reviewed commit: pending-p1.3
 Last reviewed date: 2026-08-30
 
 ## Current phase
 
-P1.2 is implemented on main. Later P1 items require an explicit user request.
+P1.3 is implemented on main. Later P1 items require an explicit user request.
 
 ## Current production model
 
@@ -30,9 +30,9 @@ P1.2 is implemented on main. Later P1 items require an explicit user request.
 - [x] P0 merged to main at 5b2f8d603251be8a65dedf6db2f7bd7bde5191f3.
 - [x] P1.1 local bank import preview, duplicate fingerprints, match states and reversible exact-amount suggestions.
 - [x] P1.2 receivable aging, customer debt overview and collection progress excluding draft/void.
-- [x] Production build and 29 automated tests passed.
+- [x] P1.3 month-end completion score, unresolved close lists and exportable Excel/CSV result.
+- [x] Production build and 33 automated tests passed.
 - [x] GitHub Pages uses workflow-only publishing; compiled artifact guards reject raw TypeScript entrypoints.
-- [x] Live Pro anonymous gate and demo dashboard verified after the Pages fix with zero console errors.
 
 ## Reusable capabilities
 
@@ -43,6 +43,7 @@ P1.2 is implemented on main. Later P1 items require an explicit user request.
 - src/core/purchase-intent/ and src/app/purchase-intent.ts: purchase intent.
 - src/core/banking/local.ts: fingerprints, import preview, remaining amounts and non-overallocating match plans.
 - src/core/receivables/local.ts: aging buckets, customer debt and collection progress.
+- src/core/month-end/local.ts: close steps, completion score and export sheets.
 - pro/app.js: IndexedDB workspaces, demo, bank matching, receivables, month-end, backup and restore.
 - Supabase migrations: finance schema, RLS, entitlements, promotions and grants.
 
@@ -50,31 +51,30 @@ P1.2 is implemented on main. Later P1 items require an explicit user request.
 
 - pro/app.js is monolithic; avoid unrelated refactoring.
 - Local finance data and Supabase finance tables are not synchronized; never imply that they are.
-- Month-end lacks completion scoring and exportable results.
 - Backup reminders and restore regression coverage need strengthening.
 - Entitlements do not yet expose feature-level limits.
 - Payment and billing operations are intentionally absent.
 
 ## Next Authorized Step
 
-- [ ] P1.3: month-end completion score and exportable close result.
+- [ ] P1.4: backup reminders, complete export and restore compatibility.
 
-Implementation requires an explicit request to begin P1.3.
+Implementation requires an explicit request to begin P1.4.
 
 ### Scope
 
-- Inspect month-end checks, unmatched bank rows, open receivables, expenses and anomalies first.
-- Add a completion score from unresolved work.
-- Produce an exportable month-end result.
-- Keep close/reopen behavior and demo non-persistence.
+- Inspect settings backup/restore, IndexedDB and demo isolation first.
+- Show last backup time and remind when it is stale.
+- Keep a complete export of customers, invoices, payments, bank, expenses and accounts.
+- Add restore compatibility coverage for current workspace data.
+- Do not enable cloud sync.
 
 ### Acceptance criteria
 
-- Unresolved receivables, unmatched transactions, anomalies and expenses are visible in the close view.
-- Completion score matches remaining close steps.
-- Month-end result can be exported.
+- Last backup time is visible in the workspace.
+- A stale backup produces a reminder.
+- Exported backup restores into a readable workspace.
 - Demo changes are not persisted.
-- Existing workspaces and backups remain readable.
 - Targeted tests and production build pass.
 
 ## Requires Explicit Approval
