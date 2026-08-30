@@ -1,12 +1,12 @@
 # Utilora Commercialization Status
 
 Last reviewed branch: main
-Last reviewed commit: aa536785bb24e035fd4c962d626971696dbdee12
+Last reviewed commit: 05facb9a3c0cdd4aecfc876d9ce68b0d29b417f6
 Last reviewed date: 2026-08-30
 
 ## Current phase
 
-P1 is complete. Near-term work follows docs/PRODUCT_OPTIMIZATION.md, currently M1-W2. P2 trial and cloud remain unauthorized.
+P1 is complete. Near-term work follows docs/PRODUCT_OPTIMIZATION.md, currently M1-W3. P2 trial and cloud remain unauthorized.
 
 ## Current production model
 
@@ -33,7 +33,8 @@ P1 is complete. Near-term work follows docs/PRODUCT_OPTIMIZATION.md, currently M
 - [x] P1.3 month-end completion score, unresolved close lists and exportable Excel/CSV result.
 - [x] P1.4 complete local backup, stale reminders, v2/v3 restore compatibility and demo non-persistence.
 - [x] M1-W1 explainable matching: unique amount, customer name in summary, near due date.
-- [x] Production build and 42 automated tests passed.
+- [x] M1-W2 atomic partial matching across multiple invoices with reversible payments.
+- [x] Production build and 46 automated tests passed.
 - [x] GitHub Pages uses workflow-only publishing; compiled artifact guards reject raw TypeScript entrypoints.
 
 ## Reusable capabilities
@@ -43,7 +44,7 @@ P1 is complete. Near-term work follows docs/PRODUCT_OPTIMIZATION.md, currently M
 - src/core/organizations/context.ts: organization context.
 - src/core/analytics/: typed event tracking.
 - src/core/purchase-intent/ and src/app/purchase-intent.ts: purchase intent.
-- src/core/banking/local.ts: fingerprints, import preview, remaining amounts and non-overallocating match plans.
+- src/core/banking/local.ts: fingerprints, import preview, remaining amounts and atomic non-overallocating match plans.
 - src/core/receivables/local.ts: aging buckets, customer debt and collection progress.
 - src/core/month-end/local.ts: close steps, completion score and export sheets.
 - src/core/backup/local.ts: complete export payload, restore parsing and stale backup reminders.
@@ -61,24 +62,25 @@ P1 is complete. Near-term work follows docs/PRODUCT_OPTIMIZATION.md, currently M
 
 ## Next Authorized Step
 
-- [ ] M1-W2: partial matching — split one bank row across invoices, still reversible.
+- [ ] M1-W3: customer collection notes — contact date, promise date, result and next follow-up sorting.
 
-See docs/PRODUCT_OPTIMIZATION.md. Implementation requires an explicit request to begin M1-W2.
+See docs/PRODUCT_OPTIMIZATION.md. Implementation requires an explicit request to begin M1-W3.
 
-Do not start M1-W3 or later weeks, P2, payment or cloud sync.
+Do not start M1-W4 or later weeks, P2, payment or cloud sync.
 
 ### Scope
 
-- Inspect current allocation and applyMatch first.
-- Allow one unmatched bank row to be planned against more than one open invoice without exceeding remaining amounts.
-- Keep suggestions explainable and reversible.
-- Do not change import fingerprinting from P1.1.
+- Inspect current customer and invoice local data and renderers first.
+- Store contact date, next follow-up date, promised payment date and result (unanswered / promised / paid) locally.
+- Show collection history on the customer surface and allow overdue items to sort by next follow-up.
+- Keep demo changes non-persistent and real workspace data local-only.
+- Do not expand into tickets, SMS or multi-user collaboration.
 
 ### Acceptance criteria
 
-- A bank row can allocate to multiple invoices in one confirmation.
-- Over-allocation is rejected.
-- Unique exact-amount and M1-W1 explainable suggestions still work.
+- A collection note can be created and edited with the required dates and result.
+- Customer details show follow-up context instead of amount only.
+- Overdue receivables can be ordered by next follow-up date.
 - Demo changes are not persisted.
 - Targeted tests and production build pass.
 

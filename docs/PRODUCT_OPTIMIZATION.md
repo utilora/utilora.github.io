@@ -9,15 +9,15 @@
 
 ## 当前项
 
-- 阶段：第 1 个月 · 第 2 周
-- 编号：`M1-W2`
+- 阶段：第 1 个月 · 第 3 周
+- 编号：`M1-W3`
 - 状态：未开始
-- 内容：部分匹配：一笔流水可拆到多张应收；匹配仍可撤销
-- 开始前：用户需明确说「做 M1-W2」或「做部分匹配」
+- 内容：客户催收备忘：联系日、承诺还款日、结果；逾期可按下次跟进排序
+- 开始前：用户需明确说「做 M1-W3」或「做客户催收备忘」
 - 完成后必须更新本文件的进度、当前项，以及 STATUS 的 Next Authorized Step
 
 Last reviewed branch: main  
-Last reviewed commit: 345cd49d98caae759563cd502d7c9f5e58ec2cbe  
+Last reviewed commit: 05facb9a3c0cdd4aecfc876d9ce68b0d29b417f6
 Last reviewed date: 2026-08-30
 
 ## 进度更新协议
@@ -49,10 +49,11 @@ Last reviewed date: 2026-08-30
   测试：npm test 42 passed；npm run build PASS  
   遗留：金额仍须相等才会建议；拆单/部分金额是 M1-W2。
 
-- [ ] **M1-W2** 部分匹配：一笔流水可拆到多张应收；匹配仍可撤销。  
+- [x] **M1-W2** 部分匹配：一笔流水可拆到多张应收；匹配仍可撤销。
   验收：预付、拆单不会卡死。  
-  提交：_待填写_  
-  测试：_待填写_
+  提交：05facb9a3c0cdd4aecfc876d9ce68b0d29b417f6
+  测试：npm test 46 passed；npm run build PASS；Playwright 拆分 / 撤销 / 演示不持久化 PASS
+  遗留：拆分由人工确认，不自动猜测多张应收组合。
 
 - [ ] **M1-W3** 客户催收备忘：联系日、承诺还款日、结果（未接 / 已答应 / 已付）；逾期可按下次跟进排序。  
   验收：客户页能看到跟进，而不是只看到金额。  
