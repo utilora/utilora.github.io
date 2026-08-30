@@ -38,7 +38,7 @@ npm run build
 
 ## 约定
 
-- 默认在 `main` 上改。一次只做 [docs/PRODUCT_OPTIMIZATION.md](docs/PRODUCT_OPTIMIZATION.md) 里的当前项。
-- 给 AI 的规矩：[AGENTS.md](AGENTS.md)
+- 多 AI 协作看板与分支规则：[docs/COLLAB.md](docs/COLLAB.md)
+- 给 AI 的效率规矩：[AGENTS.md](AGENTS.md)
 - 验证码邮件模板：[supabase/templates/README.md](supabase/templates/README.md)
 - 未授权不要接支付、不要做云同步、不要上传本地财务数据。
