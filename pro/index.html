@@ -7,7 +7,7 @@
   <meta name="description" content="面向小微企业的专业财务工作台。登录后限时免费使用客户、报价、应收、收款、费用、凭证与报表功能。">
   <link rel="icon" type="image/svg+xml" href="../favicon.svg">
   <link rel="stylesheet" href="../assets/css/site.css">
-  <link rel="stylesheet" href="pro.css?v=12">
+  <link rel="stylesheet" href="pro.css?v=13">
 </head>
 <body class="crater-body">
   <header class="crater-top">
@@ -25,7 +25,41 @@
       <p>登录后即可使用客户往来、报价与应收、银行流水、费用报销、凭证、月结检查和经营报表。暂不收取费用，正式收费前会提前通知。</p>
       <div class="pro-gate-features"><b>多公司数据隔离</b><b>Excel 批量处理</b><b>本地数据与备份</b><b>完整财务工作流</b></div>
       <div class="actions"><a class="gate-primary" data-pro-login href="../login/">登录并免费使用</a><a class="gate-secondary" href="?demo=1#/dashboard">先看演示工作台</a></div>
-      <small>当前不接入支付，不会自动扣费。</small>
+      <small>当前不接入支付，不会自动扣费。Pro 预计 ¥19/月 · 当前内测免费。</small>
+      <form class="intent-form gate-intent" data-purchase-intent>
+        <b>正式版上线前可留下意向</b>
+        <div class="intent-grid">
+          <label>邮箱<input name="email" type="email" required maxlength="254" autocomplete="email" placeholder="you@company.com"></label>
+          <label>主要用途
+            <select name="use_case" required>
+              <option value="">请选择</option>
+              <option value="银行流水">银行流水</option>
+              <option value="应收回款">应收回款</option>
+              <option value="月结检查">月结检查</option>
+              <option value="经营报表">经营报表</option>
+              <option value="其他">其他</option>
+            </select>
+          </label>
+          <label>公司规模
+            <select name="company_size" required>
+              <option value="">请选择</option>
+              <option value="1-10">1–10 人</option>
+              <option value="11-50">11–50 人</option>
+              <option value="51-200">51–200 人</option>
+              <option value="200+">200 人以上</option>
+            </select>
+          </label>
+        </div>
+        <input type="hidden" name="intended_plan" value="pro">
+        <div hidden aria-hidden="true"><label>网站<input name="website" tabindex="-1" autocomplete="off"></label></div>
+        <div class="intent-actions">
+          <button type="submit">我愿意购买</button>
+          <button type="submit" class="secondary">正式版上线通知我</button>
+        </div>
+        <p class="intent-note">不会扣费，正式收费前提前通知。</p>
+        <p class="intent-message" data-intent-message role="status" aria-live="polite"></p>
+      </form>
+
     </div>
   </section>
   <div class="crater-shell" id="pro-shell" hidden>
@@ -50,6 +84,44 @@
     </aside>
     <main class="crater-main">
       <div class="local-notice" id="local-notice"><b>专业版 · 当前限时免费</b> 数据只保存在当前浏览器，不上传服务器，也不跟随账号或设备同步。请定期在“数据与设置”中导出备份。</div>
+      <section class="intent-panel">
+        <div>
+          <b>正式收费前可留下意向</b>
+          <p>Pro 预计 ¥19/月 · 当前内测免费 · 不会扣费</p>
+        </div>
+        <form data-purchase-intent>
+          <div class="intent-grid">
+            <label>邮箱<input name="email" type="email" required maxlength="254" autocomplete="email" placeholder="you@company.com"></label>
+            <label>主要用途
+              <select name="use_case" required>
+                <option value="">请选择</option>
+                <option value="银行流水">银行流水</option>
+                <option value="应收回款">应收回款</option>
+                <option value="月结检查">月结检查</option>
+                <option value="经营报表">经营报表</option>
+                <option value="其他">其他</option>
+              </select>
+            </label>
+            <label>公司规模
+              <select name="company_size" required>
+                <option value="">请选择</option>
+                <option value="1-10">1–10 人</option>
+                <option value="11-50">11–50 人</option>
+                <option value="51-200">51–200 人</option>
+                <option value="200+">200 人以上</option>
+              </select>
+            </label>
+          </div>
+          <input type="hidden" name="intended_plan" value="pro">
+          <div hidden aria-hidden="true"><label>网站<input name="website" tabindex="-1" autocomplete="off"></label></div>
+          <div class="intent-actions">
+            <button type="submit">我愿意购买</button>
+            <button type="submit" class="secondary">正式版上线通知我</button>
+          </div>
+          <p class="intent-message" data-intent-message role="status" aria-live="polite"></p>
+        </form>
+      </section>
+
       <div class="crater-head">
         <button id="sidebar-toggle" class="ghost" type="button">☰</button>
         <h1 id="page-title">今天的工作</h1>

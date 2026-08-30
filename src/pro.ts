@@ -1,5 +1,7 @@
+import { bindPurchaseIntentForms } from "./app/purchase-intent";
 import { getUser } from "./core/auth/session";
 import { getEffectiveEntitlement, resolveLocalEntitlement } from "./core/entitlements/service";
+
 
 const gate = document.getElementById("pro-gate") as HTMLElement;
 const shell = document.getElementById("pro-shell") as HTMLElement;
@@ -44,11 +46,15 @@ const revealWorkspace = async (label: string): Promise<void> => {
   await loadWorkspace();
 };
 
+
+
 const start = async (): Promise<void> => {
   if (demo) {
     await revealWorkspace("演示模式 · 不保存改动");
+    await bindPurchaseIntentForms();
     return;
   }
+
 
   const user = await withTimeout(getUser(), STARTUP_TIMEOUT_MS, null);
   const entitlement = user
@@ -57,6 +63,7 @@ const start = async (): Promise<void> => {
   if (user && entitlement.proAccess) {
     const name = user.user_metadata?.name || user.email?.split("@")[0] || "账户";
     await revealWorkspace(`${name} · 专业版限时免费`);
+    await bindPurchaseIntentForms();
     return;
   }
 
@@ -65,9 +72,10 @@ const start = async (): Promise<void> => {
   if (status) status.textContent = "请登录后使用";
   const login = gate.querySelector<HTMLAnchorElement>("[data-pro-login]");
   if (login) login.href = "../login/?next=" + encodeURIComponent("../pro/");
+  await bindPurchaseIntentForms();
 };
 
-void start().catch((error) => {
+void start().catch(async (error) => {
   console.error("Professional workspace bootstrap failed", error);
   shell.hidden = true;
   gate.hidden = false;
@@ -75,4 +83,5 @@ void start().catch((error) => {
     status.textContent = "登录验证失败，请重试";
     status.classList.add("error");
   }
+  await bindPurchaseIntentForms();
 });

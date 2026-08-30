@@ -54,4 +54,46 @@ describe("product architecture", () => {
     expect(migration).toContain("'pro-launch-free'");
     expect(migration).toContain('"payment_required":false');
   });
+
+  it("captures purchase intent without payment or service-role keys", () => {
+
+    const migration = read("supabase/migrations/202608300001_purchase_intents.sql");
+    expect(migration).toContain("create table public.purchase_intents");
+    expect(migration).toContain("user_id");
+    expect(migration).toContain("email");
+    expect(migration).toContain("use_case");
+    expect(migration).toContain("company_size");
+    expect(migration).toContain("intended_plan");
+    expect(migration).toContain("created_at");
+    expect(migration).toContain("alter table public.purchase_intents enable row level security");
+    expect(migration).toContain("submit_purchase_intent");
+    expect(migration).toContain("revoke all on public.purchase_intents");
+    expect(migration).toContain("purchase_intents_email_unique");
+    expect(migration).toContain("purchase_intents_user_id_uidx");
+    expect(migration).not.toMatch(/grant\s+(select|insert|update|delete)\s+on\s+public\.purchase_intents/i);
+
+
+    const home = read("index.html");
+    expect(home).toContain("我愿意购买");
+    expect(home).toContain("正式版上线通知我");
+    expect(home).toContain("Pro 预计 ¥19/月");
+    expect(home).toContain("当前内测免费");
+    expect(read("pro/index.html")).toContain("我愿意购买");
+    expect(read("pro/index.html")).toContain("正式版上线通知我");
+    expect(home).not.toMatch(/stripe|wechatpay|js\.stripe/i);
+
+
+    const browserFiles = [
+      "src/app/config/env.ts",
+      "src/core/supabase/client.ts",
+      "src/app/purchase-intent.ts",
+      "src/core/purchase-intent/service.ts",
+      "index.html",
+      "pro/index.html",
+      "assets/js/app.js"
+    ];
+    for (const path of browserFiles) {
+      expect(read(path)).not.toMatch(/service[_-]?role|sb_secret/i);
+    }
+  });
 });

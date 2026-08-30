@@ -37,6 +37,16 @@ export interface EffectiveEntitlement {
   expiresAt: string | null;
 }
 
+export interface PurchaseIntent {
+  id: UUID;
+  user_id: UUID | null;
+  email: string;
+  use_case: string | null;
+  company_size: string | null;
+  intended_plan: "pro";
+  created_at: string;
+}
+
 export interface Customer {
   id: UUID;
   organization_id: UUID;

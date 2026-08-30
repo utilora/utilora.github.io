@@ -17,7 +17,7 @@
   <link rel="apple-touch-icon" href="icon-192.png">
   <link rel="manifest" href="site.webmanifest">
   <link rel="stylesheet" href="assets/css/site.css">
-  <link rel="stylesheet" href="assets/css/finance-home.css?v=12">
+  <link rel="stylesheet" href="assets/css/finance-home.css?v=13">
   <script type="application/ld+json">
   {
     "@context":"https://schema.org",
@@ -154,11 +154,51 @@
         <article class="compare-card pro-card">
           <div class="limited-ribbon">内测限时免费</div><span class="compare-kicker">PRO</span><h3>专业财务工作台</h3><p>把银行流水、应收回款、月结检查和经营报表放进同一套工作流。</p>
           <ul><li>银行流水导入与收款匹配</li><li>应收回款进度持续跟踪</li><li>月结检查集中发现异常</li><li>经营报表看到业务结果</li></ul>
-          <a href="pro/?demo=1#/dashboard">体验完整演示</a><small>Pro 预计 ¥19/月 · 当前内测免费 · 正式收费前提前通知。当前不接入支付，不会自动扣费。</small>
+          <a href="pro/?demo=1#/dashboard">体验完整演示</a><small>Pro 预计 ¥19/月 · 当前内测免费 · 正式收费前提前通知。当前不接入支付，不会自动扣费。<a href="#intent">我愿意购买 / 正式版上线通知我</a></small>
+
         </article>
       </div>
     </section>
+    <section id="intent" class="intent-section">
+      <div class="finance-section-head">
+        <div><span class="section-tag">PRO INTENT</span><h2>正式收费前，先留下你的意向</h2></div>
+        <p>当前不收费。Pro 预计 ¥19/月 · 当前内测免费。留下最少信息后，正式版上线会提前通知你。</p>
+      </div>
+      <form class="intent-form" data-purchase-intent>
+        <div class="intent-grid">
+          <label>邮箱<input name="email" type="email" required maxlength="254" autocomplete="email" placeholder="you@company.com"></label>
+          <label>主要用途
+            <select name="use_case" required>
+              <option value="">请选择</option>
+              <option value="银行流水">银行流水</option>
+              <option value="应收回款">应收回款</option>
+              <option value="月结检查">月结检查</option>
+              <option value="经营报表">经营报表</option>
+              <option value="其他">其他</option>
+            </select>
+          </label>
+          <label>公司规模
+            <select name="company_size" required>
+              <option value="">请选择</option>
+              <option value="1-10">1–10 人</option>
+              <option value="11-50">11–50 人</option>
+              <option value="51-200">51–200 人</option>
+              <option value="200+">200 人以上</option>
+            </select>
+          </label>
+        </div>
+        <input type="hidden" name="intended_plan" value="pro">
+        <div hidden aria-hidden="true"><label>网站<input name="website" tabindex="-1" autocomplete="off"></label></div>
+        <div class="intent-actions">
+          <button type="submit">我愿意购买</button>
+          <button type="submit" class="secondary-cta">正式版上线通知我</button>
+        </div>
+        <p class="intent-note">Pro 预计 ¥19/月 · 当前内测免费 · 正式收费前提前通知。不会扣费，也不需要登录。</p>
+        <p class="intent-message" data-intent-message role="status" aria-live="polite"></p>
+      </form>
+    </section>
     <section id="workspace" class="workspace-section">
+
       <div class="workspace-copy">
         <span class="section-tag light">UTILORA PRO · LIMITED FREE</span>
         <h2>专业财务工作台：从问题走到可交付结果</h2>
