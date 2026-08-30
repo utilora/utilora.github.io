@@ -30,8 +30,8 @@ const loadWorkspace = async (): Promise<void> => {
     "../assets/js/finance.js?v=11",
     "../assets/js/csv.js?v=11",
     "../assets/js/xlsx-lite.js?v=11",
-    "../assets/js/app.js?v=12",
-    "app.js?v=11"
+    "../assets/js/app.js?v=13",
+    "app.js?v=12"
   ]) {
     await loadScript(src);
   }
