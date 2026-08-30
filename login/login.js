@@ -48,7 +48,7 @@
     const isVerify = mode === "verify";
     title.textContent = isUp ? "创建账号" : isRecover ? "重置密码" : isVerify ? "验证邮箱" : "登录";
     lead.textContent = isUp
-      ? "使用真实邮箱。我们会发送 6 位验证码，验证成功后才能登录。"
+      ? "使用真实邮箱。我们会发送验证码，验证成功后才能登录。"
       : isRecover
         ? "输入注册邮箱，我们会发送重置邮件。"
         : isVerify
@@ -156,7 +156,7 @@
     mode = "verify";
     startCooldown(60);
     paint();
-    setMsg(formMsg, "验证码已发送到 " + email + "。请输入邮件中的 6 位数字；QQ / 网易邮箱请同时检查垃圾箱。");
+    setMsg(formMsg, "验证码已发送到 " + email + "。请按邮件里的完整数字填写（6 到 8 位）；QQ / 网易邮箱请同时检查垃圾箱。");
   };
 
   resend.addEventListener("click", async () => {
@@ -187,7 +187,7 @@
       }
       if (mode === "verify") {
         const token = otpInput.value.trim();
-        if (!/^\d{6,8}$/.test(token)) throw new Error("请输入邮件中的 6 位验证码");
+        if (!/^\d{6,8}$/.test(token)) throw new Error("请输入邮件中的 6 到 8 位验证码");
         await auth.verifyOtp(pendingEmail || email, token);
         if (pendingPassword) {
           try { await auth.setPassword(pendingPassword); } catch { /* 会话已建立时密码稍后可在账户页设置 */ }
