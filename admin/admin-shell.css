@@ -107,3 +107,25 @@ html,body.admin-body{min-height:100vh;background:#f1f5f9}
 .promo-form{grid-template-columns:repeat(auto-fit,minmax(160px,1fr))}
 .check{display:flex;align-items:center;gap:8px;font-size:13px}
 #intents-list input[type=text]{min-width:140px;margin-right:8px}
+button.linkish{
+  padding:0;border:0;background:none;color:#4f46e5;font:inherit;font-weight:700;cursor:pointer;text-align:left
+}
+button.linkish:hover{text-decoration:underline}
+.dossier{
+  position:fixed;inset:0;z-index:40;display:grid;place-items:center;padding:24px;
+  background:#0f172a73
+}
+.dossier[hidden]{display:none}
+.dossier-card{
+  width:min(720px,100%);max-height:min(88vh,860px);overflow:auto;
+  background:#fff;border-radius:16px;padding:22px 22px 18px;box-shadow:0 24px 60px #0f172a33
+}
+.dossier-card header{display:flex;justify-content:space-between;gap:16px;align-items:flex-start;margin-bottom:8px}
+.dossier-card h2{margin:0;font-size:18px;word-break:break-all}
+.dossier-card h3{margin:18px 0 8px;font-size:13px;color:#64748b}
+.dossier-dl{display:grid;grid-template-columns:88px 1fr;gap:6px 12px;margin:0}
+.dossier-dl dt{color:#64748b;font-size:12px}
+.dossier-dl dd{margin:0;font-weight:700}
+.dossier-card ul{margin:0;padding-left:18px}
+.dossier-card .row-actions{margin-top:16px}
+

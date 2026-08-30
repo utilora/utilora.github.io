@@ -172,6 +172,10 @@ describe("product architecture", () => {
     expect(read("admin/index.html")).toContain('data-page="logs"');
     expect(read("admin/index.html")).toContain('data-page="promotions"');
     expect(read("admin/admin-ops.js")).toContain("rpc/admin_list_activity_logs");
+    expect(read("admin/admin-ops.js")).toContain("openDossier");
+    expect(read("admin/index.html")).toContain('id="dossier"');
+    expect(read("admin/index.html")).toContain('id="export-logs"');
+    expect(sql).toContain("admin_overview_stats");
     expect(read("assets/js/auth.js")).toContain("record_user_activity");
     expect(read("assets/js/analytics.js")).toContain("record_user_activity");
     expect(read("src/core/auth/session.ts")).toContain("record_user_activity");

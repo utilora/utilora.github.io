@@ -515,3 +515,47 @@ end;
 $$;
 revoke all on function public.admin_set_user_disabled(uuid, boolean) from public, anon;
 grant execute on function public.admin_set_user_disabled(uuid, boolean) to authenticated;
+
+create or replace function public.admin_overview_stats()
+returns jsonb
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_today date;
+  v_new_users integer;
+  v_signins integer;
+  v_open_intents integer;
+  v_new_feedback integer;
+begin
+  if not public.is_admin() then
+    raise insufficient_privilege;
+  end if;
+  v_today := (now() at time zone 'Asia/Shanghai')::date;
+  select count(*)::int into v_new_users
+  from auth.users
+  where (created_at at time zone 'Asia/Shanghai')::date = v_today;
+  select count(*)::int into v_signins
+  from auth.users
+  where last_sign_in_at is not null
+    and (last_sign_in_at at time zone 'Asia/Shanghai')::date = v_today;
+  select count(*)::int into v_open_intents
+  from public.purchase_intents i
+  left join public.purchase_intent_followups f on f.intent_id = i.id
+  where coalesce(f.status, 'new') <> 'closed';
+  v_new_feedback := 0;
+  if to_regclass('public.feedback') is not null then
+    execute 'select count(*)::int from public.feedback where status = ''new''' into v_new_feedback;
+  end if;
+  return jsonb_build_object(
+    'new_users_today', v_new_users,
+    'signins_today', v_signins,
+    'open_intents', v_open_intents,
+    'new_feedback', v_new_feedback
+  );
+end;
+$$;
+revoke all on function public.admin_overview_stats() from public, anon;
+grant execute on function public.admin_overview_stats() to authenticated;
+

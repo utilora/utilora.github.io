@@ -10,6 +10,7 @@ const filterForm = document.getElementById('filter-form');
 const sessionKey = 'utilora_admin_session';
 let usersCache = [];
 let intentsCache = [];
+let feedbackCache = [];
 let usersLoadState = 'ok';
 let intentsLoadState = 'ok';
 let feedbackLoadState = 'ok';
@@ -205,6 +206,47 @@ const PAGE_SIZE = 20;
 let usersPage = 1;
 let intentsPage = 1;
 
+function csvEscape(value) {
+  const text = String(value ?? '');
+  if (/[",\n]/.test(text)) return `"${text.replace(/"/g, '""')}"`;
+  return text;
+}
+
+function downloadCsv(filename, headers, rows) {
+  const lines = [headers.map(csvEscape).join(',')];
+  rows.forEach((row) => lines.push(row.map(csvEscape).join(',')));
+  const blob = new Blob(['\ufeff' + lines.join('\n')], { type: 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  link.click();
+  URL.revokeObjectURL(url);
+}
+
+function isLocalDay(iso) {
+  if (!iso) return false;
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return false;
+  const local = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
+  return local.toISOString().slice(0, 10) === todayISO();
+}
+
+function paintOverviewExtras() {
+  const newUsers = usersLoadState === 'ok' ? usersCache.filter((user) => isLocalDay(user.created_at)).length : null;
+  const signins = usersLoadState === 'ok' ? usersCache.filter((user) => isLocalDay(user.last_sign_in_at)).length : null;
+  const openIntents = intentsLoadState === 'ok'
+    ? intentsCache.filter((row) => (row.follow_status || 'new') !== 'closed').length
+    : null;
+  const set = (id, value) => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = value == null ? '—' : String(value);
+  };
+  set('overview-new-users', newUsers);
+  set('overview-signins', signins);
+  set('overview-open-intents', openIntents);
+}
+
 function paginate(rows, page) {
   const total = rows.length;
   const pages = Math.max(1, Math.ceil(total / PAGE_SIZE) || 1);
@@ -309,6 +351,7 @@ async function loadFeedback() {
   if (isPreview() && !getSession()) {
     document.getElementById('overview-feedback').textContent = '12';
     feedbackLoadState = 'ok';
+    feedbackCache = [];
     setPageSummary('预览数据');
     return;
   }
@@ -325,7 +368,8 @@ async function loadFeedback() {
     const response = await request(`feedback?${buildQuery()}`);
     const rows = await response.json();
     feedbackLoadState = 'ok';
-    renderRows(rows);
+    feedbackCache = Array.isArray(rows) ? rows : [];
+    renderRows(feedbackCache);
     setMessage(managerMessage, rows.length ? `共 ${rows.length} 条` : '');
     const filtered = document.getElementById('status-filter').value || start || end;
     setPageSummary(`${filtered ? '筛选结果' : '全部留言'}：${rows.length} 条`);
@@ -334,6 +378,7 @@ async function loadFeedback() {
     badge.textContent = rows.length;
   } catch (error) {
     feedbackLoadState = classifyError(error);
+    feedbackCache = [];
     feedbackList.replaceChildren();
     const hint = setupHint(feedbackLoadState, 'supabase/admin-policies.sql');
     setMessage(managerMessage, hint || error.message, true);
@@ -770,9 +815,15 @@ document.getElementById('sidebar-toggle').addEventListener('click', () => {
 document.getElementById('analytics-range').addEventListener('change', () => {
   const custom = document.getElementById('analytics-range').value === 'custom';
   document.getElementById('custom-range').hidden = !custom;
-  if (!custom) loadAnalytics();
+  if (!custom) {
+    loadAnalytics();
+    window.AdminOps?.loadFunnel?.();
+  }
 });
-document.getElementById('apply-range').addEventListener('click', loadAnalytics);
+document.getElementById('apply-range').addEventListener('click', () => {
+  loadAnalytics();
+  window.AdminOps?.loadFunnel?.();
+});
 document.getElementById('show-chart').addEventListener('click', () => setChartMode(true));
 document.getElementById('show-table').addEventListener('click', () => setChartMode(false));
 document.getElementById('export-csv').addEventListener('click', exportCsv);
@@ -858,6 +909,8 @@ function renderUsers() {
     who.innerHTML = `<div class="user-cell"><b></b><span></span></div>`;
     who.querySelector('b').textContent = user.name || '未命名';
     who.querySelector('span').textContent = user.email || '';
+    who.style.cursor = 'pointer';
+    who.addEventListener('click', () => window.AdminOps?.openDossier?.(user.email, user));
     const role = document.createElement('td');
     role.innerHTML = `<span class="role-pill ${user.is_admin ? 'admin' : 'user'}">${user.is_admin ? '管理员' : '普通用户'}</span>`;
     const status = document.createElement('td');
@@ -879,7 +932,11 @@ function renderUsers() {
     disableBtn.className = user.is_disabled ? 'secondary' : 'delete';
     disableBtn.textContent = user.is_disabled ? '启用' : '停用';
     disableBtn.addEventListener('click', () => setUserDisabled(user, !user.is_disabled));
-    actions.append(adminBtn, disableBtn);
+    const detailBtn = document.createElement('button');
+    detailBtn.className = 'secondary';
+    detailBtn.textContent = '详情';
+    detailBtn.addEventListener('click', () => window.AdminOps?.openDossier?.(user.email, user));
+    actions.append(adminBtn, disableBtn, detailBtn);
     tr.append(who, role, status, created, seen, actions);
     list.append(tr);
   });
@@ -891,6 +948,7 @@ async function loadUsers() {
     usersLoadState = 'ok';
     usersCache = mockUsers;
     renderUsers();
+    paintOverviewExtras();
     setMessage(msg, '当前为界面预览数据，正式环境登录后显示真实用户。');
     return;
   }
@@ -901,6 +959,7 @@ async function loadUsers() {
     usersLoadState = 'ok';
     usersCache = Array.isArray(data) ? data : [];
     renderUsers();
+    paintOverviewExtras();
     setMessage(msg, `共 ${usersCache.length} 个账号`);
     setPageSummary(`用户 ${usersCache.length} 个`);
   } catch (error) {
@@ -1028,7 +1087,17 @@ function renderIntents() {
   const followLabels = { new: '未联系', contacted: '已联系', follow_up: '待回访', closed: '已关闭' };
   rows.forEach((row) => {
     const tr = document.createElement('tr');
-    [formatTime(row.created_at), row.email || '—', row.use_case || '—', row.company_size || '—', row.intended_plan || 'pro'].forEach((value) => {
+    const timeTd = document.createElement('td');
+    timeTd.textContent = formatTime(row.created_at);
+    const emailTd = document.createElement('td');
+    const emailBtn = document.createElement('button');
+    emailBtn.type = 'button';
+    emailBtn.className = 'linkish';
+    emailBtn.textContent = row.email || '—';
+    if (row.email) emailBtn.addEventListener('click', () => window.AdminOps?.openDossier?.(row.email));
+    emailTd.append(emailBtn);
+    tr.append(timeTd, emailTd);
+    [row.use_case || '—', row.company_size || '—', row.intended_plan || 'pro'].forEach((value) => {
       const td = document.createElement('td');
       td.textContent = value;
       tr.append(td);
@@ -1062,6 +1131,7 @@ async function loadIntents() {
     intentsLoadState = 'ok';
     intentsCache = mockIntents;
     renderIntents();
+    paintOverviewExtras();
     setMessage(msg, '当前为界面预览数据，正式环境登录后显示真实意向。');
     return;
   }
@@ -1072,6 +1142,7 @@ async function loadIntents() {
     intentsLoadState = 'ok';
     intentsCache = Array.isArray(data) ? data : [];
     renderIntents();
+    paintOverviewExtras();
     setMessage(msg, `共 ${intentsCache.length} 条意向`);
     setPageSummary(`购买意向 ${intentsCache.length} 条（只读）`);
   } catch (error) {
@@ -1099,6 +1170,7 @@ async function refreshAll() {
       window.AdminOps?.loadFunnel?.(),
       window.AdminOps?.loadLogs?.(true),
     ]);
+    await window.AdminOps?.loadOverviewStats?.();
     const page = document.querySelector('.side-link.active')?.dataset.page || 'overview';
     if (page === 'overview') setPageSummary('工作台数据已刷新');
   } finally {

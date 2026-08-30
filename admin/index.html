@@ -97,6 +97,21 @@
                 <strong id="overview-promos">—</strong>
                 <em>生产控制，未接支付</em>
               </button>
+              <button class="overview-card" data-page="users" type="button">
+                <span>今日新注册</span>
+                <strong id="overview-new-users">—</strong>
+                <em>进入用户管理</em>
+              </button>
+              <button class="overview-card" data-page="logs" type="button">
+                <span>今日登录</span>
+                <strong id="overview-signins">—</strong>
+                <em>查看操作日志</em>
+              </button>
+              <button class="overview-card" data-page="intents" type="button">
+                <span>待跟进意向</span>
+                <strong id="overview-open-intents">—</strong>
+                <em>未关闭的购买意向</em>
+              </button>
             </div>
             <p class="hint">SQL 请稍后一次性执行 supabase/admin-ops.sql，不要现在上生产。本分支不接支付、不改账本。</p>
           </section>
@@ -229,7 +244,7 @@
           </div>
         </div>
         <div id="chart-tip" class="chart-tip" hidden></div>
-        <h3>商业化漏斗（近 30 天）</h3>
+        <h3 id="funnel-title">商业化漏斗</h3>
         <div id="funnel-overview" class="stats analytics-overview funnel-kpis">
           <div class="stat kpi"><span>演示进入</span><strong id="funnel-demo">—</strong></div>
           <div class="stat kpi"><span>定价浏览</span><strong id="funnel-pricing">—</strong></div>
@@ -256,6 +271,7 @@
             <option value="disabled">已停用</option>
             <option value="unverified">未验证</option>
           </select>
+          <button type="button" class="secondary" id="export-users">导出 CSV</button>
         </div>
         <div id="users-message" class="message" role="status"></div>
         <div class="table-wrap">
@@ -303,6 +319,7 @@
           <div class="filter-actions">
             <button type="submit">查询</button>
             <button id="reset-filter" type="button" class="secondary">重置</button>
+            <button type="button" class="secondary" id="export-feedback">导出 CSV</button>
           </div>
         </form>
         <div id="manager-message" class="message" role="status"></div>
@@ -368,6 +385,7 @@
           <div class="filter-actions">
             <button type="submit">查询</button>
             <button id="reset-intent-filter" type="button" class="secondary">重置</button>
+            <button type="button" class="secondary" id="export-intents">导出 CSV</button>
           </div>
         </form>
         <div id="intents-message" class="message" role="status"></div>
@@ -442,6 +460,7 @@
           <div class="filter-actions">
             <label class="check"><input id="promo-active" type="checkbox" checked> 立即生效</label>
             <button type="submit">保存折扣</button>
+            <button type="button" class="secondary" id="export-promos">导出 CSV</button>
           </div>
         </form>
         <div id="promotions-message" class="message" role="status"></div>
@@ -470,6 +489,7 @@
       <section id="entitlements-section" hidden>
         <div class="users-toolbar">
           <input id="grant-search" type="search" placeholder="搜索邮箱">
+          <button type="button" class="secondary" id="export-grants">导出 CSV</button>
         </div>
         <div id="entitlements-message" class="message" role="status"></div>
         <div class="table-wrap">
@@ -538,6 +558,7 @@
           <div class="filter-actions">
             <button type="submit">查询</button>
             <button id="reset-log-filter" type="button" class="secondary">重置</button>
+            <button type="button" class="secondary" id="export-logs">导出 CSV</button>
           </div>
         </form>
         <div id="logs-message" class="message" role="status"></div>
@@ -566,6 +587,40 @@
         </div>
       </div>
     </div>
+    <aside id="dossier" class="dossier" hidden>
+      <div class="dossier-card">
+        <header>
+          <div>
+            <h2 id="dossier-title">用户详情</h2>
+            <p id="dossier-meta" class="hint"></p>
+          </div>
+          <button id="dossier-close" class="secondary" type="button">关闭</button>
+        </header>
+        <p id="dossier-message" class="message" role="status"></p>
+        <h3>账号</h3>
+        <dl id="dossier-account" class="dossier-dl"></dl>
+        <h3>权益</h3>
+        <ul id="dossier-grants"></ul>
+        <h3>最近日志</h3>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>时间</th>
+                <th>分类</th>
+                <th>类型</th>
+                <th>路径</th>
+              </tr>
+            </thead>
+            <tbody id="dossier-logs"></tbody>
+          </table>
+        </div>
+        <div class="row-actions">
+          <button id="dossier-open-logs" type="button">在日志中查看</button>
+          <button id="dossier-open-grants" class="secondary" type="button">在权益中查看</button>
+        </div>
+      </div>
+    </aside>
   <script src="../feedback/config.js"></script>
   <script src="admin.js"></script>
   <script src="admin-ops.js"></script>
