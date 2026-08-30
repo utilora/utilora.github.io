@@ -70,6 +70,7 @@
       promotionsCache = asArray(data);
       renderPromotions();
       setMessage(msg, `共 ${promotionsCache.length} 条，支付未接通`);
+      setPageSummary(`折扣 ${promotionsCache.length} 条`);
     } catch (error) {
       promotionsState = classifyError(error);
       promotionsCache = [];
@@ -191,6 +192,7 @@
       grantsCache = asArray(await response.json());
       renderEntitlements();
       setMessage(msg, `共 ${grantsCache.length} 条授予记录`);
+      setPageSummary(`权益 ${grantsCache.length} 条`);
     } catch (error) {
       grantsState = classifyError(error);
       grantsCache = [];
