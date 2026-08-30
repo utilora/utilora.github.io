@@ -108,6 +108,20 @@ function apiHeaders() {
   };
 }
 
+async function recordAdminAuth(eventType) {
+  try {
+    await request('rpc/record_user_activity', {
+      method: 'POST',
+      body: JSON.stringify({
+        p_event_type: eventType,
+        p_category: 'auth',
+        p_path: '/admin/',
+        p_detail: { client: 'admin' },
+      }),
+    });
+  } catch {}
+}
+
 function todayISO() {
   const now = new Date();
   const local = new Date(now.getTime() - now.getTimezoneOffset() * 60000);
@@ -140,6 +154,7 @@ loginForm.addEventListener('submit', async (event) => {
     sessionStorage.setItem(sessionKey, JSON.stringify(data));
     document.getElementById('password').value = '';
     showManager();
+    await recordAdminAuth('login');
     await refreshAll();
   } catch (error) {
     setMessage(loginMessage, error.message, true);
@@ -148,20 +163,78 @@ loginForm.addEventListener('submit', async (event) => {
   }
 });
 
-async function request(path, options = {}) {
+async function refreshSession() {
+  const session = getSession();
+  if (!session?.refresh_token) return false;
+  try {
+    const response = await fetch(`${SUPABASE_CONFIG.url}/auth/v1/token?grant_type=refresh_token`, {
+      method: 'POST',
+      headers: { apikey: SUPABASE_CONFIG.publishableKey, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refresh_token: session.refresh_token }),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) return false;
+    sessionStorage.setItem(sessionKey, JSON.stringify({ ...session, ...data }));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function request(path, options = {}, retried = false) {
   const response = await fetch(`${SUPABASE_CONFIG.url}/rest/v1/${path}`, {
     ...options,
     headers: { ...apiHeaders(), ...(options.headers || {}) },
   });
+  if (response.status === 401 && !retried) {
+    const ok = await refreshSession();
+    if (ok) return request(path, options, true);
+  }
   if (response.status === 401 || response.status === 403) {
     if (!isPreview()) logout();
     throw new Error('登录已失效或没有管理员权限');
   }
   if (!response.ok) {
     const data = await response.json().catch(() => ({}));
-    throw new Error(data.message || `请求失败（${response.status}）`);
+    throw new Error(data.message || data.hint || `请求失败（${response.status}）`);
   }
   return response;
+}
+
+const PAGE_SIZE = 20;
+let usersPage = 1;
+let intentsPage = 1;
+
+function paginate(rows, page) {
+  const total = rows.length;
+  const pages = Math.max(1, Math.ceil(total / PAGE_SIZE) || 1);
+  const current = Math.min(Math.max(1, page), pages);
+  return { current, pages, total, slice: rows.slice((current - 1) * PAGE_SIZE, current * PAGE_SIZE) };
+}
+
+function renderPager(el, state, onPage) {
+  if (!el) return;
+  el.replaceChildren();
+  if (state.pages <= 1) {
+    el.hidden = true;
+    return;
+  }
+  el.hidden = false;
+  const info = document.createElement('span');
+  info.textContent = `第 ${state.current} / ${state.pages} 页 · ${state.total} 条`;
+  const prev = document.createElement('button');
+  prev.type = 'button';
+  prev.className = 'secondary';
+  prev.textContent = '上一页';
+  prev.disabled = state.current <= 1;
+  prev.addEventListener('click', () => onPage(state.current - 1));
+  const next = document.createElement('button');
+  next.type = 'button';
+  next.className = 'secondary';
+  next.textContent = '下一页';
+  next.disabled = state.current >= state.pages;
+  next.addEventListener('click', () => onPage(state.current + 1));
+  el.append(prev, info, next);
 }
 
 function showManager() {
@@ -179,18 +252,21 @@ function showLogin() {
 }
 
 function logout() {
-  sessionStorage.removeItem(sessionKey);
-  feedbackList.replaceChildren();
-  analyticsCache = null;
-  usersCache = [];
-  intentsCache = [];
-  showLogin();
+  const finish = () => {
+    sessionStorage.removeItem(sessionKey);
+    feedbackList.replaceChildren();
+    analyticsCache = null;
+    usersCache = [];
+    intentsCache = [];
+    showLogin();
+  };
+  recordAdminAuth('logout').then(finish, finish);
 }
 
-const pageTitles = { overview: '工作台', analytics: '访问统计', users: '用户管理', feedback: '用户留言', intents: '购买意向' };
+const pageTitles = { overview: '工作台', analytics: '访问统计', users: '用户管理', feedback: '用户留言', intents: '购买意向', promotions: '生产折扣', entitlements: '权益一览', logs: '操作日志' };
 
 function switchPage(name) {
-  ['overview', 'analytics', 'users', 'feedback', 'intents'].forEach((id) => {
+  ['overview', 'analytics', 'users', 'feedback', 'intents', 'promotions', 'entitlements', 'logs'].forEach((id) => {
     const section = document.getElementById(`${id}-section`);
     if (section) section.hidden = id !== name;
   });
@@ -203,7 +279,13 @@ function switchPage(name) {
   if (name === 'users') loadUsers();
   if (name === 'intents') loadIntents();
   if (name === 'feedback') loadFeedback();
-  if (name === 'analytics') loadAnalytics();
+  if (name === 'analytics') {
+    loadAnalytics();
+    window.AdminOps?.loadFunnel?.();
+  }
+  if (name === 'promotions') window.AdminOps?.loadPromotions?.();
+  if (name === 'entitlements') window.AdminOps?.loadEntitlements?.();
+  if (name === 'logs') window.AdminOps?.loadLogs?.();
 }
 
 function switchTab(name) {
@@ -754,7 +836,11 @@ function renderUsers() {
     setEmptyState(emptyBox, title, setupHint(usersLoadState, 'supabase/admin-users.sql'));
     return;
   }
-  const rows = filteredUsers();
+  const filtered = filteredUsers();
+  const page = paginate(filtered, usersPage);
+  usersPage = page.current;
+  const rows = page.slice;
+  renderPager(document.getElementById('users-pager'), page, (next) => { usersPage = next; renderUsers(); });
   if (overview) overview.textContent = String(usersCache.length);
   if (!rows.length) {
     const filtered = (document.getElementById('user-search')?.value || '') || document.getElementById('user-role-filter')?.value || document.getElementById('user-status-filter')?.value;
@@ -883,18 +969,20 @@ renderRows = function(rows) {
 };
 
 const mockIntents = [
-  { id: 'i1', email: 'demo-bookkeeper@example.com', use_case: '银行流水', company_size: '1-10', intended_plan: 'pro', created_at: '2026-08-20T08:00:00Z' },
-  { id: 'i2', email: 'finance@example.com', use_case: '应收回款', company_size: '11-50', intended_plan: 'pro', created_at: '2026-08-22T11:20:00Z' },
+  { id: 'i1', email: 'demo-bookkeeper@example.com', use_case: '银行流水', company_size: '1-10', intended_plan: 'pro', created_at: '2026-08-20T08:00:00Z', follow_status: 'new', follow_note: '' },
+  { id: 'i2', email: 'finance@example.com', use_case: '应收回款', company_size: '11-50', intended_plan: 'pro', created_at: '2026-08-22T11:20:00Z', follow_status: 'contacted', follow_note: '已电话确认' },
 ];
 
 function filteredIntents() {
   const q = (document.getElementById('intent-search')?.value || '').trim().toLowerCase();
   const use = document.getElementById('intent-use-filter')?.value || '';
   const size = document.getElementById('intent-size-filter')?.value || '';
+  const follow = document.getElementById('intent-follow-filter')?.value || '';
   return intentsCache.filter((row) => {
     if (q && !(row.email || '').toLowerCase().includes(q)) return false;
     if (use && row.use_case !== use) return false;
     if (size && row.company_size !== size) return false;
+    if (follow && (row.follow_status || 'new') !== follow) return false;
     return true;
   });
 }
@@ -914,10 +1002,14 @@ function renderIntents() {
       : intentsLoadState === 'permission'
         ? '没有权限查看购买意向'
         : '购买意向加载失败';
-    setEmptyState(emptyBox, title, setupHint(intentsLoadState, 'supabase/admin-purchase-intents.sql'));
+    setEmptyState(emptyBox, title, setupHint(intentsLoadState, 'supabase/admin-ops.sql'));
     return;
   }
-  const rows = filteredIntents();
+  const filtered = filteredIntents();
+  const page = paginate(filtered, intentsPage);
+  intentsPage = page.current;
+  const rows = page.slice;
+  renderPager(document.getElementById('intents-pager'), page, (next) => { intentsPage = next; renderIntents(); });
   if (overview) overview.textContent = String(intentsCache.length);
   if (badge) {
     badge.hidden = intentsCache.length === 0;
@@ -933,6 +1025,7 @@ function renderIntents() {
     return;
   }
   hideEmpty(emptyBox);
+  const followLabels = { new: '未联系', contacted: '已联系', follow_up: '待回访', closed: '已关闭' };
   rows.forEach((row) => {
     const tr = document.createElement('tr');
     [formatTime(row.created_at), row.email || '—', row.use_case || '—', row.company_size || '—', row.intended_plan || 'pro'].forEach((value) => {
@@ -940,6 +1033,25 @@ function renderIntents() {
       td.textContent = value;
       tr.append(td);
     });
+    const followTd = document.createElement('td');
+    const select = document.createElement('select');
+    Object.entries(followLabels).forEach(([value, label]) => {
+      select.add(new Option(label, value, value === (row.follow_status || 'new'), value === (row.follow_status || 'new')));
+    });
+    followTd.append(select);
+    const noteTd = document.createElement('td');
+    const note = document.createElement('input');
+    note.type = 'text';
+    note.maxLength = 500;
+    note.value = row.follow_note || '';
+    note.placeholder = '跟进备注';
+    const save = document.createElement('button');
+    save.type = 'button';
+    save.className = 'secondary';
+    save.textContent = '保存';
+    save.addEventListener('click', () => window.AdminOps?.saveIntentFollowup?.(row, select.value, note.value));
+    noteTd.append(note, save);
+    tr.append(followTd, noteTd);
     list.append(tr);
   });
 }
@@ -965,7 +1077,7 @@ async function loadIntents() {
   } catch (error) {
     intentsLoadState = classifyError(error);
     intentsCache = [];
-    const hint = setupHint(intentsLoadState, 'supabase/admin-purchase-intents.sql') || error.message;
+    const hint = setupHint(intentsLoadState, 'supabase/admin-ops.sql') || error.message;
     setMessage(msg, hint, true);
     renderIntents();
     setPageSummary('购买意向不可用');
@@ -977,7 +1089,16 @@ async function refreshAll() {
   if (button) button.disabled = true;
   setPageSummary('正在刷新……');
   try {
-    await Promise.all([loadFeedback(), loadAnalytics(), loadUsers(), loadIntents()]);
+    await Promise.all([
+      loadFeedback(),
+      loadAnalytics(),
+      loadUsers(),
+      loadIntents(),
+      window.AdminOps?.loadPromotions?.(),
+      window.AdminOps?.loadEntitlements?.(),
+      window.AdminOps?.loadFunnel?.(),
+      window.AdminOps?.loadLogs?.(true),
+    ]);
     const page = document.querySelector('.side-link.active')?.dataset.page || 'overview';
     if (page === 'overview') setPageSummary('工作台数据已刷新');
   } finally {
@@ -985,17 +1106,21 @@ async function refreshAll() {
   }
 }
 
-document.getElementById('user-search')?.addEventListener('input', renderUsers);
-document.getElementById('user-role-filter')?.addEventListener('change', renderUsers);
-document.getElementById('user-status-filter')?.addEventListener('change', renderUsers);
+document.getElementById('user-search')?.addEventListener('input', () => { usersPage = 1; renderUsers(); });
+document.getElementById('user-role-filter')?.addEventListener('change', () => { usersPage = 1; renderUsers(); });
+document.getElementById('user-status-filter')?.addEventListener('change', () => { usersPage = 1; renderUsers(); });
 document.getElementById('intents-filter-form')?.addEventListener('submit', (event) => {
   event.preventDefault();
+  intentsPage = 1;
   renderIntents();
 });
 document.getElementById('reset-intent-filter')?.addEventListener('click', () => {
   document.getElementById('intents-filter-form')?.reset();
+  intentsPage = 1;
   renderIntents();
 });
-document.getElementById('intent-search')?.addEventListener('input', renderIntents);
-document.getElementById('intent-use-filter')?.addEventListener('change', renderIntents);
-document.getElementById('intent-size-filter')?.addEventListener('change', renderIntents);
+document.getElementById('intent-search')?.addEventListener('input', () => { intentsPage = 1; renderIntents(); });
+document.getElementById('intent-use-filter')?.addEventListener('change', () => { intentsPage = 1; renderIntents(); });
+document.getElementById('intent-size-filter')?.addEventListener('change', () => { intentsPage = 1; renderIntents(); });
+document.getElementById('intent-follow-filter')?.addEventListener('change', () => { intentsPage = 1; renderIntents(); });
+

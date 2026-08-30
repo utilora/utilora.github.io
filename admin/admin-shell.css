@@ -101,3 +101,9 @@ html,body.admin-body{min-height:100vh;background:#f1f5f9}
 .empty-state strong{display:block;color:var(--ink);font-size:15px}
 .empty-state .hint{margin:8px auto 0;max-width:520px}
 .overview-grid{grid-template-columns:repeat(auto-fit,minmax(180px,1fr))}
+
+.pager{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-top:14px}
+.pager span{color:var(--muted);font-size:13px}
+.promo-form{grid-template-columns:repeat(auto-fit,minmax(160px,1fr))}
+.check{display:flex;align-items:center;gap:8px;font-size:13px}
+#intents-list input[type=text]{min-width:140px;margin-right:8px}

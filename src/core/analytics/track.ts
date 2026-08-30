@@ -8,6 +8,31 @@ const sanitizeSlug = (slug?: string | null): string | null => {
   return value;
 };
 
+const PRODUCT_ACTIVITY = new Set<AnalyticsEventName>([
+  "pro_click",
+  "demo_enter",
+  "workspace_enter",
+  "bank_use",
+  "receivable_use",
+  "month_end_use",
+  "pricing_view",
+  "purchase_intent"
+]);
+
+const recordAccountActivity = (event: AnalyticsEventName, toolSlug: string | null): void => {
+  if (!PRODUCT_ACTIVITY.has(event)) return;
+  const client = getSupabase();
+  if (!client) return;
+  void client
+    .rpc("record_user_activity", {
+      p_event_type: event,
+      p_category: "product",
+      p_path: location.pathname.slice(0, 200),
+      p_detail: toolSlug ? { tool: toolSlug } : {}
+    })
+    .then(() => undefined, () => undefined);
+};
+
 export const trackEvent = (event: AnalyticsEventName, slug?: string | null): void => {
   try {
     if (!isAnalyticsEvent(event)) return;
@@ -30,6 +55,7 @@ export const trackEvent = (event: AnalyticsEventName, slug?: string | null): voi
         p_browser: null
       })
       .then(() => undefined, () => undefined);
+    recordAccountActivity(event, toolSlug);
   } catch {
     // Analytics must never break product flows.
   }

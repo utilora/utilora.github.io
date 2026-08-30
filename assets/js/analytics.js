@@ -42,6 +42,43 @@
   } catch {}
   const isHome = location.pathname.replace(/\/index\.html$/i, "").replace(/\/+$/, "") === "";
 
+  const ACCOUNT_EVENTS = new Set([
+    "pro_click",
+    "demo_enter",
+    "workspace_enter",
+    "bank_use",
+    "receivable_use",
+    "month_end_use",
+    "pricing_view",
+    "purchase_intent",
+  ]);
+
+  function recordAccountActivity(eventType, toolSlug) {
+    if (!ACCOUNT_EVENTS.has(eventType)) return;
+    let session;
+    try {
+      session = JSON.parse(localStorage.getItem("utilora_sb_session") || "null");
+    } catch {
+      return;
+    }
+    if (!session || !session.access_token) return;
+    fetch(url.replace("track_analytics_event", "record_user_activity"), {
+      method: "POST",
+      keepalive: true,
+      headers: {
+        apikey,
+        Authorization: "Bearer " + session.access_token,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        p_event_type: eventType,
+        p_category: "product",
+        p_path: location.pathname.slice(0, 200),
+        p_detail: toolSlug ? { tool: toolSlug } : {},
+      }),
+    }).catch(() => {});
+  }
+
   function track(eventType, toolSlug = null) {
     try {
       if (!ALLOWED.has(eventType)) return;
@@ -61,6 +98,7 @@
           p_browser: browser,
         }),
       }).catch(() => {});
+      recordAccountActivity(eventType, slug);
     } catch {}
   }
 

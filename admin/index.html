@@ -14,7 +14,7 @@
 <body class="admin-body">
   <section id="login-panel" class="panel login-panel">
       <h1>管理员登录</h1>
-      <p class="hint">使用管理员邮箱和密码登录。登录后可查看访问统计、留言、购买意向，并管理用户。</p>
+      <p class="hint">使用管理员邮箱和密码登录。登录后可查看访问统计、留言、购买意向、操作日志，并管理用户与折扣。</p>
       <form id="login-form">
         <div class="field">
           <label for="email">邮箱</label>
@@ -38,8 +38,11 @@
           <button class="side-link" data-page="analytics" type="button" id="tab-analytics">访问统计</button>
           <button class="side-link" data-page="feedback" type="button" id="tab-feedback">用户留言 <b id="feedback-count" hidden></b></button>
           <button class="side-link" data-page="intents" type="button" id="tab-intents">购买意向 <b id="intents-count" hidden></b></button>
+          <button class="side-link" data-page="promotions" type="button">生产折扣</button>
+          <button class="side-link" data-page="logs" type="button">操作日志</button>
           <p>账号</p>
           <button class="side-link" data-page="users" type="button">用户管理</button>
+          <button class="side-link" data-page="entitlements" type="button">权益一览</button>
         </nav>
         <div class="side-foot">
           <strong id="admin-email">管理员</strong>
@@ -82,10 +85,20 @@
               <button class="overview-card" data-page="intents" type="button">
                 <span>购买意向</span>
                 <strong id="overview-intents">—</strong>
-                <em>只读查看意向</em>
+                <em>跟进意向</em>
+              </button>
+              <button class="overview-card" data-page="analytics" type="button">
+                <span>演示进入</span>
+                <strong id="overview-demo">—</strong>
+                <em>近 30 天漏斗</em>
+              </button>
+              <button class="overview-card" data-page="promotions" type="button">
+                <span>生效折扣</span>
+                <strong id="overview-promos">—</strong>
+                <em>生产控制，未接支付</em>
               </button>
             </div>
-            <p class="hint">左侧切换模块。用户管理需执行 supabase/admin-users.sql；购买意向列表需执行 supabase/admin-purchase-intents.sql。</p>
+            <p class="hint">SQL 请稍后一次性执行 supabase/admin-ops.sql，不要现在上生产。本分支不接支付、不改账本。</p>
           </section>
 
       <section id="analytics-section" class="analytics-panel" hidden aria-labelledby="analytics-title">
@@ -216,6 +229,15 @@
           </div>
         </div>
         <div id="chart-tip" class="chart-tip" hidden></div>
+        <h3>商业化漏斗（近 30 天）</h3>
+        <div id="funnel-overview" class="stats analytics-overview funnel-kpis">
+          <div class="stat kpi"><span>演示进入</span><strong id="funnel-demo">—</strong></div>
+          <div class="stat kpi"><span>定价浏览</span><strong id="funnel-pricing">—</strong></div>
+          <div class="stat kpi"><span>购买意向</span><strong id="funnel-intent">—</strong></div>
+          <div class="stat kpi"><span>登录成功</span><strong id="funnel-login">—</strong></div>
+          <div class="stat kpi"><span>工作台进入</span><strong id="funnel-workspace">—</strong></div>
+          <div class="stat kpi"><span>流水使用</span><strong id="funnel-bank">—</strong></div>
+        </div>
         <div id="analytics-message" class="message"></div>
       </section>
 
@@ -251,6 +273,7 @@
             <tbody id="users-list"></tbody>
           </table>
         </div>
+        <div id="users-pager" class="pager" hidden></div>
         <div id="users-empty" class="empty-state" hidden>
           <strong id="users-empty-title">没有符合条件的用户。</strong>
           <p id="users-empty-hint" class="hint"></p>
@@ -332,6 +355,16 @@
               <option value="200+">200+</option>
             </select>
           </div>
+          <div>
+            <label for="intent-follow-filter">跟进</label>
+            <select id="intent-follow-filter">
+              <option value="">全部跟进</option>
+              <option value="new">未联系</option>
+              <option value="contacted">已联系</option>
+              <option value="follow_up">待回访</option>
+              <option value="closed">已关闭</option>
+            </select>
+          </div>
           <div class="filter-actions">
             <button type="submit">查询</button>
             <button id="reset-intent-filter" type="button" class="secondary">重置</button>
@@ -347,14 +380,187 @@
                 <th>用途</th>
                 <th>规模</th>
                 <th>意向方案</th>
+                <th>跟进</th>
+                <th>备注</th>
               </tr>
             </thead>
             <tbody id="intents-list"></tbody>
           </table>
         </div>
+        <div id="intents-pager" class="pager" hidden></div>
         <div id="intents-empty" class="empty-state" hidden>
           <strong id="intents-empty-title">暂无购买意向。</strong>
           <p id="intents-empty-hint" class="hint"></p>
+        </div>
+      </section>
+
+      <section id="promotions-section" hidden>
+        <p class="hint">生产控制型折扣：只改 promotions 配置，强制不收款。SQL 未执行前仅显示预览数据。</p>
+        <form id="promo-form" class="filters promo-form">
+          <div>
+            <label for="promo-code">代码</label>
+            <input id="promo-code" required pattern="[a-z0-9][a-z0-9-]{1,47}" placeholder="pro-launch-free">
+          </div>
+          <div>
+            <label for="promo-name">名称</label>
+            <input id="promo-name" required placeholder="财务专业版内测限免">
+          </div>
+          <div>
+            <label for="promo-plan">方案</label>
+            <select id="promo-plan">
+              <option value="pro_trial">专业版试用</option>
+              <option value="pro">财务专业版</option>
+            </select>
+          </div>
+          <div>
+            <label for="promo-audience">范围</label>
+            <select id="promo-audience">
+              <option value="authenticated">已登录用户</option>
+              <option value="invite_only">仅邀请</option>
+            </select>
+          </div>
+          <div>
+            <label for="promo-start">开始</label>
+            <input id="promo-start" type="datetime-local" required>
+          </div>
+          <div>
+            <label for="promo-end">结束（可空）</label>
+            <input id="promo-end" type="datetime-local">
+          </div>
+          <div>
+            <label for="promo-list-price">标价（分）</label>
+            <input id="promo-list-price" type="number" min="0" value="1900">
+          </div>
+          <div>
+            <label for="promo-price">促销价（分）</label>
+            <input id="promo-price" type="number" min="0" value="0">
+          </div>
+          <div>
+            <label for="promo-discount">折扣 %</label>
+            <input id="promo-discount" type="number" min="0" max="100" value="100">
+          </div>
+          <div class="filter-actions">
+            <label class="check"><input id="promo-active" type="checkbox" checked> 立即生效</label>
+            <button type="submit">保存折扣</button>
+          </div>
+        </form>
+        <div id="promotions-message" class="message" role="status"></div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>代码</th>
+                <th>名称</th>
+                <th>方案</th>
+                <th>折扣</th>
+                <th>价格</th>
+                <th>有效期</th>
+                <th>状态</th>
+              </tr>
+            </thead>
+            <tbody id="promotions-list"></tbody>
+          </table>
+        </div>
+        <div id="promotions-empty" class="empty-state" hidden>
+          <strong>还没有折扣配置。</strong>
+          <p class="hint"></p>
+        </div>
+      </section>
+
+      <section id="entitlements-section" hidden>
+        <div class="users-toolbar">
+          <input id="grant-search" type="search" placeholder="搜索邮箱">
+        </div>
+        <div id="entitlements-message" class="message" role="status"></div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>邮箱</th>
+                <th>方案</th>
+                <th>来源</th>
+                <th>开始</th>
+                <th>结束</th>
+              </tr>
+            </thead>
+            <tbody id="entitlements-list"></tbody>
+          </table>
+        </div>
+        <div id="entitlements-empty" class="empty-state" hidden>
+          <strong>暂无权益授予记录。</strong>
+          <p class="hint">内测限免走 promotions，不一定写入 entitlement_grants。</p>
+        </div>
+      </section>
+
+      <section id="logs-section" hidden>
+        <form id="logs-filter-form" class="filters">
+          <div>
+            <label for="log-email">账户邮箱</label>
+            <input id="log-email" type="search" placeholder="精确或模糊搜索邮箱">
+          </div>
+          <div>
+            <label for="log-category">分类</label>
+            <select id="log-category">
+              <option value="">全部分类</option>
+              <option value="auth">登录登出</option>
+              <option value="product">产品操作</option>
+              <option value="admin">管理操作</option>
+            </select>
+          </div>
+          <div>
+            <label for="log-type">类型</label>
+            <select id="log-type">
+              <option value="">全部类型</option>
+              <option value="login">login</option>
+              <option value="logout">logout</option>
+              <option value="login_success">login_success</option>
+              <option value="profile_update">profile_update</option>
+              <option value="workspace_enter">workspace_enter</option>
+              <option value="demo_enter">demo_enter</option>
+              <option value="purchase_intent">purchase_intent</option>
+              <option value="bank_use">bank_use</option>
+              <option value="receivable_use">receivable_use</option>
+              <option value="month_end_use">month_end_use</option>
+              <option value="set_user_admin">set_user_admin</option>
+              <option value="set_user_disabled">set_user_disabled</option>
+              <option value="intent_followup">intent_followup</option>
+              <option value="promotion_upsert">promotion_upsert</option>
+            </select>
+          </div>
+          <div>
+            <label for="log-start">开始日期</label>
+            <input id="log-start" type="date">
+          </div>
+          <div>
+            <label for="log-end">结束日期</label>
+            <input id="log-end" type="date">
+          </div>
+          <div class="filter-actions">
+            <button type="submit">查询</button>
+            <button id="reset-log-filter" type="button" class="secondary">重置</button>
+          </div>
+        </form>
+        <div id="logs-message" class="message" role="status"></div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>时间</th>
+                <th>账户</th>
+                <th>分类</th>
+                <th>类型</th>
+                <th>路径</th>
+                <th>详情</th>
+                <th>来源</th>
+              </tr>
+            </thead>
+            <tbody id="logs-list"></tbody>
+          </table>
+        </div>
+        <div id="logs-pager" class="pager" hidden></div>
+        <div id="logs-empty" class="empty-state" hidden>
+          <strong>没有符合条件的日志。</strong>
+          <p class="hint"></p>
         </div>
       </section>
         </div>
@@ -362,5 +568,6 @@
     </div>
   <script src="../feedback/config.js"></script>
   <script src="admin.js"></script>
+  <script src="admin-ops.js"></script>
 </body>
 </html>

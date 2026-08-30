@@ -130,6 +130,7 @@
       expires_in: Number(hash.get("expires_in") || 3600),
     });
     history.replaceState({}, "", location.pathname);
+    recordActivity("login", "auth", { source: "redirect", type });
     return { type };
   };
 
@@ -162,7 +163,9 @@
           headers: headers(),
           body: JSON.stringify({ type, email, token: String(token).trim() }),
         });
-        return saveTokens(data);
+        const session = await saveTokens(data);
+        recordActivity("login", "auth", { source: "otp" });
+        return session;
       } catch (error) {
         lastError = error;
       }
@@ -187,7 +190,9 @@
         headers: headers(),
         body: JSON.stringify({ email, password }),
       });
-      return saveTokens(data);
+      const session = await saveTokens(data);
+      recordActivity("login", "auth", { source: "password" });
+      return session;
     } catch (error) {
       error.message = friendlyError(error, "登录失败");
       throw error;
@@ -219,6 +224,7 @@
         body: JSON.stringify(body),
       });
       writeSession({ ...session, user });
+      if (body && body.data) recordActivity("profile_update", "auth", {});
       return user;
     } catch (error) {
       error.message = friendlyError(error, "保存失败");
@@ -226,7 +232,23 @@
     }
   };
 
+  const recordActivity = (eventType, category, detail) => {
+    const session = readSession();
+    if (!session || !session.access_token) return Promise.resolve();
+    return request("/rest/v1/rpc/record_user_activity", {
+      method: "POST",
+      headers: headers(session.access_token),
+      body: JSON.stringify({
+        p_event_type: eventType,
+        p_category: category || "auth",
+        p_path: String(location.pathname || "").slice(0, 200),
+        p_detail: detail || {},
+      }),
+    }, 1).catch(() => {});
+  };
+
   const logout = async () => {
+    await recordActivity("logout", "auth", { source: "account" });
     const session = readSession();
     if (session && session.access_token) {
       await request("/auth/v1/logout", { method: "POST", headers: headers(session.access_token) }).catch(() => {});

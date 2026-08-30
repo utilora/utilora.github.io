@@ -14,6 +14,12 @@ export const getUser = async (): Promise<User | null> => (await getSession())?.u
 export const signOut = async (): Promise<void> => {
   const client = getSupabase();
   if (!client) return;
+  await client.rpc("record_user_activity", {
+    p_event_type: "logout",
+    p_category: "auth",
+    p_path: "/",
+    p_detail: { source: "pro" }
+  }).then(() => undefined, () => undefined);
   const { error } = await client.auth.signOut();
   if (error) throw error;
 };

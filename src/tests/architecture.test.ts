@@ -160,4 +160,24 @@ describe("product architecture", () => {
     expect(read("admin/index.html")).toContain('data-page="intents"');
     expect(read("admin/admin.js")).not.toMatch(/service[_-]?role|sb_secret/i);
   });
+
+  it("keeps admin ops behind RPCs including production-controlled discounts and activity logs", () => {
+    const sql = read("supabase/admin-ops.sql");
+    expect(sql).toContain("record_user_activity");
+    expect(sql).toContain("admin_list_activity_logs");
+    expect(sql).toContain("admin_upsert_promotion");
+    expect(sql).toContain("'control', 'production'");
+    expect(sql).toContain("'payment_required', false");
+    expect(sql).not.toMatch(/grant\s+(select|insert|update|delete)\s+on\s+public\.(purchase_intents|user_activity_logs|promotions)/i);
+    expect(read("admin/index.html")).toContain('data-page="logs"');
+    expect(read("admin/index.html")).toContain('data-page="promotions"');
+    expect(read("admin/admin-ops.js")).toContain("rpc/admin_list_activity_logs");
+    expect(read("assets/js/auth.js")).toContain("record_user_activity");
+    expect(read("assets/js/analytics.js")).toContain("record_user_activity");
+    expect(read("src/core/auth/session.ts")).toContain("record_user_activity");
+    expect(read("src/core/analytics/track.ts")).toContain("record_user_activity");
+    for (const path of ["admin/admin.js", "admin/admin-ops.js", "assets/js/auth.js", "assets/js/analytics.js"]) {
+      expect(read(path)).not.toMatch(/service[_-]?role|sb_secret/i);
+    }
+  });
 });
