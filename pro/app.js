@@ -1027,10 +1027,25 @@
   }
 
   const titles = { dashboard: "今天的工作", customers: "客户", customer: "客户往来", items: "项目", estimates: "报价", invoices: "应收单", payments: "收款", expenses: "费用", reimbursements: "报销", assets: "固定资产", payroll: "工资表", bank: "银行流水", bookkeeping: "科目与凭证", checks: "月结与检查", reports: "报表", settings: "数据与设置", estimate: "编辑报价", invoice: "编辑应收单" };
+  let lastAnalyticsRoute = "";
+  const trackWorkspaceRoute = (name) => {
+    try {
+      if (name === lastAnalyticsRoute) return;
+      lastAnalyticsRoute = name;
+      const analytics = window.UtiloraAnalytics;
+      if (!analytics?.track || !analytics.EVENTS) return;
+      if (name === "bank") analytics.track(analytics.EVENTS.bank_use);
+      else if (name === "invoices" || name === "invoice" || name === "payments") analytics.track(analytics.EVENTS.receivable_use);
+      else if (name === "checks") analytics.track(analytics.EVENTS.month_end_use);
+    } catch {}
+  };
+
 
   function draw() {
     const r = route();
     primary.hidden = false;
+    trackWorkspaceRoute(r.name);
+
     document.querySelectorAll(".crater-side button").forEach((btn) => {
       const key = btn.dataset.route;
       btn.classList.toggle("active", key === r.name || (r.name === "customer" && key === "customers") || (r.name === "estimate" && key === "estimates") || (r.name === "invoice" && key === "invoices"));

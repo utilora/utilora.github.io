@@ -88,9 +88,12 @@ describe("product architecture", () => {
       "src/core/supabase/client.ts",
       "src/app/purchase-intent.ts",
       "src/core/purchase-intent/service.ts",
+      "src/core/analytics/track.ts",
       "index.html",
       "pro/index.html",
-      "assets/js/app.js"
+      "assets/js/app.js",
+      "assets/js/analytics.js"
+
     ];
     for (const path of browserFiles) {
       expect(read(path)).not.toMatch(/service[_-]?role|sb_secret/i);

@@ -1,5 +1,8 @@
+import { ANALYTICS_EVENTS } from "../core/analytics/events";
+import { trackEvent } from "../core/analytics/track";
 import { getUser } from "../core/auth/session";
 import { submitPurchaseIntent, validatePurchaseIntent } from "../core/purchase-intent/service";
+
 
 const STORAGE_KEY = "utilora_purchase_intent_submitted";
 const SUCCESS_TEXT = "已记录你的意向。正式版上线前会通知你，当前不会扣费。";
@@ -53,7 +56,9 @@ const bindForm = (form: HTMLFormElement): void => {
         intended_plan: String(data.get("intended_plan") || "pro")
       });
       await submitPurchaseIntent(payload);
+      trackEvent(ANALYTICS_EVENTS.purchase_intent);
       markSubmitted(form);
+
     } catch (error) {
       buttons.forEach((button) => {
         button.disabled = false;

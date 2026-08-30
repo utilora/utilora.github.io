@@ -1,6 +1,9 @@
 import { bindPurchaseIntentForms } from "./app/purchase-intent";
+import { ANALYTICS_EVENTS } from "./core/analytics/events";
+import { trackEvent } from "./core/analytics/track";
 import { getUser } from "./core/auth/session";
 import { getEffectiveEntitlement, resolveLocalEntitlement } from "./core/entitlements/service";
+
 
 
 const gate = document.getElementById("pro-gate") as HTMLElement;
@@ -33,7 +36,8 @@ const loadWorkspace = async (): Promise<void> => {
     "../assets/js/csv.js?v=11",
     "../assets/js/xlsx-lite.js?v=11",
     "../assets/js/app.js?v=13",
-    "app.js?v=12"
+    "app.js?v=13"
+
   ]) {
     await loadScript(src);
   }
@@ -51,9 +55,11 @@ const revealWorkspace = async (label: string): Promise<void> => {
 const start = async (): Promise<void> => {
   if (demo) {
     await revealWorkspace("演示模式 · 不保存改动");
+    trackEvent(ANALYTICS_EVENTS.demo_enter);
     await bindPurchaseIntentForms();
     return;
   }
+
 
 
   const user = await withTimeout(getUser(), STARTUP_TIMEOUT_MS, null);
@@ -63,8 +69,10 @@ const start = async (): Promise<void> => {
   if (user && entitlement.proAccess) {
     const name = user.user_metadata?.name || user.email?.split("@")[0] || "账户";
     await revealWorkspace(`${name} · 专业版限时免费`);
+    trackEvent(ANALYTICS_EVENTS.workspace_enter);
     await bindPurchaseIntentForms();
     return;
+
   }
 
   shell.hidden = true;
