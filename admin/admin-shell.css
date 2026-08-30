@@ -3,15 +3,15 @@ html,body.admin-body{height:100%;min-height:100vh;background:#f1f5f9}
 
 .admin-shell{
   display:grid;
-  grid-template-columns:240px minmax(0,1fr);
+  grid-template-columns:var(--sidebar-w, 240px) minmax(0,1fr);
   height:100vh;
   min-height:100vh;
   overflow:hidden;
   background:#f1f5f9;
-  transition:grid-template-columns .2s ease;
 }
-.admin-shell.sidebar-narrow{grid-template-columns:72px minmax(0,1fr)}
+.admin-shell.sidebar-narrow{--sidebar-w:72px}
 .admin-sidebar{
+  position:relative;
   display:flex;
   flex-direction:column;
   height:100vh;
@@ -19,6 +19,11 @@ html,body.admin-body{height:100%;min-height:100vh;background:#f1f5f9}
   color:#e2e8f0;
   background:#0f172a;
 }
+.side-resizer{
+  position:absolute;top:0;right:-4px;z-index:6;
+  width:10px;height:100%;cursor:col-resize;touch-action:none
+}
+.side-resizer:hover,.admin-shell.sidebar-dragging .side-resizer{background:#818cf866}
 .side-head{display:flex;align-items:center;gap:4px;padding-right:8px}
 .side-brand{
   display:flex;align-items:center;gap:10px;flex:1;min-width:0;
@@ -83,7 +88,7 @@ html,body.admin-body{height:100%;min-height:100vh;background:#f1f5f9}
 .admin-topbar h1{margin:0;font-size:20px}
 .admin-topbar .hint{margin:4px 0 0}
 .admin-topbar #refresh{margin-left:auto}
-.ghost{padding:8px 10px;color:#334155;background:#e2e8f0;display:none}
+.ghost{padding:8px 12px;color:#334155;background:#e2e8f0;display:inline-flex;font-weight:700;white-space:nowrap}
 .admin-pages{padding:22px 24px 40px}
 
 .overview-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin-bottom:18px}
@@ -124,7 +129,7 @@ html,body.admin-body{height:100%;min-height:100vh;background:#f1f5f9}
   .admin-shell.sidebar-narrow .side-foot a{display:revert}
   .admin-shell.sidebar-narrow .side-link{justify-content:flex-start;padding:10px 12px}
   .ghost{display:inline-flex}
-  .side-collapse{display:none}
+  .side-collapse,.side-resizer{display:none}
   .overview-grid{grid-template-columns:1fr 1fr}
 }
 @media(max-width:640px){

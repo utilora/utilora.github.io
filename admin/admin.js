@@ -879,34 +879,88 @@ document.getElementById('logout').addEventListener('click', logout);
 document.querySelectorAll('[data-page]').forEach((btn) => {
   btn.addEventListener('click', () => switchPage(btn.dataset.page));
 });
-document.getElementById('sidebar-toggle').addEventListener('click', () => {
-  document.body.classList.toggle('sidebar-open');
-});
 const sidebarKey = 'utilora_admin_sidebar';
+const SIDEBAR_NARROW = 72;
+const SIDEBAR_WIDE = 240;
 function desktopNav() {
   return window.matchMedia('(min-width: 981px)').matches;
 }
-function applySidebarWidth() {
+function readSidebarWidth() {
+  const raw = localStorage.getItem(sidebarKey);
+  if (raw === 'narrow') return SIDEBAR_NARROW;
+  if (raw === 'wide' || raw == null) return SIDEBAR_WIDE;
+  const n = Number(raw);
+  return Number.isFinite(n) ? Math.min(360, Math.max(SIDEBAR_NARROW, n)) : SIDEBAR_WIDE;
+}
+function setSidebarWidth(px, persist) {
   const shell = document.getElementById('manager-panel');
+  const width = Math.round(px);
+  const narrow = width <= 96;
+  if (shell) {
+    shell.style.setProperty('--sidebar-w', `${width}px`);
+    shell.classList.toggle('sidebar-narrow', narrow);
+  }
   const collapse = document.getElementById('sidebar-collapse');
-  const narrow = localStorage.getItem(sidebarKey) === 'narrow';
-  if (shell) shell.classList.toggle('sidebar-narrow', narrow);
+  const top = document.getElementById('sidebar-toggle');
   if (collapse) {
     collapse.textContent = narrow ? '›' : '‹';
     collapse.setAttribute('aria-label', narrow ? '展开侧栏' : '收窄侧栏');
     collapse.title = narrow ? '展开侧栏' : '收窄侧栏';
   }
+  if (top) {
+    if (desktopNav()) {
+      top.textContent = narrow ? '宽栏' : '窄栏';
+      top.setAttribute('aria-label', narrow ? '展开侧栏' : '收窄侧栏');
+    } else {
+      top.textContent = '菜单';
+      top.setAttribute('aria-label', '菜单');
+    }
+  }
+  if (persist) localStorage.setItem(sidebarKey, String(width));
 }
 function toggleSidebarWidth() {
   if (!desktopNav()) {
     document.body.classList.toggle('sidebar-open');
     return;
   }
-  localStorage.setItem(sidebarKey, localStorage.getItem(sidebarKey) === 'narrow' ? 'wide' : 'narrow');
-  applySidebarWidth();
+  setSidebarWidth(readSidebarWidth() <= 96 ? SIDEBAR_WIDE : SIDEBAR_NARROW, true);
 }
+function bindSidebarResize() {
+  const handle = document.getElementById('sidebar-resizer');
+  const shell = document.getElementById('manager-panel');
+  if (!handle || !shell) return;
+  const startDrag = (event) => {
+    if (!desktopNav()) return;
+    event.preventDefault();
+    shell.classList.add('sidebar-dragging');
+    const origin = event.touches ? event.touches[0].clientX : event.clientX;
+    const start = readSidebarWidth();
+    const move = (ev) => {
+      const x = ev.touches ? ev.touches[0].clientX : ev.clientX;
+      setSidebarWidth(Math.min(360, Math.max(SIDEBAR_NARROW, start + (x - origin))), false);
+    };
+    const stop = () => {
+      shell.classList.remove('sidebar-dragging');
+      const current = Number(String(shell.style.getPropertyValue('--sidebar-w')).replace('px', '')) || SIDEBAR_WIDE;
+      setSidebarWidth(current <= 96 ? SIDEBAR_NARROW : current, true);
+      window.removeEventListener('mousemove', move);
+      window.removeEventListener('mouseup', stop);
+      window.removeEventListener('touchmove', move);
+      window.removeEventListener('touchend', stop);
+    };
+    window.addEventListener('mousemove', move);
+    window.addEventListener('mouseup', stop);
+    window.addEventListener('touchmove', move, { passive: false });
+    window.addEventListener('touchend', stop);
+  };
+  handle.addEventListener('mousedown', startDrag);
+  handle.addEventListener('touchstart', startDrag, { passive: false });
+  handle.addEventListener('dblclick', () => toggleSidebarWidth());
+}
+document.getElementById('sidebar-toggle').addEventListener('click', toggleSidebarWidth);
 document.getElementById('sidebar-collapse')?.addEventListener('click', toggleSidebarWidth);
-applySidebarWidth();
+bindSidebarResize();
+setSidebarWidth(readSidebarWidth(), false);
 document.getElementById('analytics-range').addEventListener('change', () => {
   const custom = document.getElementById('analytics-range').value === 'custom';
   document.getElementById('custom-range').hidden = !custom;

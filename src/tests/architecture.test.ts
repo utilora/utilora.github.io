@@ -182,6 +182,7 @@ describe("product architecture", () => {
     expect(read("admin/index.html")).toContain("其它工具");
     expect(read("admin/index.html")).toContain("sidebar-collapse");
     expect(read("admin/admin.js")).toContain("utilora_admin_sidebar");
+    expect(read("admin/index.html")).toContain("sidebar-resizer");
     expect(read("admin/admin-ops.js")).toContain("refreshAll()");
     expect(read("assets/js/auth.js")).toContain("record_user_activity");
     expect(read("assets/js/analytics.js")).toContain("record_user_activity");
