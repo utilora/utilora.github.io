@@ -3,6 +3,7 @@
   const KEY = "sb_publishable_IUK0swkEhqmaWKjUGv_IIQ_Y7LjtayF";
   const SESSION_KEY = "utilora_sb_session";
   const REDIRECT = "https://utilora.github.io/account/";
+  const REG_LIMIT_FN = API + "/functions/v1/registration-limit";
 
   const headers = (token) => ({
     apikey: KEY,
@@ -14,6 +15,9 @@
   const friendlyError = (error, fallback) => {
     const raw = String(error && (error.message || error.msg || error) || "");
     const code = String(error && (error.code || error.error_code) || "");
+    if (/registration_ip_limit|今日该网络注册/i.test(code + raw)) {
+      return raw || "今日该网络注册次数已达上限，请明日再试或更换网络。";
+    }
     if (/rate_limit|too many|429/i.test(code + raw)) return "发信通道这小时次数已用完（不是你点错）。请稍后再发验证码。";
     if (/otp_expired|expired/i.test(code + raw)) return "验证码已过期，请重新发送。";
     if (/invalid.*token|otp_disabled|token.*invalid/i.test(code + raw)) return "验证码不对，请核对后重试。";
@@ -43,7 +47,7 @@
     const data = await response.json().catch(() => ({}));
     if (!response.ok) {
       const error = new Error(data.msg || data.error_description || data.error || data.message || "请求失败");
-      error.code = data.error_code || data.code;
+      error.code = data.error_code || data.code || data.error;
       error.status = response.status;
       throw error;
     }
@@ -72,6 +76,59 @@
       }
     }
     throw lastError;
+  };
+
+  /** S-01: 查询当前 IP 今日是否仍可成功注册（失败时不阻断，避免误伤；真正记账在 record） */
+  const checkRegistrationLimit = async () => {
+    try {
+      const response = await fetch(REG_LIMIT_FN, {
+        method: "POST",
+        credentials: "omit",
+        cache: "no-store",
+        headers: headers(),
+        body: JSON.stringify({ action: "check" }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) return { allowed: true, skipped: true };
+      if (data && data.allowed === false) {
+        const err = new Error(
+          data.message || "今日该网络注册次数已达上限，请明日再试或更换网络。",
+        );
+        err.code = "registration_ip_limit_exceeded";
+        err.status = 429;
+        throw err;
+      }
+      return data;
+    } catch (error) {
+      if (error && error.code === "registration_ip_limit_exceeded") throw error;
+      return { allowed: true, skipped: true };
+    }
+  };
+
+  /** S-01: 验证成功后按 IP 记账；超限时返回错误文案（账号可能已创建，仅提示） */
+  const recordRegistrationSuccess = async (accessToken) => {
+    if (!accessToken) return;
+    try {
+      const response = await fetch(REG_LIMIT_FN, {
+        method: "POST",
+        credentials: "omit",
+        cache: "no-store",
+        headers: headers(accessToken),
+        body: JSON.stringify({ action: "record" }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (response.status === 429 || data.error === "registration_ip_limit_exceeded") {
+        const err = new Error(
+          data.message || "今日该网络注册次数已达上限，请明日再试或更换网络。",
+        );
+        err.code = "registration_ip_limit_exceeded";
+        err.status = 429;
+        throw err;
+      }
+    } catch (error) {
+      if (error && error.code === "registration_ip_limit_exceeded") throw error;
+      // 记账失败不阻断已验证会话
+    }
   };
 
   const fetchUser = (token) => request("/auth/v1/user", { headers: headers(token) });
@@ -130,12 +187,20 @@
       expires_in: Number(hash.get("expires_in") || 3600),
     });
     history.replaceState({}, "", location.pathname);
+    if (type === "signup") {
+      try {
+        await recordRegistrationSuccess(access);
+      } catch {
+        /* 重定向场景下记账失败不阻断 */
+      }
+    }
     recordActivity("login", "auth", { source: "redirect", type });
     return { type };
   };
 
   const sendOtp = async (email, name) => {
     try {
+      await checkRegistrationLimit();
       return await request("/auth/v1/otp", {
         method: "POST",
         headers: headers(),
@@ -154,6 +219,7 @@
   const signup = async (email, password, name) => sendOtp(email, name);
 
   const verifyOtp = async (email, token) => {
+    await checkRegistrationLimit();
     const types = ["email", "signup", "recovery"];
     let lastError;
     for (const type of types) {
@@ -164,6 +230,15 @@
           body: JSON.stringify({ type, email, token: String(token).trim() }),
         });
         const session = await saveTokens(data);
+        if (type === "signup" || type === "email") {
+          try {
+            await recordRegistrationSuccess(session.access_token);
+          } catch (limitError) {
+            // 已验证成功：仍保留会话，但向用户提示限额（极端并发）
+            limitError.message = friendlyError(limitError, limitError.message);
+            // 不 throw，避免阻断首次进入账户；限额已在服务端记录或拒绝重复
+          }
+        }
         recordActivity("login", "auth", { source: "otp" });
         return session;
       } catch (error) {
@@ -301,5 +376,6 @@
     displayName,
     isVerified,
     friendlyError,
+    checkRegistrationLimit,
   };
 })();
