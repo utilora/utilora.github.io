@@ -4,6 +4,7 @@ import {
   bankMatchState,
   parseBankTable,
   planAllocation,
+  planAllocations,
   previewBankImport,
   suggestExactMatches,
   suggestMatches
@@ -56,6 +57,43 @@ describe("bank matching", () => {
     expect(planAllocation(100, 80, 90).ok).toBe(false);
     expect(planAllocation(50, 80, 60).ok).toBe(false);
     expect(planAllocation(80, 80, 80)).toEqual({ ok: true, amount: 80 });
+  });
+
+  it("plans one bank row across multiple invoices in one confirmation", () => {
+    expect(planAllocations(
+      1000,
+      [
+        { id: "v1", balance: 400 },
+        { id: "v2", balance: 800 }
+      ],
+      [
+        { invoiceId: "v1", amount: 400 },
+        { invoiceId: "v2", amount: 600 }
+      ]
+    )).toEqual({
+      ok: true,
+      allocations: [
+        { invoiceId: "v1", amount: 400 },
+        { invoiceId: "v2", amount: 600 }
+      ],
+      total: 1000
+    });
+  });
+
+  it("rejects a split before writing when its total or an invoice is over-allocated", () => {
+    const invoices = [
+      { id: "v1", balance: 400 },
+      { id: "v2", balance: 800 }
+    ];
+    expect(planAllocations(900, invoices, [
+      { invoiceId: "v1", amount: 400 },
+      { invoiceId: "v2", amount: 600 }
+    ]).ok).toBe(false);
+    expect(planAllocations(1000, invoices, [{ invoiceId: "v1", amount: 500 }]).ok).toBe(false);
+    expect(planAllocations(1000, invoices, [
+      { invoiceId: "v1", amount: 200 },
+      { invoiceId: "v1", amount: 200 }
+    ]).ok).toBe(false);
   });
 
   it("only auto-suggests a unique exact remaining balance and consumes it", () => {

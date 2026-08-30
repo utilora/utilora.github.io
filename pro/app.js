@@ -816,22 +816,31 @@
     const setProgress = (text) => { if (progress) progress.textContent = text || ""; };
     const setMsg = (text) => { if (msg) msg.textContent = text || ""; };
 
-    const applyMatch = async (tx, invoiceId, amount, redraw = true) => {
+    const applyMatches = async (tx, allocations, redraw = true) => {
       if (!tx || !guardOpen(tx.date)) return false;
-      const inv = db.invoices.find((item) => item.id === invoiceId);
-      const planned = Bank.planAllocation(remainingOf(tx), inv ? invoiceBalance(inv) : 0, amount);
+      const invoices = db.invoices.filter((inv) => isCollectable(inv)).map((inv) => ({
+        id: inv.id,
+        balance: invoiceBalance(inv)
+      }));
+      const planned = Bank.planAllocations(remainingOf(tx), invoices, allocations);
       if (!planned.ok) {
         window.alert(planned.error);
         return false;
       }
-      const payment = { id: uid("p"), invoiceId: inv.id, date: tx.date, amount: planned.amount, method: "银行流水匹配", note: tx.summary };
-      db.payments.push(payment);
-      tx.allocations = [...(tx.allocations || []), { paymentId: payment.id, invoiceId: inv.id, amount: planned.amount }];
+      if (redraw) await recoveryPoint("银行流水匹配前");
+      planned.allocations.forEach((allocation) => {
+        const payment = { id: uid("p"), invoiceId: allocation.invoiceId, date: tx.date, amount: allocation.amount, method: "银行流水匹配", note: tx.summary };
+        db.payments.push(payment);
+        tx.allocations = [...(tx.allocations || []), { paymentId: payment.id, invoiceId: allocation.invoiceId, amount: allocation.amount }];
+        postVoucher("payment", payment.id, payment.date, tx.summary, allocation.amount);
+      });
       tx.paymentId = "";
-      postVoucher("payment", payment.id, payment.date, tx.summary, planned.amount);
       if (redraw) { await save(); draw(); }
       return true;
     };
+
+    const applyMatch = (tx, invoiceId, amount, redraw = true) =>
+      applyMatches(tx, [{ invoiceId, amount }], redraw);
 
     document.getElementById("bank-file").onchange = async (event) => {
       const file = event.target.files?.[0];
@@ -886,10 +895,21 @@
         const tx = db.bankTransactions.find((item) => item.id === button.dataset.bankMatch);
         if (!tx) return;
         const options = collectables.filter((inv) => inv.balance > 0);
-        openDrawer("人工匹配银行流水", [
-          { key: "invoiceId", label: "应收单", type: "select", value: options[0]?.id || "", options: options.map((inv) => ({ value: inv.id, label: `${inv.number} · ${customer(db.invoices.find((item) => item.id === inv.id)?.customerId).name} · 余额 ${money(inv.balance)}` })) },
-          { key: "amount", label: `本次匹配金额（流水剩余 ${money(remainingOf(tx))}）`, value: remainingOf(tx) }
-        ], (values) => applyMatch(tx, values.invoiceId, values.amount));
+        if (!options.length) {
+          window.alert("没有可匹配的应收单");
+          return;
+        }
+        openDrawer(`拆分匹配流水（待匹配 ${money(remainingOf(tx))}）`, options.map((inv) => ({
+          key: `allocation:${inv.id}`,
+          label: `${inv.number} · ${inv.customerName || "未选客户"} · 应收余额 ${money(inv.balance)}`,
+          type: "number",
+          value: ""
+        })), (values) => {
+          const allocations = Object.entries(values)
+            .filter(([key, value]) => key.startsWith("allocation:") && String(value).trim() !== "")
+            .map(([key, amount]) => ({ invoiceId: key.slice("allocation:".length), amount }));
+          return applyMatches(tx, allocations);
+        });
       };
     });
 

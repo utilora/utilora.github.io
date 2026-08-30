@@ -44,6 +44,16 @@ export interface MatchSuggestion {
   confidence: MatchConfidence;
 }
 
+export interface AllocationRequest {
+  invoiceId: string;
+  amount: number | string;
+}
+
+export interface PlannedAllocation {
+  invoiceId: string;
+  amount: number;
+}
+
 const FEN_EPS = 1;
 export const DATE_NEAR_DAYS = 3;
 
@@ -188,6 +198,39 @@ export const planAllocation = (
   if (value > toFen(txRemaining)) return { ok: false, error: "匹配金额不能超过流水待匹配金额" };
   if (value > toFen(invoiceBalance)) return { ok: false, error: "匹配金额不能超过应收余额" };
   return { ok: true, amount: fromFen(value) };
+};
+
+export const planAllocations = (
+  txRemaining: number,
+  invoices: Array<Pick<CollectableInvoice, "id" | "balance">>,
+  requests: AllocationRequest[]
+): { ok: true; allocations: PlannedAllocation[]; total: number } | { ok: false; error: string } => {
+  if (!requests.length) return { ok: false, error: "请至少填写一笔匹配金额" };
+
+  const balances = new Map(invoices.map((invoice) => [invoice.id, toFen(invoice.balance)]));
+  const usedInvoices = new Set<string>();
+  const allocations: PlannedAllocation[] = [];
+  const txRemainingFen = toFen(txRemaining);
+  let totalFen = 0;
+
+  for (const request of requests) {
+    if (!balances.has(request.invoiceId)) return { ok: false, error: "所选应收单不存在或已结清" };
+    if (usedInvoices.has(request.invoiceId)) return { ok: false, error: "同一应收单不能重复分配" };
+
+    const amountFen = toFen(request.amount);
+    if (!(amountFen > 0)) return { ok: false, error: "匹配金额必须大于 0" };
+    if (amountFen > (balances.get(request.invoiceId) || 0)) {
+      return { ok: false, error: "匹配金额不能超过应收余额" };
+    }
+
+    totalFen += amountFen;
+    if (totalFen > txRemainingFen) return { ok: false, error: "匹配总额不能超过流水待匹配金额" };
+
+    usedInvoices.add(request.invoiceId);
+    allocations.push({ invoiceId: request.invoiceId, amount: fromFen(amountFen) });
+  }
+
+  return { ok: true, allocations, total: fromFen(totalFen) };
 };
 
 export const daysApart = (left?: string, right?: string): number | null => {
