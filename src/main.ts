@@ -1,5 +1,7 @@
+import { bindPurchaseIntentForms } from "./app/purchase-intent";
 import { getUser } from "./core/auth/session";
 import { getEffectiveEntitlement } from "./core/entitlements/service";
+
 
 const updateProNavigation = async (): Promise<void> => {
   const user = await getUser().catch(() => null);
@@ -22,3 +24,4 @@ const stampPlanBadges = (): void => {
 
 stampPlanBadges();
 void updateProNavigation();
+void bindPurchaseIntentForms();

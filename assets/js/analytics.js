@@ -1,4 +1,18 @@
 (() => {
+  const EVENTS = Object.freeze({
+    homepage_view: "homepage_view",
+    free_tool_use: "free_tool_use",
+    pro_click: "pro_click",
+    demo_enter: "demo_enter",
+    login_success: "login_success",
+    workspace_enter: "workspace_enter",
+    bank_use: "bank_use",
+    receivable_use: "receivable_use",
+    month_end_use: "month_end_use",
+    pricing_view: "pricing_view",
+    purchase_intent: "purchase_intent",
+  });
+  const ALLOWED = new Set(["page_view", "tool_use", ...Object.values(EVENTS)]);
   const script = document.currentScript;
   const tool = script?.dataset.tool || null;
   const url = "https://nkxgnqzdswugbjjquxfj.supabase.co/rest/v1/rpc/track_analytics_event";
@@ -26,24 +40,62 @@
   try {
     if (document.referrer) referrer = new URL(document.referrer).hostname || "direct";
   } catch {}
+  const isHome = location.pathname.replace(/\/index\.html$/i, "").replace(/\/+$/, "") === "";
+
   function track(eventType, toolSlug = null) {
-    fetch(url, {
-      method: "POST",
-      keepalive: true,
-      headers: { apikey, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        p_event_type: eventType,
-        p_tool_slug: toolSlug,
-        p_path: location.pathname.slice(0, 200),
-        p_session_id: sessionId,
-        p_referrer: referrer,
-        p_device: device,
-        p_browser: browser,
-      }),
-    }).catch(() => {});
+    try {
+      if (!ALLOWED.has(eventType)) return;
+      const slug = toolSlug == null ? null : String(toolSlug).trim().slice(0, 80);
+      if (slug && (/@/.test(slug) || /\d+\.\d+/.test(slug))) return;
+      fetch(url, {
+        method: "POST",
+        keepalive: true,
+        headers: { apikey, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          p_event_type: eventType,
+          p_tool_slug: slug,
+          p_path: location.pathname.slice(0, 200),
+          p_session_id: sessionId,
+          p_referrer: referrer,
+          p_device: device,
+          p_browser: browser,
+        }),
+      }).catch(() => {});
+    } catch {}
   }
+
+  window.UtiloraAnalytics = Object.freeze({ EVENTS, track });
+
   track("page_view", tool);
-  if (tool) track("tool_use", tool);
+  if (tool) {
+    track("tool_use", tool);
+    track(EVENTS.free_tool_use, tool);
+  }
+  if (isHome) {
+    track(EVENTS.homepage_view);
+    document.addEventListener("click", (event) => {
+      const link = event.target instanceof Element ? event.target.closest("a[href]") : null;
+      if (!link) return;
+      const href = link.getAttribute("href") || "";
+      if (/(?:^|\/)pro\/?/.test(href)) track(EVENTS.pro_click);
+    });
+    let pricingSeen = false;
+    const markPricing = () => {
+      if (pricingSeen) return;
+      pricingSeen = true;
+      track(EVENTS.pricing_view);
+    };
+    if (/^#(?:compare|intent)$/.test(location.hash)) markPricing();
+    if ("IntersectionObserver" in window) {
+      const observer = new IntersectionObserver((entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) markPricing();
+      }, { threshold: 0.35 });
+      ["compare", "intent"].forEach((id) => {
+        const node = document.getElementById(id);
+        if (node) observer.observe(node);
+      });
+    }
+  }
 
   if (script?.src && !window.__utiloraAppLoaded) {
     const app = document.createElement("script");

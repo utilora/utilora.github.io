@@ -117,7 +117,7 @@
   const setSetting = async (key, value) => request(txStore(STORE_SETTINGS, "readwrite").put({ key, value }));
   const backupKey = () => `lastBackup:${workspaceId}`;
   const recoveryPoint = async (reason) => {
-    if (!db || !workspaceId) return;
+    if (demoMode || !db || !workspaceId) return;
     const createdAt = new Date().toISOString();
     await request(txStore(STORE_RECOVERY, "readwrite").put({ id: `${workspaceId}:${createdAt}`, workspaceId, createdAt, reason, data: db }));
   };
@@ -213,6 +213,31 @@
   const pill = (s, map) => `<span class="pill ${s}">${map[s] || s}</span>`;
   const route = () => { const h = (location.hash.replace(/^#\/?/, "") || "dashboard").split("/"); return { name: h[0], id: h[1] || "" }; };
   const go = (name, id) => { location.hash = id ? `#/${name}/${id}` : `#/${name}`; };
+  const bankAllocated = (tx) => tx.paymentId ? Number(tx.amount || 0) : (tx.allocations || []).reduce((s, a) => s + Number(a.amount || 0), 0);
+  const bankRemaining = (tx) => F.roundFen(Math.max(0, Number(tx.amount || 0) - bankAllocated(tx)));
+  const invoiceBalance = (inv) => F.roundFen(Math.max(0, compute(inv).inclusive - paidOf(inv.id)));
+  const isCollectable = (inv) => {
+    const status = invoiceStatus(inv);
+    return status !== "draft" && status !== "void" && status !== "paid" && invoiceBalance(inv) > 0;
+  };
+  function collectAnomalies() {
+    const anomalies = [];
+    db.invoices.forEach((inv) => {
+      const total = compute(inv).inclusive;
+      if (!customer(inv.customerId).id) anomalies.push({ where: `应收单 ${inv.number}`, issue: "未关联客户", fix: "编辑应收单并选择客户" });
+      if (!(total > 0)) anomalies.push({ where: `应收单 ${inv.number}`, issue: "金额为 0", fix: "检查数量和单价" });
+      if (paidOf(inv.id) > total) anomalies.push({ where: `应收单 ${inv.number}`, issue: "收款超额", fix: "检查或删除错误收款" });
+    });
+    db.payments.filter((p) => !db.invoices.some((inv) => inv.id === p.invoiceId)).forEach((p) => anomalies.push({ where: `收款 ${p.date}`, issue: "未关联应收单", fix: "重新导入或删除记录" }));
+    db.reimbursements.filter((r) => !r.hasInvoice && r.amount > 0).forEach((r) => anomalies.push({ where: `报销 ${r.date} ${r.claimant}`, issue: "未标记票据", fix: "核实票据或补充附件" }));
+    return anomalies;
+  }
+  const workflowStrip = (labels = {}) => `<div class="workflow-strip" aria-label="快捷工作流">
+      <button data-go="bank" type="button"${labels.bankWarn ? ' class="warn"' : ""}><b>1. 银行流水</b><span>${esc(labels.bank || "导入并匹配回款")}</span></button>
+      <button data-go="invoices" type="button"${labels.arWarn ? ' class="warn"' : ""}><b>2. 应收/回款</b><span>${esc(labels.ar || "跟进本月待收")}</span></button>
+      <button data-go="checks" type="button"${labels.checkWarn ? ' class="warn"' : ""}><b>3. 月结检查</b><span>${esc(labels.check || "处理异常并月结")}</span></button>
+      <button data-go="reports" type="button"><b>4. 经营报表</b><span>${esc(labels.report || "查看经营结果")}</span></button>
+    </div>`;
 
   function monthSeries() {
     return Array.from({ length: 8 }, (_, i) => {
@@ -281,36 +306,72 @@
   }
 
   function renderDashboard() {
-    const due = db.invoices.reduce((s, inv) => s + Math.max(0, compute(inv).inclusive - paidOf(inv.id)), 0);
     const month = today().slice(0, 7);
-    const monthSales = db.invoices.filter((i) => (i.date || "").startsWith(month)).reduce((s, inv) => s + compute(inv).inclusive, 0);
-    const monthReceipts = db.payments.filter((p) => (p.date || "").startsWith(month)).reduce((s, p) => s + Number(p.amount || 0), 0);
-    const overdue = db.invoices.filter((i) => invoiceStatus(i) === "overdue");
-    const overdueAmount = overdue.reduce((s, inv) => s + Math.max(0, compute(inv).inclusive - paidOf(inv.id)), 0);
-    const dues = db.invoices.filter((i) => ["overdue", "issued", "partial"].includes(invoiceStatus(i))).sort((a, b) => String(a.dueDate).localeCompare(String(b.dueDate))).slice(0, 8);
+    const unmatched = db.bankTransactions.filter((tx) => bankRemaining(tx) > 0);
+    const unmatchedAmount = unmatched.reduce((s, tx) => s + bankRemaining(tx), 0);
+    const monthPendingInvoices = db.invoices.filter((inv) => isCollectable(inv) && String(inv.dueDate || today()) <= `${month}-31`);
+    const monthPendingAmount = monthPendingInvoices.reduce((s, inv) => s + invoiceBalance(inv), 0);
+    const overdue = db.invoices.filter((inv) => invoiceStatus(inv) === "overdue");
+    const dues = monthPendingInvoices.slice().sort((a, b) => String(a.dueDate || today()).localeCompare(String(b.dueDate || today()))).slice(0, 8);
     const recentPayments = db.payments.slice().sort((a, b) => String(b.date).localeCompare(String(a.date))).slice(0, 6);
+    const anomalies = collectAnomalies();
+    const closeSteps = [
+      { ok: db.bankTransactions.length > 0, label: "已导入银行流水" },
+      { ok: db.bankTransactions.length > 0 && unmatched.length === 0, label: "流水已全部匹配" },
+      { ok: anomalies.length === 0, label: "无校验异常" },
+      { ok: db.closedMonths.includes(month), label: "本月已月结" },
+    ];
+    const closeDone = closeSteps.filter((step) => step.ok).length;
+    const closePct = Math.round((closeDone / closeSteps.length) * 100);
+    const todos = [];
+    if (unmatched.length) todos.push({ go: "bank", title: "匹配银行流水", detail: `${unmatched.length} 笔未匹配 · ${money(unmatchedAmount)}` });
+    if (monthPendingAmount > 0) todos.push({ go: "invoices", title: "跟进应收回款", detail: `本月待收 ${money(monthPendingAmount)}${overdue.length ? ` · 逾期 ${overdue.length} 张` : ""}` });
+    if (anomalies.length) todos.push({ go: "checks", title: "处理异常事项", detail: `${anomalies.length} 项待处理` });
+    if (!db.closedMonths.includes(month)) todos.push({ go: "checks", title: `完成本月月结`, detail: closePct >= 75 ? "检查完成后可月结" : "先完成流水匹配和异常检查" });
+    const lead = todos.length
+      ? `今天有 ${todos.length} 项财务工作需要处理`
+      : "今天没有紧急待办，可以查看经营报表或继续录入。";
+    const strip = workflowStrip({
+      bank: db.bankTransactions.length ? (unmatched.length ? `${unmatched.length} 笔待匹配 · ${money(unmatchedAmount)}` : "已全部匹配") : "尚未导入流水",
+      bankWarn: unmatched.length > 0 || !db.bankTransactions.length,
+      ar: monthPendingAmount > 0 ? `待收 ${money(monthPendingAmount)}` : "本月无待收",
+      arWarn: monthPendingAmount > 0,
+      check: anomalies.length ? `${anomalies.length} 项异常待处理` : (db.closedMonths.includes(month) ? "本月已月结" : "去完成月结检查"),
+      checkWarn: anomalies.length > 0 || !db.closedMonths.includes(month),
+      report: "查看利润、现金流和账龄",
+    });
+
     if (!db.customers.length && !db.estimates.length && !db.invoices.length && !db.expenses.length) {
-      view.innerHTML = `<div class="welcome-panel"><span>3 分钟上手</span><h2>建立你的第一个本地财务账套</h2><div class="onboarding-steps"><b>1. 填写公司信息</b><b>2. 建立第一个客户</b><b>3. 录入应收或导入银行流水</b></div><p>如果只想看效果，可先载入明确标记的演示数据，不会上传。</p><div class="actions"><button data-start="settings">开始第 1 步</button><button class="secondary" data-start="customers">创建客户</button><button class="secondary" data-start="demo">先看演示</button></div><small>数据仅保存在当前浏览器，请定期导出备份。</small></div>`;
+      view.innerHTML = `<div class="today-work-lead"><h2>今天有什么财务工作需要处理？</h2><p>还没有业务数据。先建立账套，或载入演示查看完整工作流。</p></div>${strip}<div class="welcome-panel"><span>3 分钟上手</span><h2>建立你的第一个本地财务账套</h2><div class="onboarding-steps"><b>1. 填写公司信息</b><b>2. 建立第一个客户</b><b>3. 录入应收或导入银行流水</b></div><p>如果只想看效果，可先载入明确标记的演示数据，不会上传。</p><div class="actions"><button data-start="settings">开始第 1 步</button><button class="secondary" data-start="customers">创建客户</button><button class="secondary" data-start="demo">先看演示</button></div><small>数据仅保存在当前浏览器，请定期导出备份。</small></div>`;
       view.querySelector('[data-start="settings"]').onclick = () => go("settings");
       view.querySelector('[data-start="customers"]').onclick = () => go("customers");
       view.querySelector('[data-start="demo"]').onclick = async () => { if (window.confirm("在当前空公司中载入演示数据？")) { db = demo(); await save(); draw(); } };
+      view.querySelectorAll("[data-go]").forEach((el) => { el.onclick = () => { location.hash = `#/${el.dataset.go}`; }; });
       return;
     }
+
     view.innerHTML = `
-      <div class="stat-row">
-        <div class="stat-card" data-go="invoices"><div><b>${money(monthSales)}</b><span>本月应收</span></div><div class="stat-ico violet">应</div></div>
-        <div class="stat-card" data-go="payments"><div><b>${money(monthReceipts)}</b><span>本月已收</span></div><div class="stat-ico blue">收</div></div>
-        <div class="stat-card" data-go="invoices"><div><b>${money(due)}</b><span>尚未收款</span></div><div class="stat-ico pink">¥</div></div>
-        <div class="stat-card" data-go="reports"><div><b>${money(overdueAmount)}</b><span>已逾期</span></div><div class="stat-ico pink">期</div></div>
+      <div class="today-work-lead">
+        <h2>今天有什么财务工作需要处理？</h2>
+        <p>${esc(lead)}</p>
       </div>
-      <div class="dashboard-actions">
-        <button data-go="invoice/new">新建应收单</button><button class="secondary" data-go="payments">记录收款</button><button class="secondary" data-go="settings">导入 / 备份数据</button>
+      ${strip}
+      <div class="stat-row">
+        <div class="stat-card${monthPendingAmount > 0 ? " warn" : ""}" data-go="invoices"><div><b>${money(monthPendingAmount)}</b><span>本月待收金额</span><small>${monthPendingInvoices.length} 张待收${overdue.length ? ` · 逾期 ${overdue.length} 张` : ""}</small></div><div class="stat-ico pink">收</div></div>
+        <div class="stat-card${unmatched.length ? " warn" : ""}" data-go="bank"><div><b>${unmatched.length ? money(unmatchedAmount) : "已匹配"}</b><span>银行流水匹配</span><small>${db.bankTransactions.length ? `${unmatched.length} 笔待匹配 / 共 ${db.bankTransactions.length} 笔` : "尚未导入流水"}</small></div><div class="stat-ico blue">流</div></div>
+        <div class="stat-card${anomalies.length ? " warn" : ""}" data-go="checks"><div><b>${anomalies.length}</b><span>异常 / 待处理</span><small>${anomalies.length ? anomalies[0].issue : "未发现明显异常"}</small></div><div class="stat-ico pink">异</div></div>
+        <div class="stat-card${closePct < 100 ? " warn" : ""}" data-go="checks"><div><b>${closePct}%</b><span>月结完成度</span><small>${closeDone}/${closeSteps.length} 项已完成</small></div><div class="stat-ico violet">结</div></div>
+      </div>
+      <div class="month-progress" aria-label="月结完成度"><i style="width:${closePct}%"></i></div>
+      <div class="list-card dash-todo">
+        <h2>今日待办</h2>
+        ${todos.length ? todos.map((item) => `<div class="mini-row" data-go="${item.go}"><div><b>${esc(item.title)}</b><small>${esc(item.detail)}</small></div><b>去处理</b></div>`).join("") : `<p class="empty">今天没有紧急待办。可以查看经营报表。</p>`}
       </div>
       <div class="backup-banner" id="dashboard-backup">正在检查本地备份状态…</div>
       <div class="split-lists">
         <div class="list-card">
           <h2 data-go="invoices">到期应收</h2>
-          ${dues.length ? dues.map((inv) => `<div class="mini-row" data-go="invoices/${inv.id}"><div><b>${esc(customer(inv.customerId).name)}</b><small>${esc(inv.dueDate)} · ${esc(inv.number)}</small></div><b>${money(compute(inv).inclusive - paidOf(inv.id))}</b></div>`).join("") : `<p class="empty">没有到期应收单</p>`}
+          ${dues.length ? dues.map((inv) => `<div class="mini-row" data-go="invoices/${inv.id}"><div><b>${esc(customer(inv.customerId).name)}</b><small>${esc(inv.dueDate)} · ${esc(inv.number)}</small></div><b>${money(invoiceBalance(inv))}</b></div>`).join("") : `<p class="empty">没有到期应收单</p>`}
         </div>
         <div class="list-card">
           <h2 data-go="payments">最近收款</h2>
@@ -581,14 +642,13 @@
   }
 
   function renderBank() {
-    const allocated=(x)=>x.paymentId?Number(x.amount||0):(x.allocations||[]).reduce((s,a)=>s+Number(a.amount||0),0),remaining=(x)=>F.roundFen(Math.max(0,Number(x.amount||0)-allocated(x)));
-    const unmatched = db.bankTransactions.filter((x) => remaining(x)>0);
-    view.innerHTML = `<div class="panel"><h2>导入银行流水</h2><p class="data-note">支持 .xlsx / CSV / TSV。可自动匹配，也可人工将一笔流水拆分到多张应收单。</p><input id="bank-file" type="file" accept=".xlsx,.csv,.tsv"><div class="actions"><button id="bank-auto"${unmatched.length ? "" : " disabled"}>自动匹配收款</button></div><p id="bank-msg" class="data-note"></p></div><div class="panel" style="margin-top:14px"><table class="sheet-table"><thead><tr><th>日期</th><th>摘要</th><th>金额</th><th>已匹配</th><th>待匹配</th><th></th></tr></thead><tbody>${db.bankTransactions.map((x) => `<tr><td>${esc(x.date)}</td><td>${esc(x.summary)}</td><td>${money(x.amount)}</td><td>${money(allocated(x))}</td><td>${money(remaining(x))}</td><td>${remaining(x)>0?`<button class="secondary" data-bank-match="${x.id}">人工匹配 / 拆分</button>`:"已完成"}</td></tr>`).join("") || `<tr><td colspan="6">尚未导入银行流水</td></tr>`}</tbody></table></div>`;
+    const unmatched = db.bankTransactions.filter((x) => bankRemaining(x)>0);
+    view.innerHTML = `<div class="panel"><h2>导入银行流水</h2><p class="data-note">支持 .xlsx / CSV / TSV。可自动匹配，也可人工将一笔流水拆分到多张应收单。</p><input id="bank-file" type="file" accept=".xlsx,.csv,.tsv"><div class="actions"><button id="bank-auto"${unmatched.length ? "" : " disabled"}>自动匹配收款</button></div><p id="bank-msg" class="data-note"></p></div><div class="panel" style="margin-top:14px"><table class="sheet-table"><thead><tr><th>日期</th><th>摘要</th><th>金额</th><th>已匹配</th><th>待匹配</th><th></th></tr></thead><tbody>${db.bankTransactions.map((x) => `<tr><td>${esc(x.date)}</td><td>${esc(x.summary)}</td><td>${money(x.amount)}</td><td>${money(bankAllocated(x))}</td><td>${money(bankRemaining(x))}</td><td>${bankRemaining(x)>0?`<button class="secondary" data-bank-match="${x.id}">人工匹配 / 拆分</button>`:"已完成"}</td></tr>`).join("") || `<tr><td colspan="6">尚未导入银行流水</td></tr>`}</tbody></table></div>`;
     primary.hidden = true;
     document.getElementById("bank-file").onchange = async (event) => { const file=event.target.files?.[0]; if(!file)return; try { const rows=file.name.toLowerCase().endsWith(".xlsx")?await window.UtiloraXlsx.readFirstSheet(file):window.UtiloraCsv.parseCsv(await file.text()); const headers=rows[0].map((x)=>String(x).trim()); const pick=(names)=>headers.findIndex((h)=>names.some((n)=>h.includes(n))); const di=pick(["日期","交易日"]),si=pick(["摘要","用途","对方"]),ai=pick(["金额","收入","贷方"]); if([di,si,ai].some((i)=>i<0)) throw new Error("未找到日期、摘要或金额列"); const added=rows.slice(1).map((r)=>({id:uid("b"),date:normalizeImportedDate(r[di]),summary:String(r[si]||"").trim(),amount:F.roundFen(Number(String(r[ai]||"").replace(/,/g,""))),paymentId:""})).filter((x)=>x.date&&x.amount); await recoveryPoint("导入银行流水前"); db.bankTransactions.push(...added); await save(); draw(); } catch(error){document.getElementById("bank-msg").textContent=error.message||"导入失败";} };
-    const applyMatch=async(tx,invoiceId,amount)=>{const inv=db.invoices.find((x)=>x.id===invoiceId),left=inv?Math.max(0,compute(inv).inclusive-paidOf(inv.id)):0;amount=F.roundFen(Number(amount));if(!inv||!(amount>0)||amount>remaining(tx)||amount>left||!guardOpen(tx.date)){window.alert("匹配金额不能超过流水未分配金额或应收余额。");return false;}const p={id:uid("p"),invoiceId:inv.id,date:tx.date,amount,method:"银行流水匹配",note:tx.summary};db.payments.push(p);tx.allocations=[...(tx.allocations||[]),{paymentId:p.id,invoiceId:inv.id,amount}];postVoucher("payment",p.id,p.date,tx.summary,amount);await save();draw();return true;};
-    view.querySelectorAll("[data-bank-match]").forEach((b)=>b.onclick=()=>{const tx=db.bankTransactions.find((x)=>x.id===b.dataset.bankMatch),invoices=db.invoices.filter((inv)=>Math.max(0,compute(inv).inclusive-paidOf(inv.id))>0);openDrawer("人工匹配银行流水",[{key:"invoiceId",label:"应收单",type:"select",value:invoices[0]?.id||"",options:invoices.map((inv)=>({value:inv.id,label:`${inv.number} · ${customer(inv.customerId).name} · 余额 ${money(compute(inv).inclusive-paidOf(inv.id))}`}))},{key:"amount",label:`本次匹配金额（流水剩余 ${money(remaining(tx))}）`,value:remaining(tx)}],(v)=>applyMatch(tx,v.invoiceId,v.amount));});
-    document.getElementById("bank-auto").onclick = async () => { let count=0; for(const tx of unmatched.filter((x)=>x.amount>0)){ const rest=remaining(tx),candidates=db.invoices.filter((inv)=>Math.abs(Math.max(0,compute(inv).inclusive-paidOf(inv.id))-rest)<0.01); if(candidates.length===1&&await applyMatch(tx,candidates[0].id,rest))count+=1; } if(count===0)window.alert("没有找到金额唯一且完全相等的应收单，请使用人工匹配。"); };
+    const applyMatch=async(tx,invoiceId,amount)=>{const inv=db.invoices.find((x)=>x.id===invoiceId),left=inv?Math.max(0,compute(inv).inclusive-paidOf(inv.id)):0;amount=F.roundFen(Number(amount));if(!inv||!(amount>0)||amount>bankRemaining(tx)||amount>left||!guardOpen(tx.date)){window.alert("匹配金额不能超过流水未分配金额或应收余额。");return false;}const p={id:uid("p"),invoiceId:inv.id,date:tx.date,amount,method:"银行流水匹配",note:tx.summary};db.payments.push(p);tx.allocations=[...(tx.allocations||[]),{paymentId:p.id,invoiceId:inv.id,amount}];postVoucher("payment",p.id,p.date,tx.summary,amount);await save();draw();return true;};
+    view.querySelectorAll("[data-bank-match]").forEach((b)=>b.onclick=()=>{const tx=db.bankTransactions.find((x)=>x.id===b.dataset.bankMatch),invoices=db.invoices.filter((inv)=>Math.max(0,compute(inv).inclusive-paidOf(inv.id))>0);openDrawer("人工匹配银行流水",[{key:"invoiceId",label:"应收单",type:"select",value:invoices[0]?.id||"",options:invoices.map((inv)=>({value:inv.id,label:`${inv.number} · ${customer(inv.customerId).name} · 余额 ${money(compute(inv).inclusive-paidOf(inv.id))}`}))},{key:"amount",label:`本次匹配金额（流水剩余 ${money(bankRemaining(tx))}）`,value:bankRemaining(tx)}],(v)=>applyMatch(tx,v.invoiceId,v.amount));});
+    document.getElementById("bank-auto").onclick = async () => { let count=0; for(const tx of unmatched.filter((x)=>x.amount>0)){ const rest=bankRemaining(tx),candidates=db.invoices.filter((inv)=>Math.abs(Math.max(0,compute(inv).inclusive-paidOf(inv.id))-rest)<0.01); if(candidates.length===1&&await applyMatch(tx,candidates[0].id,rest))count+=1; } if(count===0)window.alert("没有找到金额唯一且完全相等的应收单，请使用人工匹配。"); };
   }
 
   function renderPayroll() {
@@ -636,9 +696,7 @@
 
   function renderChecks() {
     const month = new Date().toISOString().slice(0, 7);
-    const anomalies = [];
-    db.invoices.forEach((inv) => { const total=compute(inv).inclusive;if(!customer(inv.customerId).id)anomalies.push({where:`应收单 ${inv.number}`,issue:"未关联客户",fix:"编辑应收单并选择客户"});if(!(total>0))anomalies.push({where:`应收单 ${inv.number}`,issue:"金额为 0",fix:"检查数量和单价"});if(paidOf(inv.id)>total)anomalies.push({where:`应收单 ${inv.number}`,issue:"收款超额",fix:"检查或删除错误收款"});});
-    db.payments.filter((p)=>!db.invoices.some((inv)=>inv.id===p.invoiceId)).forEach((p)=>anomalies.push({where:`收款 ${p.date}`,issue:"未关联应收单",fix:"重新导入或删除记录"}));db.reimbursements.filter((r)=>!r.hasInvoice&&r.amount>0).forEach((r)=>anomalies.push({where:`报销 ${r.date} ${r.claimant}`,issue:"未标记票据",fix:"核实票据或补充附件"}));
+    const anomalies = collectAnomalies();
     view.innerHTML = `<div class="panel"><h2>月结</h2><p class="data-note">月结后，该月的应收、收款、费用和报销不再允许修改；可随时重开。</p><div class="form-grid"><div class="field"><label>月份</label><input id="close-month" type="month" value="${month}"></div></div><div class="actions"><button id="close-toggle"></button></div><p class="data-note">已月结：${db.closedMonths.sort().join("、") || "暂无"}</p></div><div class="panel" style="margin-top:14px"><h2>数据校验日志</h2><p class="data-note">检查时间：${new Date().toLocaleString("zh-CN")}</p><div class="validation-list">${anomalies.length ? anomalies.map((x) => `<div class="validation-item"><b>${esc(x.where)}：${esc(x.issue)}</b><small>修复建议：${esc(x.fix)}</small></div>`).join("") : `<p class="empty">未发现明显异常。请仍按原始凭证复核。</p>`}</div></div>`;
     primary.hidden = true;
     const paint = () => { const value = document.getElementById("close-month").value; document.getElementById("close-toggle").textContent = db.closedMonths.includes(value) ? "重开该月" : "完成该月月结"; };
@@ -968,11 +1026,26 @@
     paint();
   }
 
-  const titles = { dashboard: "概览", customers: "客户", customer: "客户往来", items: "项目", estimates: "报价", invoices: "应收单", payments: "收款", expenses: "费用", reimbursements: "报销", assets: "固定资产", payroll: "工资表", bank: "银行流水", bookkeeping: "科目与凭证", checks: "月结与检查", reports: "报表", settings: "数据与设置", estimate: "编辑报价", invoice: "编辑应收单" };
+  const titles = { dashboard: "今天的工作", customers: "客户", customer: "客户往来", items: "项目", estimates: "报价", invoices: "应收单", payments: "收款", expenses: "费用", reimbursements: "报销", assets: "固定资产", payroll: "工资表", bank: "银行流水", bookkeeping: "科目与凭证", checks: "月结与检查", reports: "报表", settings: "数据与设置", estimate: "编辑报价", invoice: "编辑应收单" };
+  let lastAnalyticsRoute = "";
+  const trackWorkspaceRoute = (name) => {
+    try {
+      if (name === lastAnalyticsRoute) return;
+      lastAnalyticsRoute = name;
+      const analytics = window.UtiloraAnalytics;
+      if (!analytics?.track || !analytics.EVENTS) return;
+      if (name === "bank") analytics.track(analytics.EVENTS.bank_use);
+      else if (name === "invoices" || name === "invoice" || name === "payments") analytics.track(analytics.EVENTS.receivable_use);
+      else if (name === "checks") analytics.track(analytics.EVENTS.month_end_use);
+    } catch {}
+  };
+
 
   function draw() {
     const r = route();
     primary.hidden = false;
+    trackWorkspaceRoute(r.name);
+
     document.querySelectorAll(".crater-side button").forEach((btn) => {
       const key = btn.dataset.route;
       btn.classList.toggle("active", key === r.name || (r.name === "customer" && key === "customers") || (r.name === "estimate" && key === "estimates") || (r.name === "invoice" && key === "invoices"));
@@ -996,6 +1069,7 @@
     else if (r.name === "settings") renderSettings();
     else if (r.name === "estimate") renderEditor(true, r.id);
     else if (r.name === "invoice") renderEditor(false, r.id);
+    else if (r.name === "receivables") location.hash = "#/invoices";
     else location.hash = "#/dashboard";
   }
 

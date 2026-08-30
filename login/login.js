@@ -72,6 +72,15 @@
     location.href = next && !/^https?:|^\/\//i.test(next) ? next : "../account/";
   };
 
+  const trackLoginSuccess = () => {
+    try {
+      const analytics = window.UtiloraAnalytics;
+      if (analytics?.EVENTS?.login_success) analytics.track(analytics.EVENTS.login_success);
+    } catch {}
+  };
+
+
+
   const startCooldown = (seconds) => {
     cooldown = seconds;
     resend.disabled = true;
@@ -181,7 +190,9 @@
           await auth.logout();
           throw new Error("账号已被停用，请联系管理员");
         }
+        trackLoginSuccess();
         goAccount();
+
         return;
       }
       if (mode === "up") {
@@ -196,7 +207,9 @@
           await auth.logout();
           throw new Error("账号已被停用，请联系管理员");
         }
+        trackLoginSuccess();
         goAccount();
+
       } catch (error) {
         if (/尚未验证|not_confirmed|confirm/i.test((error.code || "") + error.message)) {
           await sendMail(email);
