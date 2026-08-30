@@ -1,12 +1,12 @@
 # Utilora Commercialization Status
 
 Last reviewed branch: main
-Last reviewed commit: ebfee448e1bd4f9e2fb2ef35d1ce33eec0bb27fa
+Last reviewed commit: pending-p1.2
 Last reviewed date: 2026-08-30
 
 ## Current phase
 
-P1.1 is implemented on main. Later P1 items require an explicit user request.
+P1.2 is implemented on main. Later P1 items require an explicit user request.
 
 ## Current production model
 
@@ -29,7 +29,8 @@ P1.1 is implemented on main. Later P1 items require an explicit user request.
 - [x] Migrations 202608300001 and 202608300002 applied to nkxgnqzdswugbjjquxfj.
 - [x] P0 merged to main at 5b2f8d603251be8a65dedf6db2f7bd7bde5191f3.
 - [x] P1.1 local bank import preview, duplicate fingerprints, match states and reversible exact-amount suggestions.
-- [x] Production build and 25 automated tests passed.
+- [x] P1.2 receivable aging, customer debt overview and collection progress excluding draft/void.
+- [x] Production build and 29 automated tests passed.
 
 ## Reusable capabilities
 
@@ -39,6 +40,7 @@ P1.1 is implemented on main. Later P1 items require an explicit user request.
 - src/core/analytics/: typed event tracking.
 - src/core/purchase-intent/ and src/app/purchase-intent.ts: purchase intent.
 - src/core/banking/local.ts: fingerprints, import preview, remaining amounts and non-overallocating match plans.
+- src/core/receivables/local.ts: aging buckets, customer debt and collection progress.
 - pro/app.js: IndexedDB workspaces, demo, bank matching, receivables, month-end, backup and restore.
 - Supabase migrations: finance schema, RLS, entitlements, promotions and grants.
 
@@ -46,7 +48,6 @@ P1.1 is implemented on main. Later P1 items require an explicit user request.
 
 - pro/app.js is monolithic; avoid unrelated refactoring.
 - Local finance data and Supabase finance tables are not synchronized; never imply that they are.
-- Aging exists but is not a complete collection workflow.
 - Month-end lacks completion scoring and exportable results.
 - Backup reminders and restore regression coverage need strengthening.
 - Entitlements do not yet expose feature-level limits.
@@ -54,23 +55,22 @@ P1.1 is implemented on main. Later P1 items require an explicit user request.
 
 ## Next Authorized Step
 
-- [ ] P1.2: receivables aging, customer debt overview and explainable collection progress.
+- [ ] P1.3: month-end completion score and exportable close result.
 
-Implementation requires an explicit request to begin P1.2.
+Implementation requires an explicit request to begin P1.3.
 
 ### Scope
 
-- Inspect invoices, payments, aging and bank matching first.
-- Show customer outstanding totals and aging buckets.
-- Track collection progress against due dates.
-- Keep matching suggestions explainable.
-- Do not change bank import behavior from P1.1 except where receivables display depends on it.
+- Inspect month-end checks, unmatched bank rows, open receivables, expenses and anomalies first.
+- Add a completion score from unresolved work.
+- Produce an exportable month-end result.
+- Keep close/reopen behavior and demo non-persistence.
 
 ### Acceptance criteria
 
-- Open receivables and overdue amounts are visible by customer.
-- Aging buckets match remaining invoice balances.
-- Collection progress does not include draft or void invoices.
+- Unresolved receivables, unmatched transactions, anomalies and expenses are visible in the close view.
+- Completion score matches remaining close steps.
+- Month-end result can be exported.
 - Demo changes are not persisted.
 - Existing workspaces and backups remain readable.
 - Targeted tests and production build pass.

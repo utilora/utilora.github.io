@@ -85,6 +85,11 @@ a{color:inherit;text-decoration:none}button,input,select,textarea{font:inherit}
 .bank-progress{min-height:1.4em;margin:8px 0 0;color:#344054;font-size:13px;font-weight:650}
 .bank-preview{margin-top:14px;padding-top:12px;border-top:1px solid var(--c-line)}
 .table-wrap{overflow-x:auto}
+.ar-overview .stat-row{margin:14px 0}
+.split-app.ar-docs{margin-top:14px;min-height:calc(100vh - 420px)}
+.sheet-table tr[data-ar-customer]{cursor:pointer}
+.sheet-table tr.warn-row td{background:#fff7ed}
+.match-hint{margin:0 0 12px;padding:10px 12px;border:1px solid #cfe2dc;border-radius:10px;background:#eef8f5}
 
 .panel{background:#fff;border-radius:16px;padding:20px;box-shadow:0 8px 24px #5851d80c}
 .form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}

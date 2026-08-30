@@ -76,6 +76,13 @@ describe("product architecture", () => {
     expect(read("src/pro.ts")).toContain("window.UtiloraBank");
   });
 
+  it("shows receivable aging and customer debt from a shared summary", () => {
+    expect(read("src/pro.ts")).toContain("window.UtiloraReceivables");
+    expect(read("pro/app.js")).toContain("customerDebts");
+    expect(read("pro/app.js")).toContain("应收回款概览");
+    expect(read("pro/app.js")).toContain("collectionProgress");
+  });
+
   it("captures purchase intent without payment or service-role keys", () => {
 
     const migration = read("supabase/migrations/202608300001_purchase_intents.sql");

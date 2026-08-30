@@ -227,6 +227,16 @@
     const status = invoiceStatus(inv);
     return status !== "draft" && status !== "void" && status !== "paid" && invoiceBalance(inv) > 0;
   };
+  const receivableRows = () => db.invoices.map((inv) => ({
+    id: inv.id,
+    number: inv.number,
+    customerId: inv.customerId || "",
+    customerName: customer(inv.customerId).name || "未选客户",
+    dueDate: inv.dueDate || "",
+    status: invoiceStatus(inv),
+    total: compute(inv).inclusive,
+    paid: paidOf(inv.id)
+  }));
   function collectAnomalies() {
     const anomalies = [];
     db.invoices.forEach((inv) => {
@@ -435,9 +445,12 @@
     if (!c.id) return go("customers");
     const invoices = db.invoices.filter((item) => item.customerId === id);
     const payments = db.payments.filter((p) => invoices.some((inv) => inv.id === p.invoiceId));
+    const Rec = window.UtiloraReceivables;
+    const rows = receivableRows().filter((row) => row.customerId === id);
+    const progress = Rec ? Rec.collectionProgress(rows, today()) : null;
     const billed = invoices.reduce((sum, inv) => sum + compute(inv).inclusive, 0);
     const received = payments.reduce((sum, p) => sum + Number(p.amount || 0), 0);
-    view.innerHTML = `<div class="panel"><div class="preview-actions"><button class="secondary" id="customer-back">返回客户</button><button id="customer-new-invoice">新建应收单</button></div><h2>${esc(c.name)}</h2><p class="data-note">${esc(c.taxId || "未填税号")} · ${esc(c.phone || "未填电话")} · ${esc(c.email || "未填邮箱")}</p><div class="data-health"><span><b>累计应收</b>${money(billed)}</span><span><b>累计已收</b>${money(received)}</span><span><b>当前未收</b>${money(Math.max(0, billed - received))}</span></div></div><div class="panel" style="margin-top:14px"><h2>应收与收款明细</h2><table class="sheet-table"><thead><tr><th>日期</th><th>类型</th><th>单号</th><th>金额</th></tr></thead><tbody>${[...invoices.map((inv) => ({ date: inv.date, type: "应收", number: inv.number, amount: compute(inv).inclusive })), ...payments.map((p) => ({ date: p.date, type: "收款", number: db.invoices.find((inv) => inv.id === p.invoiceId)?.number || "", amount: -Number(p.amount) }))].sort((a,b) => String(b.date).localeCompare(String(a.date))).map((row) => `<tr><td>${esc(row.date)}</td><td>${row.type}</td><td>${esc(row.number)}</td><td>${money(row.amount)}</td></tr>`).join("") || `<tr><td colspan="4">暂无往来</td></tr>`}</tbody></table></div>`;
+    view.innerHTML = `<div class="panel"><div class="preview-actions"><button class="secondary" id="customer-back">返回客户</button><button id="customer-new-invoice">新建应收单</button></div><h2>${esc(c.name)}</h2><p class="data-note">${esc(c.taxId || "未填税号")} · ${esc(c.phone || "未填电话")} · ${esc(c.email || "未填邮箱")}</p><div class="data-health"><span><b>未收</b>${money(progress ? progress.openTotal : Math.max(0, billed - received))}</span><span><b>逾期</b>${money(progress ? progress.overdueTotal : 0)}</span><span><b>回款进度</b>${progress ? `${progress.collectedRate}%` : money(received)}</span></div><p class="data-note">未收和逾期不含草稿、作废和已结清单据。</p></div><div class="panel" style="margin-top:14px"><h2>应收与收款明细</h2><table class="sheet-table"><thead><tr><th>日期</th><th>类型</th><th>单号</th><th>金额</th></tr></thead><tbody>${[...invoices.map((inv) => ({ date: inv.date, type: "应收", number: inv.number, amount: compute(inv).inclusive })), ...payments.map((p) => ({ date: p.date, type: "收款", number: db.invoices.find((inv) => inv.id === p.invoiceId)?.number || "", amount: -Number(p.amount) }))].sort((a,b) => String(b.date).localeCompare(String(a.date))).map((row) => `<tr><td>${esc(row.date)}</td><td>${row.type}</td><td>${esc(row.number)}</td><td>${money(row.amount)}</td></tr>`).join("") || `<tr><td colspan="4">暂无往来</td></tr>`}</tbody></table></div>`;
     primary.hidden = true;
     document.getElementById("customer-back").onclick = () => go("customers");
     document.getElementById("customer-new-invoice").onclick = () => go("invoice", "new");
@@ -469,7 +482,31 @@
     const selectedId = route().id || (list[0] && list[0].id) || "";
     const selected = list.find((d) => d.id === selectedId) || list[0];
     const statusOf = (d) => (isEst ? d.status : invoiceStatus(d));
-    view.innerHTML = `<div class="split-app">
+    const Rec = window.UtiloraReceivables;
+    const asOf = today();
+    const rows = isEst || !Rec ? [] : receivableRows();
+    const progress = Rec && !isEst ? Rec.collectionProgress(rows, asOf) : null;
+    const aging = Rec && !isEst ? Rec.summarizeAging(rows, asOf) : null;
+    const debts = Rec && !isEst ? Rec.customerDebts(rows, asOf) : [];
+    const overview = !isEst && progress && aging ? `
+      <div class="panel ar-overview">
+        <h2>应收回款概览</h2>
+        <p class="data-note">不含草稿和作废单据。账龄按到期日未收余额统计，与客户欠款合计一致。</p>
+        <div class="stat-row">
+          <div class="stat-card"><div><b>${money(progress.openTotal)}</b><span>未收总额</span><small>${progress.openCount} 张未结清</small></div></div>
+          <div class="stat-card${progress.overdueTotal > 0 ? " warn" : ""}"><div><b>${money(progress.overdueTotal)}</b><span>逾期总额</span><small>${progress.overdueCount} 张逾期</small></div></div>
+          <div class="stat-card"><div><b>${progress.collectedRate}%</b><span>回款进度</span><small>已收 ${money(progress.collectedTotal)} / 应收 ${money(progress.issuedTotal)}</small></div></div>
+          <div class="stat-card"><div><b>${progress.settledCount}</b><span>已结清</span><small>不含草稿和作废</small></div></div>
+        </div>
+        <div class="table-wrap"><table class="sheet-table"><thead><tr><th>未到期</th><th>逾期 1–30 天</th><th>逾期 31–60 天</th><th>逾期 61–90 天</th><th>逾期 90 天以上</th></tr></thead>
+        <tbody><tr><td>${money(aging.current)}</td><td>${money(aging.d30)}</td><td>${money(aging.d60)}</td><td>${money(aging.d90)}</td><td>${money(aging.over90)}</td></tr></tbody></table></div>
+      </div>
+      <div class="panel" style="margin-top:14px">
+        <h2>客户欠款</h2>
+        <div class="table-wrap"><table class="sheet-table"><thead><tr><th>客户</th><th>未收</th><th>逾期</th><th>未到期</th><th>1–30 天</th><th>31–60 天</th><th>61–90 天</th><th>90 天以上</th></tr></thead>
+        <tbody>${debts.map((row) => `<tr data-ar-customer="${esc(row.customerId)}" class="${row.overdueAmount > 0 ? "warn-row" : ""}"><td>${esc(row.customerName)}</td><td>${money(row.openAmount)}</td><td>${money(row.overdueAmount)}</td><td>${money(row.aging.current)}</td><td>${money(row.aging.d30)}</td><td>${money(row.aging.d60)}</td><td>${money(row.aging.d90)}</td><td>${money(row.aging.over90)}</td></tr>`).join("") || `<tr><td colspan="8">没有未收应收</td></tr>`}</tbody></table></div>
+      </div>` : "";
+    view.innerHTML = `${overview}<div class="split-app${overview ? " ar-docs" : ""}">
       <div class="doc-list">
         <div class="tools"><input id="q" placeholder="搜索客户或单号"></div>
         <div class="tabs">
@@ -485,20 +522,27 @@
     let filter = "all";
     const paintList = () => {
       const q = (document.getElementById("q").value || "").toLowerCase();
-      const rows = list.filter((d) => {
+      const filtered = list.filter((d) => {
         const st = statusOf(d);
         if (filter !== "all" && st !== filter) return false;
         const name = (customer(d.customerId).name || "") + d.number;
         return name.toLowerCase().includes(q);
       });
-      document.getElementById("rows").innerHTML = rows.map((d) => `<div class="doc-item${d.id === selectedId ? " on" : ""}" data-id="${d.id}">
-        <div><b>${esc(customer(d.customerId).name || "未选客户")}</b>${pill(statusOf(d), map)}<small>${esc(d.number)} · ${esc(d.date)}</small></div>
-        <b>${money(compute(d).inclusive)}</b>
+      document.getElementById("rows").innerHTML = filtered.map((d) => `<div class="doc-item${d.id === selectedId ? " on" : ""}" data-id="${d.id}">
+        <div><b>${esc(customer(d.customerId).name || "未选客户")}</b>${pill(statusOf(d), map)}<small>${esc(d.number)} · ${esc(d.date)}${isEst || !d.dueDate ? "" : ` · 到期 ${esc(d.dueDate)}`}</small></div>
+        <b>${money(isEst ? compute(d).inclusive : invoiceBalance(d))}</b>
       </div>`).join("") || `<p class="empty">没有匹配单据</p>`;
       document.querySelectorAll(".doc-item").forEach((el) => el.onclick = () => go(kind, el.dataset.id));
     };
     const paintPreview = () => {
       if (!selected) return;
+      const Bank = window.UtiloraBank;
+      let matchHint = "";
+      if (!isEst && Bank && invoiceBalance(selected) > 0) {
+        const unmatched = db.bankTransactions.filter((tx) => Bank.bankRemainingFen(tx) > 0);
+        const suggestion = Bank.suggestExactMatches(unmatched, [{ id: selected.id, number: selected.number, balance: invoiceBalance(selected) }])[0];
+        if (suggestion) matchHint = `<p class="data-note match-hint"><b>可解释匹配建议</b> ${esc(suggestion.reason)}。<a href="#/bank">去银行流水确认</a></p>`;
+      }
       document.getElementById("preview").innerHTML = `
         <div class="preview-actions">
           ${isEst ? `<button class="main" data-act="convert">转为应收单</button>` : `<button class="main" data-act="pay">记录收款</button>`}
@@ -506,6 +550,7 @@
           <button data-act="issued">标为已确认</button>
           <button data-act="print">打印 / PDF</button>
         </div>
+        ${matchHint}
         ${paper(selected, isEst ? "报价单" : "应收单")}`;
       document.querySelectorAll("[data-act]").forEach((b) => b.onclick = () => {
         if (b.dataset.act === "print") printDoc(selected, isEst ? "报价单" : "应收单");
@@ -521,6 +566,9 @@
       paintList();
     });
     document.getElementById("q").oninput = paintList;
+    view.querySelectorAll("[data-ar-customer]").forEach((row) => {
+      row.onclick = () => { if (row.dataset.arCustomer) go("customer", row.dataset.arCustomer); };
+    });
     primary.onclick = () => go(isEst ? "estimate" : "invoice", "new");
     paintList();
     paintPreview();
@@ -842,20 +890,13 @@
 
   function renderReports() {
     const series = monthSeries();
-    const aging = { current: 0, d30: 0, d60: 0, d90: 0, over90: 0 };
-    db.invoices.forEach((inv) => {
-      const left = Math.max(0, compute(inv).inclusive - paidOf(inv.id));
-      if (!left || inv.status === "draft" || inv.status === "void") return;
-      const days = inv.dueDate ? Math.floor((new Date(today()) - new Date(inv.dueDate)) / 86400000) : 0;
-      if (days <= 0) aging.current += left;
-      else if (days <= 30) aging.d30 += left;
-      else if (days <= 60) aging.d60 += left;
-      else if (days <= 90) aging.d90 += left;
-      else aging.over90 += left;
-    });
-    const receivable=db.invoices.reduce((s,inv)=>s+Math.max(0,compute(inv).inclusive-paidOf(inv.id)),0), assetNet=db.assets.reduce((s,a)=>s+assetDepreciation(a).net,0), bankNet=db.bankTransactions.reduce((s,x)=>s+Number(x.amount||0),0);
+    const Rec = window.UtiloraReceivables;
+    const aging = Rec ? Rec.summarizeAging(receivableRows(), today()) : { current: 0, d30: 0, d60: 0, d90: 0, over90: 0 };
+    const progress = Rec ? Rec.collectionProgress(receivableRows(), today()) : null;
+    const receivable = progress ? progress.openTotal : db.invoices.reduce((s,inv)=>s+Math.max(0,compute(inv).inclusive-paidOf(inv.id)),0);
+    const assetNet=db.assets.reduce((s,a)=>s+assetDepreciation(a).net,0), bankNet=db.bankTransactions.reduce((s,x)=>s+Number(x.amount||0),0);
     const sales=db.invoices.reduce((s,inv)=>s+compute(inv).inclusive,0), costs=db.expenses.reduce((s,x)=>s+Number(x.amount||0),0)+db.reimbursements.reduce((s,x)=>s+Number(x.amount||0),0), receipts=db.payments.reduce((s,x)=>s+Number(x.amount||0),0);
-    view.innerHTML = `<div class="panel"><p class="data-note"><b>管理口径：</b>以当前工作台数据生成的简化报表，尚不是法定财务报表，需与会计凭证和总账复核。</p></div><div class="stat-row" style="margin-top:14px"><div class="stat-card"><div><b>${money(sales-costs)}</b><span>简化利润</span></div></div><div class="stat-card"><div><b>${money(receipts-costs)}</b><span>简化经营现金净额</span></div></div><div class="stat-card"><div><b>${money(receivable)}</b><span>应收余额</span></div></div></div><div class="chart-card"><h2>近 8 个月销售与费用</h2>${svgChart(series)}</div>
+    view.innerHTML = `<div class="panel"><p class="data-note"><b>管理口径：</b>以当前工作台数据生成的简化报表，尚不是法定财务报表，需与会计凭证和总账复核。应收账龄不含草稿和作废。</p></div><div class="stat-row" style="margin-top:14px"><div class="stat-card"><div><b>${money(sales-costs)}</b><span>简化利润</span></div></div><div class="stat-card"><div><b>${money(receipts-costs)}</b><span>简化经营现金净额</span></div></div><div class="stat-card"><div><b>${money(receivable)}</b><span>应收余额</span></div></div></div><div class="chart-card"><h2>近 8 个月销售与费用</h2>${svgChart(series)}</div>
       <div class="panel" style="margin-top:14px"><h2>应收账龄</h2><table class="sheet-table"><thead><tr><th>未到期</th><th>逾期 1–30 天</th><th>逾期 31–60 天</th><th>逾期 61–90 天</th><th>逾期 90 天以上</th></tr></thead><tbody><tr><td>${money(aging.current)}</td><td>${money(aging.d30)}</td><td>${money(aging.d60)}</td><td>${money(aging.d90)}</td><td>${money(aging.over90)}</td></tr></tbody></table></div>
       <div class="panel" style="margin-top:14px"><h2>简化资产负债表</h2><table class="sheet-table"><tbody><tr><td>银行流水净额</td><td>${money(bankNet)}</td></tr><tr><td>应收账款</td><td>${money(receivable)}</td></tr><tr><td>固定资产净值</td><td>${money(assetNet)}</td></tr><tr><th>已识别资产合计</th><th>${money(bankNet+receivable+assetNet)}</th></tr></tbody></table></div><div class="panel" style="margin-top:14px"><h2>简化利润表 / 现金流量表</h2><table class="sheet-table"><tbody><tr><td>营业收入</td><td>${money(sales)}</td></tr><tr><td>费用与报销</td><td>${money(costs)}</td></tr><tr><th>简化利润</th><th>${money(sales-costs)}</th></tr><tr><td>客户收款</td><td>${money(receipts)}</td></tr><tr><th>经营现金净额</th><th>${money(receipts-costs)}</th></tr></tbody></table></div><div class="panel" style="margin-top:14px"><table class="sheet-table"><thead><tr><th>月份</th><th>销售</th><th>费用</th><th>净额</th></tr></thead><tbody>${series.map((s) => `<tr><td>${s.label}</td><td>${money(s.sales)}</td><td>${money(s.expenses)}</td><td>${money(s.sales - s.expenses)}</td></tr>`).join("")}</tbody></table></div>`;
     primary.hidden = true;

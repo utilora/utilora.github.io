@@ -1,4 +1,5 @@
 import * as UtiloraBank from "./core/banking/local";
+import * as UtiloraReceivables from "./core/receivables/local";
 import { bindPurchaseIntentForms } from "./app/purchase-intent";
 import { ANALYTICS_EVENTS } from "./core/analytics/events";
 import { trackEvent } from "./core/analytics/track";
@@ -8,6 +9,7 @@ import { getEffectiveEntitlement, resolveLocalEntitlement } from "./core/entitle
 declare global {
   interface Window {
     UtiloraBank: typeof UtiloraBank;
+    UtiloraReceivables: typeof UtiloraReceivables;
   }
 }
 
@@ -39,12 +41,13 @@ const loadWorkspace = async (): Promise<void> => {
   if (workspaceLoaded) return;
   workspaceLoaded = true;
   window.UtiloraBank = UtiloraBank;
+  window.UtiloraReceivables = UtiloraReceivables;
   for (const src of [
     "../assets/js/finance.js?v=11",
     "../assets/js/csv.js?v=11",
     "../assets/js/xlsx-lite.js?v=11",
     "../assets/js/app.js?v=13",
-    "app.js?v=15"
+    "app.js?v=16"
 
   ]) {
     await loadScript(src);
