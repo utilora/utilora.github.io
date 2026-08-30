@@ -30,6 +30,14 @@ jobs:
           VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ vars.VITE_SUPABASE_ANON_KEY }}
           VITE_PRO_OPEN_ACCESS: "true"
+      - name: Verify compiled Pages artifact
+        run: |
+          test -f dist/pro/index.html
+          test -f dist/index.html
+          ! grep -q '/src/pro.ts' dist/pro/index.html
+          ! grep -q '/src/main.ts' dist/index.html
+          grep -Eq '/assets/pro-[^"[:space:]]+\.js' dist/pro/index.html
+          grep -Eq '/assets/main-[^"[:space:]]+\.js' dist/index.html
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:

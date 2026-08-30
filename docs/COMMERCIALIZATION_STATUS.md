@@ -31,6 +31,7 @@ P1.2 is implemented on main. Later P1 items require an explicit user request.
 - [x] P1.1 local bank import preview, duplicate fingerprints, match states and reversible exact-amount suggestions.
 - [x] P1.2 receivable aging, customer debt overview and collection progress excluding draft/void.
 - [x] Production build and 29 automated tests passed.
+- [x] GitHub Pages uses workflow-only publishing; compiled artifact guards reject raw TypeScript entrypoints.
 
 ## Reusable capabilities
 
