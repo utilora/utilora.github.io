@@ -150,4 +150,14 @@ describe("product architecture", () => {
       expect(read(path)).not.toMatch(/service[_-]?role|sb_secret/i);
     }
   });
+
+  it("lets admins list purchase intents through RPC without table grants", () => {
+    const sql = read("supabase/admin-purchase-intents.sql");
+    expect(sql).toContain("admin_list_purchase_intents");
+    expect(sql).toContain("is_admin()");
+    expect(sql).not.toMatch(/grant\s+(select|insert|update|delete)\s+on\s+public\.purchase_intents/i);
+    expect(read("admin/admin.js")).toContain("rpc/admin_list_purchase_intents");
+    expect(read("admin/index.html")).toContain('data-page="intents"');
+    expect(read("admin/admin.js")).not.toMatch(/service[_-]?role|sb_secret/i);
+  });
 });

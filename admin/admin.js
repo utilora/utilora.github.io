@@ -9,6 +9,10 @@ const summary = document.getElementById('summary');
 const filterForm = document.getElementById('filter-form');
 const sessionKey = 'utilora_admin_session';
 let usersCache = [];
+let intentsCache = [];
+let usersLoadState = 'ok';
+let intentsLoadState = 'ok';
+let feedbackLoadState = 'ok';
 function isPreview() {
   return !/utilora\.github\.io$/i.test(location.hostname);
 }
@@ -60,7 +64,39 @@ function getSession() {
 function setMessage(element, text, error = false) {
   if (!element) return;
   element.className = error ? 'message error' : 'message';
-  element.textContent = text;
+  element.textContent = text || '';
+}
+
+function classifyError(error) {
+  const message = String(error?.message || error || '');
+  if (/404|does not exist|PGRST202/i.test(message)) return 'missing';
+  if (/401|403|42501|insufficient|privilege|没有管理员权限|登录已失效/i.test(message)) return 'permission';
+  return 'other';
+}
+
+function setEmptyState(el, title, hint) {
+  if (!el) return;
+  const titleNode = el.querySelector('strong') || el;
+  const hintNode = el.querySelector('.hint');
+  if (el.querySelector('strong')) titleNode.textContent = title;
+  else el.textContent = title;
+  if (hintNode) hintNode.textContent = hint || '';
+  el.hidden = false;
+}
+
+function hideEmpty(el) {
+  if (!el) return;
+  el.hidden = true;
+}
+
+function setupHint(kind, file) {
+  if (kind === 'missing') return `请在 Supabase SQL Editor 执行 ${file} 后点击刷新。`;
+  if (kind === 'permission') return '当前账号没有管理员权限，或登录已失效。请确认已写入 admin_users 后重新登录。';
+  return '';
+}
+
+function setPageSummary(text) {
+  if (summary) summary.textContent = text || '';
 }
 
 function apiHeaders() {
@@ -104,7 +140,7 @@ loginForm.addEventListener('submit', async (event) => {
     sessionStorage.setItem(sessionKey, JSON.stringify(data));
     document.getElementById('password').value = '';
     showManager();
-    await Promise.all([loadFeedback(), loadAnalytics(), loadUsers()]);
+    await refreshAll();
   } catch (error) {
     setMessage(loginMessage, error.message, true);
   } finally {
@@ -146,13 +182,15 @@ function logout() {
   sessionStorage.removeItem(sessionKey);
   feedbackList.replaceChildren();
   analyticsCache = null;
+  usersCache = [];
+  intentsCache = [];
   showLogin();
 }
 
-const pageTitles = { overview: '工作台', analytics: '访问统计', users: '用户管理', feedback: '用户留言' };
+const pageTitles = { overview: '工作台', analytics: '访问统计', users: '用户管理', feedback: '用户留言', intents: '购买意向' };
 
 function switchPage(name) {
-  ['overview', 'analytics', 'users', 'feedback'].forEach((id) => {
+  ['overview', 'analytics', 'users', 'feedback', 'intents'].forEach((id) => {
     const section = document.getElementById(`${id}-section`);
     if (section) section.hidden = id !== name;
   });
@@ -163,6 +201,9 @@ function switchPage(name) {
   if (title) title.textContent = pageTitles[name] || '管理';
   document.body.classList.remove('sidebar-open');
   if (name === 'users') loadUsers();
+  if (name === 'intents') loadIntents();
+  if (name === 'feedback') loadFeedback();
+  if (name === 'analytics') loadAnalytics();
 }
 
 function switchTab(name) {
@@ -185,6 +226,8 @@ function buildQuery() {
 async function loadFeedback() {
   if (isPreview() && !getSession()) {
     document.getElementById('overview-feedback').textContent = '12';
+    feedbackLoadState = 'ok';
+    setPageSummary('预览数据');
     return;
   }
 
@@ -192,27 +235,39 @@ async function loadFeedback() {
   const end = document.getElementById('end-date').value;
   if (start && end && start > end) {
     setMessage(managerMessage, '开始日期不能晚于结束日期', true);
+    setPageSummary('筛选条件无效');
     return;
   }
   setMessage(managerMessage, '正在加载……');
   try {
     const response = await request(`feedback?${buildQuery()}`);
     const rows = await response.json();
+    feedbackLoadState = 'ok';
     renderRows(rows);
-    setMessage(managerMessage, '');
+    setMessage(managerMessage, rows.length ? `共 ${rows.length} 条` : '');
     const filtered = document.getElementById('status-filter').value || start || end;
-    summary.textContent = `${filtered ? '筛选结果' : '全部留言'}：${rows.length} 条`;
+    setPageSummary(`${filtered ? '筛选结果' : '全部留言'}：${rows.length} 条`);
     const badge = document.getElementById('feedback-count');
     badge.hidden = rows.length === 0;
     badge.textContent = rows.length;
   } catch (error) {
-    setMessage(managerMessage, error.message, true);
+    feedbackLoadState = classifyError(error);
+    feedbackList.replaceChildren();
+    const hint = setupHint(feedbackLoadState, 'supabase/admin-policies.sql');
+    setMessage(managerMessage, hint || error.message, true);
+    setEmptyState(empty, feedbackLoadState === 'permission' ? '没有权限读取留言' : '留言加载失败', hint || error.message);
+    setPageSummary('留言加载失败');
+    document.getElementById('overview-feedback').textContent = '—';
   }
 }
 
 function renderRows(rows) {
   feedbackList.replaceChildren();
-  empty.hidden = rows.length > 0;
+  if (rows.length) hideEmpty(empty);
+  else {
+    const filtered = document.getElementById('status-filter').value || document.getElementById('start-date').value || document.getElementById('end-date').value;
+    setEmptyState(empty, filtered ? '没有符合当前筛选条件的留言。' : '还没有用户留言。', filtered ? '可重置筛选后再查询。' : '');
+  }
   rows.forEach((row) => {
     const tr = document.createElement('tr');
     [new Date(row.created_at).toLocaleString(), row.name, row.title, row.message, row.contact || '—'].forEach((value) => {
@@ -315,11 +370,16 @@ async function loadAnalytics() {
     analyticsCache = { data, range };
     renderAnalytics(data, range);
     setMessage(msg, '');
+    setPageSummary(`${range.label} 统计已更新`);
   } catch (error) {
-    const hint = /404|does not exist|PGRST202/i.test(error.message)
-      ? '请重新执行 supabase/analytics.sql 升级统计函数'
-      : error.message;
+    const kind = classifyError(error);
+    const hint = kind === 'missing'
+      ? '请重新执行 supabase/analytics.sql 升级统计函数后刷新。'
+      : (setupHint(kind, 'supabase/analytics.sql') || error.message);
     setMessage(msg, hint, true);
+    setPageSummary('访问统计加载失败');
+    document.getElementById('overview-views').textContent = '—';
+    document.getElementById('overview-uses').textContent = '—';
   }
 }
 
@@ -617,7 +677,7 @@ document.getElementById('reset-filter').addEventListener('click', () => {
   filterForm.reset();
   loadFeedback();
 });
-document.getElementById('refresh').addEventListener('click', () => Promise.all([loadFeedback(), loadAnalytics(), loadUsers()]));
+document.getElementById('refresh').addEventListener('click', () => refreshAll());
 document.getElementById('logout').addEventListener('click', logout);
 document.querySelectorAll('[data-page]').forEach((btn) => {
   btn.addEventListener('click', () => switchPage(btn.dataset.page));
@@ -644,7 +704,7 @@ startInput.max = todayISO();
 
 if (getSession() || isPreview()) {
   showManager();
-  Promise.all([loadFeedback(), loadAnalytics(), loadUsers()]);
+  refreshAll();
 } else {
   showLogin();
 }
@@ -680,12 +740,32 @@ function filteredUsers() {
 
 function renderUsers() {
   const list = document.getElementById('users-list');
-  const empty = document.getElementById('users-empty');
+  const emptyBox = document.getElementById('users-empty');
   if (!list) return;
   list.replaceChildren();
+  const overview = document.getElementById('overview-users');
+  if (usersLoadState !== 'ok') {
+    if (overview) overview.textContent = '—';
+    const title = usersLoadState === 'missing'
+      ? '尚未启用用户管理'
+      : usersLoadState === 'permission'
+        ? '没有权限查看用户'
+        : '用户列表加载失败';
+    setEmptyState(emptyBox, title, setupHint(usersLoadState, 'supabase/admin-users.sql'));
+    return;
+  }
   const rows = filteredUsers();
-  empty.hidden = rows.length > 0;
-  document.getElementById('overview-users').textContent = String(usersCache.length);
+  if (overview) overview.textContent = String(usersCache.length);
+  if (!rows.length) {
+    const filtered = (document.getElementById('user-search')?.value || '') || document.getElementById('user-role-filter')?.value || document.getElementById('user-status-filter')?.value;
+    setEmptyState(
+      emptyBox,
+      usersCache.length && filtered ? '没有符合条件的用户。' : '还没有注册用户。',
+      usersCache.length && filtered ? '可清空搜索或筛选后再试。' : ''
+    );
+  } else {
+    hideEmpty(emptyBox);
+  }
   rows.forEach((user) => {
     const tr = document.createElement('tr');
     const who = document.createElement('td');
@@ -722,6 +802,7 @@ function renderUsers() {
 async function loadUsers() {
   const msg = document.getElementById('users-message');
   if (isPreview() && !getSession()) {
+    usersLoadState = 'ok';
     usersCache = mockUsers;
     renderUsers();
     setMessage(msg, '当前为界面预览数据，正式环境登录后显示真实用户。');
@@ -731,14 +812,18 @@ async function loadUsers() {
   try {
     const response = await request('rpc/admin_list_users', { method: 'POST', body: '{}' });
     const data = await response.json();
+    usersLoadState = 'ok';
     usersCache = Array.isArray(data) ? data : [];
     renderUsers();
     setMessage(msg, `共 ${usersCache.length} 个账号`);
+    setPageSummary(`用户 ${usersCache.length} 个`);
   } catch (error) {
-    const hint = /404|does not exist|PGRST202/i.test(error.message)
-      ? '请在 Supabase SQL Editor 执行 supabase/admin-users.sql 后刷新'
-      : error.message;
+    usersLoadState = classifyError(error);
+    usersCache = [];
+    const hint = setupHint(usersLoadState, 'supabase/admin-users.sql') || error.message;
     setMessage(msg, hint, true);
+    renderUsers();
+    setPageSummary('用户管理不可用');
   }
 }
 
@@ -797,6 +882,120 @@ renderRows = function(rows) {
   document.getElementById('overview-feedback').textContent = String(rows.length);
 };
 
+const mockIntents = [
+  { id: 'i1', email: 'demo-bookkeeper@example.com', use_case: '银行流水', company_size: '1-10', intended_plan: 'pro', created_at: '2026-08-20T08:00:00Z' },
+  { id: 'i2', email: 'finance@example.com', use_case: '应收回款', company_size: '11-50', intended_plan: 'pro', created_at: '2026-08-22T11:20:00Z' },
+];
+
+function filteredIntents() {
+  const q = (document.getElementById('intent-search')?.value || '').trim().toLowerCase();
+  const use = document.getElementById('intent-use-filter')?.value || '';
+  const size = document.getElementById('intent-size-filter')?.value || '';
+  return intentsCache.filter((row) => {
+    if (q && !(row.email || '').toLowerCase().includes(q)) return false;
+    if (use && row.use_case !== use) return false;
+    if (size && row.company_size !== size) return false;
+    return true;
+  });
+}
+
+function renderIntents() {
+  const list = document.getElementById('intents-list');
+  const emptyBox = document.getElementById('intents-empty');
+  const overview = document.getElementById('overview-intents');
+  const badge = document.getElementById('intents-count');
+  if (!list) return;
+  list.replaceChildren();
+  if (intentsLoadState !== 'ok') {
+    if (overview) overview.textContent = '—';
+    if (badge) badge.hidden = true;
+    const title = intentsLoadState === 'missing'
+      ? '尚未启用购买意向列表'
+      : intentsLoadState === 'permission'
+        ? '没有权限查看购买意向'
+        : '购买意向加载失败';
+    setEmptyState(emptyBox, title, setupHint(intentsLoadState, 'supabase/admin-purchase-intents.sql'));
+    return;
+  }
+  const rows = filteredIntents();
+  if (overview) overview.textContent = String(intentsCache.length);
+  if (badge) {
+    badge.hidden = intentsCache.length === 0;
+    badge.textContent = String(intentsCache.length);
+  }
+  if (!rows.length) {
+    const filtered = document.getElementById('intent-search')?.value || document.getElementById('intent-use-filter')?.value || document.getElementById('intent-size-filter')?.value;
+    setEmptyState(
+      emptyBox,
+      intentsCache.length && filtered ? '没有符合当前筛选的购买意向。' : '暂无购买意向。',
+      intentsCache.length && filtered ? '可重置筛选后再查询。' : '用户在首页或专业版提交「我愿意购买」后会出现在这里，仅供只读查看。'
+    );
+    return;
+  }
+  hideEmpty(emptyBox);
+  rows.forEach((row) => {
+    const tr = document.createElement('tr');
+    [formatTime(row.created_at), row.email || '—', row.use_case || '—', row.company_size || '—', row.intended_plan || 'pro'].forEach((value) => {
+      const td = document.createElement('td');
+      td.textContent = value;
+      tr.append(td);
+    });
+    list.append(tr);
+  });
+}
+
+async function loadIntents() {
+  const msg = document.getElementById('intents-message');
+  if (isPreview() && !getSession()) {
+    intentsLoadState = 'ok';
+    intentsCache = mockIntents;
+    renderIntents();
+    setMessage(msg, '当前为界面预览数据，正式环境登录后显示真实意向。');
+    return;
+  }
+  setMessage(msg, '正在加载购买意向……');
+  try {
+    const response = await request('rpc/admin_list_purchase_intents', { method: 'POST', body: '{}' });
+    const data = await response.json();
+    intentsLoadState = 'ok';
+    intentsCache = Array.isArray(data) ? data : [];
+    renderIntents();
+    setMessage(msg, `共 ${intentsCache.length} 条意向`);
+    setPageSummary(`购买意向 ${intentsCache.length} 条（只读）`);
+  } catch (error) {
+    intentsLoadState = classifyError(error);
+    intentsCache = [];
+    const hint = setupHint(intentsLoadState, 'supabase/admin-purchase-intents.sql') || error.message;
+    setMessage(msg, hint, true);
+    renderIntents();
+    setPageSummary('购买意向不可用');
+  }
+}
+
+async function refreshAll() {
+  const button = document.getElementById('refresh');
+  if (button) button.disabled = true;
+  setPageSummary('正在刷新……');
+  try {
+    await Promise.all([loadFeedback(), loadAnalytics(), loadUsers(), loadIntents()]);
+    const page = document.querySelector('.side-link.active')?.dataset.page || 'overview';
+    if (page === 'overview') setPageSummary('工作台数据已刷新');
+  } finally {
+    if (button) button.disabled = false;
+  }
+}
+
 document.getElementById('user-search')?.addEventListener('input', renderUsers);
 document.getElementById('user-role-filter')?.addEventListener('change', renderUsers);
 document.getElementById('user-status-filter')?.addEventListener('change', renderUsers);
+document.getElementById('intents-filter-form')?.addEventListener('submit', (event) => {
+  event.preventDefault();
+  renderIntents();
+});
+document.getElementById('reset-intent-filter')?.addEventListener('click', () => {
+  document.getElementById('intents-filter-form')?.reset();
+  renderIntents();
+});
+document.getElementById('intent-search')?.addEventListener('input', renderIntents);
+document.getElementById('intent-use-filter')?.addEventListener('change', renderIntents);
+document.getElementById('intent-size-filter')?.addEventListener('change', renderIntents);

@@ -14,7 +14,7 @@
 <body class="admin-body">
   <section id="login-panel" class="panel login-panel">
       <h1>管理员登录</h1>
-      <p class="hint">使用管理员邮箱和密码登录。登录后可管理用户、留言和访问统计。</p>
+      <p class="hint">使用管理员邮箱和密码登录。登录后可查看访问统计、留言、购买意向，并管理用户。</p>
       <form id="login-form">
         <div class="field">
           <label for="email">邮箱</label>
@@ -37,6 +37,7 @@
           <button class="side-link active" data-page="overview" type="button">工作台</button>
           <button class="side-link" data-page="analytics" type="button" id="tab-analytics">访问统计</button>
           <button class="side-link" data-page="feedback" type="button" id="tab-feedback">用户留言 <b id="feedback-count" hidden></b></button>
+          <button class="side-link" data-page="intents" type="button" id="tab-intents">购买意向 <b id="intents-count" hidden></b></button>
           <p>账号</p>
           <button class="side-link" data-page="users" type="button">用户管理</button>
         </nav>
@@ -78,8 +79,13 @@
                 <strong id="overview-uses">—</strong>
                 <em>查看工具排行</em>
               </button>
+              <button class="overview-card" data-page="intents" type="button">
+                <span>购买意向</span>
+                <strong id="overview-intents">—</strong>
+                <em>只读查看意向</em>
+              </button>
             </div>
-            <p class="hint">左侧切换模块。用户管理需要先在 Supabase 执行 supabase/admin-users.sql。</p>
+            <p class="hint">左侧切换模块。用户管理需执行 supabase/admin-users.sql；购买意向列表需执行 supabase/admin-purchase-intents.sql。</p>
           </section>
 
       <section id="analytics-section" class="analytics-panel" hidden aria-labelledby="analytics-title">
@@ -245,7 +251,10 @@
             <tbody id="users-list"></tbody>
           </table>
         </div>
-        <div id="users-empty" class="result" hidden>没有符合条件的用户。</div>
+        <div id="users-empty" class="empty-state" hidden>
+          <strong id="users-empty-title">没有符合条件的用户。</strong>
+          <p id="users-empty-hint" class="hint"></p>
+        </div>
       </section>
 
       <section id="feedback-section" hidden>
@@ -290,7 +299,63 @@
             <tbody id="feedback-list"></tbody>
           </table>
         </div>
-        <div id="empty" class="result" hidden>没有符合当前筛选条件的留言。</div>
+        <div id="empty" class="empty-state" hidden>
+          <strong id="feedback-empty-title">没有符合当前筛选条件的留言。</strong>
+          <p id="feedback-empty-hint" class="hint"></p>
+        </div>
+      </section>
+
+      <section id="intents-section" hidden>
+        <form id="intents-filter-form" class="filters">
+          <div>
+            <label for="intent-search">搜索邮箱</label>
+            <input id="intent-search" type="search" placeholder="邮箱关键字">
+          </div>
+          <div>
+            <label for="intent-use-filter">用途</label>
+            <select id="intent-use-filter">
+              <option value="">全部用途</option>
+              <option value="银行流水">银行流水</option>
+              <option value="应收回款">应收回款</option>
+              <option value="月结检查">月结检查</option>
+              <option value="经营报表">经营报表</option>
+              <option value="其他">其他</option>
+            </select>
+          </div>
+          <div>
+            <label for="intent-size-filter">公司规模</label>
+            <select id="intent-size-filter">
+              <option value="">全部规模</option>
+              <option value="1-10">1-10</option>
+              <option value="11-50">11-50</option>
+              <option value="51-200">51-200</option>
+              <option value="200+">200+</option>
+            </select>
+          </div>
+          <div class="filter-actions">
+            <button type="submit">查询</button>
+            <button id="reset-intent-filter" type="button" class="secondary">重置</button>
+          </div>
+        </form>
+        <div id="intents-message" class="message" role="status"></div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>时间</th>
+                <th>邮箱</th>
+                <th>用途</th>
+                <th>规模</th>
+                <th>意向方案</th>
+              </tr>
+            </thead>
+            <tbody id="intents-list"></tbody>
+          </table>
+        </div>
+        <div id="intents-empty" class="empty-state" hidden>
+          <strong id="intents-empty-title">暂无购买意向。</strong>
+          <p id="intents-empty-hint" class="hint"></p>
+        </div>
       </section>
         </div>
       </div>

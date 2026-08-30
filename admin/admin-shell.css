@@ -93,3 +93,11 @@ html,body.admin-body{min-height:100vh;background:#f1f5f9}
   .overview-grid{grid-template-columns:1fr}
   .admin-pages{padding:16px}
 }
+
+.empty-state{
+  margin-top:16px;padding:28px 20px;background:#fff;border:1px dashed var(--line);
+  border-radius:12px;text-align:center
+}
+.empty-state strong{display:block;color:var(--ink);font-size:15px}
+.empty-state .hint{margin:8px auto 0;max-width:520px}
+.overview-grid{grid-template-columns:repeat(auto-fit,minmax(180px,1fr))}
