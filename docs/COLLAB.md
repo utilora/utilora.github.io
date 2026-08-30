@@ -14,7 +14,7 @@
 
 | 线 | 分支 | 当前项 | 状态 |
 |----|------|--------|------|
-| 用户端 | feat/user-workspace | U-01 | 待开始 |
+| 用户端 | feat/user-workspace | U-01 | 受阻：待执行 npm test / npm run build |
 | 管理端 | feat/admin-ops | A-01 | 待开始 |
 | 安全 | fix/security-hardening | S-01 | 待开始 |
 
@@ -44,7 +44,7 @@ U-10 合规页：隐私政策、用户协议、账户注销说明（不写支付
 
 | 编号 | 状态 | 分支 | 最近提交 | 测试 |
 |------|------|------|----------|------|
-| U-01 | 待开始 | feat/user-workspace | — | — |
+| U-01 | 受阻 | feat/user-workspace | 5d8e032 | 未运行：当前执行环境无法拉取仓库，需补跑 `npm test` 与 `npm run build` |
 | U-02 | 待开始 | feat/user-workspace | — | — |
 | U-03 | 待开始 | feat/user-workspace | — | — |
 | U-04 | 待开始 | feat/user-workspace | — | — |
