@@ -4,19 +4,10 @@
  * - action=record_failure：密码错误后记账（达上限则锁定）
  * - action=clear_success：登录成功后清零
  * IP 从请求头读取；邮箱由客户端传入并在服务端规范化。
+ * S-06: 经 withEdgeGuard（拒绝 service-role、超时、日调用上限）
  */
 
-const cors = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, apikey, content-type, x-client-info",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-};
-
-const json = (body: unknown, status = 200) =>
-  new Response(JSON.stringify(body), {
-    status,
-    headers: { ...cors, "Content-Type": "application/json; charset=utf-8" },
-  });
+import { withEdgeGuard, jsonResponse as json } from "../_shared/edge_guard.ts";
 
 function clientIp(req: Request): string {
   const xf = req.headers.get("x-forwarded-for") || "";
@@ -73,8 +64,7 @@ function lockMessage(data: Record<string, unknown>): string {
   return `登录失败次数过多，请约 ${mins} 分钟后再试。`;
 }
 
-Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response(null, { headers: cors });
+async function handler(req: Request): Promise<Response> {
   if (req.method !== "POST") return json({ error: "Method not allowed" }, 405);
 
   const apiUrl = Deno.env.get("SUPABASE_URL") || "";
@@ -174,4 +164,6 @@ Deno.serve(async (req) => {
       500,
     );
   }
-});
+}
+
+Deno.serve(withEdgeGuard("login-cooldown", handler));

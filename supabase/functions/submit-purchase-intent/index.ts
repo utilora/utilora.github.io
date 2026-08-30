@@ -1,19 +1,10 @@
 /**
  * S-04: 购买意向提交前先做人机验证，再调用 submit_purchase_intent RPC
  * 前端应改调本函数，而不是直接 RPC（直接 RPC 仍可用，但无验票）
+ * S-06: 经 withEdgeGuard（拒绝 service-role、超时、日调用上限）
  */
 
-const cors = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, apikey, content-type, x-client-info",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-};
-
-const json = (body: unknown, status = 200) =>
-  new Response(JSON.stringify(body), {
-    status,
-    headers: { ...cors, "Content-Type": "application/json; charset=utf-8" },
-  });
+import { withEdgeGuard, jsonResponse as json } from "../_shared/edge_guard.ts";
 
 function clientIp(req: Request): string {
   const xf = req.headers.get("x-forwarded-for") || "";
@@ -52,8 +43,7 @@ async function verifyTurnstile(
   return { ok: true };
 }
 
-Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response(null, { headers: cors });
+async function handler(req: Request): Promise<Response> {
   if (req.method !== "POST") return json({ error: "Method not allowed" }, 405);
 
   const apiUrl = Deno.env.get("SUPABASE_URL") || "";
@@ -113,4 +103,6 @@ Deno.serve(async (req) => {
     return json({ error: "submit_failed", detail: data }, rpcRes.status >= 400 ? rpcRes.status : 500);
   }
   return json({ id: data, captcha_skipped: Boolean(captcha.skipped) });
-});
+}
+
+Deno.serve(withEdgeGuard("submit-purchase-intent", handler));

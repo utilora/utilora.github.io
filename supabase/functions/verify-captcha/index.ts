@@ -3,19 +3,10 @@
  * - action=verify：校验客户端 token，成功才允许注册发码 / 留言 / 购买意向
  * - secret 仅存 Edge Function 环境变量 TURNSTILE_SECRET_KEY，不得进前端
  * - 未配置 secret 时返回 skipped（便于本地联调）；生产须配置密钥
+ * S-06: 经 withEdgeGuard（拒绝 service-role、超时、日调用上限）
  */
 
-const cors = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, apikey, content-type, x-client-info",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-};
-
-const json = (body: unknown, status = 200) =>
-  new Response(JSON.stringify(body), {
-    status,
-    headers: { ...cors, "Content-Type": "application/json; charset=utf-8" },
-  });
+import { withEdgeGuard, jsonResponse as json } from "../_shared/edge_guard.ts";
 
 function clientIp(req: Request): string {
   const xf = req.headers.get("x-forwarded-for") || "";
@@ -30,8 +21,7 @@ function clientIp(req: Request): string {
 
 const ALLOWED_PURPOSES = new Set(["register", "feedback", "purchase_intent"]);
 
-Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response(null, { headers: cors });
+async function handler(req: Request): Promise<Response> {
   if (req.method !== "POST") return json({ error: "Method not allowed" }, 405);
 
   let body: { action?: string; token?: string; purpose?: string } = {};
@@ -119,4 +109,6 @@ Deno.serve(async (req) => {
       502,
     );
   }
-});
+}
+
+Deno.serve(withEdgeGuard("verify-captcha", handler));
