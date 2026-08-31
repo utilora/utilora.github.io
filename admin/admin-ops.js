@@ -38,12 +38,15 @@
   }];
 
   const mockLogs = {
-    total: 4,
+    total: 7,
     items: [
       { created_at: '2026-08-30T10:00:00Z', email: 'admin@utilora.local', event_type: 'login', category: 'auth', path: '/admin/', detail: { client: 'admin' }, source: 'activity' },
       { created_at: '2026-08-30T09:40:00Z', email: 'li@example.com', event_type: 'logout', category: 'auth', path: '/account/', detail: {}, source: 'activity' },
       { created_at: '2026-08-30T09:10:00Z', email: 'li@example.com', event_type: 'login', category: 'auth', path: '/login/', detail: { source: 'password' }, source: 'activity' },
       { created_at: '2026-08-30T08:12:00Z', email: null, event_type: 'workspace_enter', category: 'product', path: '/pro/', detail: {}, source: 'analytics' },
+      { created_at: '2026-08-30T07:40:00Z', email: 'admin@utilora.local', event_type: 'set_user_admin', category: 'admin', path: '/admin/', detail: { target_email: 'li@example.com', is_admin: true }, source: 'activity' },
+      { created_at: '2026-08-30T07:20:00Z', email: 'admin@utilora.local', event_type: 'grant_entitlement', category: 'admin', path: '/admin/', detail: { target_email: 'li@example.com', plan_code: 'pro_trial', days: 14 }, source: 'activity' },
+      { created_at: '2026-08-30T07:00:00Z', email: 'admin@utilora.local', event_type: 'update_platform_limits', category: 'admin', path: '/admin/', detail: { changes: [{ key: 'trial_days', from: 14, to: 21 }] }, source: 'activity' },
     ],
   };
 
@@ -52,6 +55,65 @@
     if (data && Array.isArray(data.items)) return data.items;
     return [];
   }
+
+  const AUDIT_ACTIONS = {
+    set_user_admin: '提权/取消管理员',
+    set_user_disabled: '停用/启用账号',
+    update_platform_limits: '改限额',
+    grant_entitlement: '发放专业版/试用',
+    revoke_entitlement: '收回专业版',
+    intent_followup: '意向跟进',
+    promotion_upsert: '改促销',
+    login: '登录',
+    logout: '登出',
+    login_success: '登录成功',
+  };
+
+  function auditDetail(row) {
+    return row?.detail && typeof row.detail === 'object' ? row.detail : {};
+  }
+
+  function auditTarget(row) {
+    const detail = auditDetail(row);
+    return String(detail.target_email || detail.email || detail.intent_id || detail.key || row.path || '');
+  }
+
+  function auditBeforeAfter(row) {
+    const detail = auditDetail(row);
+    if (Array.isArray(detail.changes) && detail.changes.length) {
+      return {
+        before: detail.changes.map((item) => `${item.key}=${item.from}`).join('；'),
+        after: detail.changes.map((item) => `${item.key}=${item.to}`).join('；'),
+      };
+    }
+    if (Object.prototype.hasOwnProperty.call(detail, 'is_admin')) {
+      return { before: detail.is_admin ? '普通用户' : '管理员', after: detail.is_admin ? '管理员' : '普通用户' };
+    }
+    if (Object.prototype.hasOwnProperty.call(detail, 'disabled')) {
+      return { before: detail.disabled ? '正常' : '停用', after: detail.disabled ? '停用' : '正常' };
+    }
+    if (detail.plan_code) {
+      return { before: '', after: `${detail.plan_code}${detail.days ? ` · ${detail.days}天` : ''}` };
+    }
+    return { before: '', after: '' };
+  }
+
+  function summarizeAuditRow(row) {
+    const action = AUDIT_ACTIONS[row.event_type] || row.event_type || '—';
+    const target = auditTarget(row);
+    const change = auditBeforeAfter(row);
+    return {
+      at: row.created_at || '',
+      actor: row.email || '—',
+      action,
+      target: target || '—',
+      before: change.before,
+      after: change.after,
+      event_type: row.event_type || '',
+    };
+  }
+
+  window.UtiloraAudit = { summarizeAuditRow, AUDIT_ACTIONS };
 
   function fill(id, value) {
     const el = document.getElementById(id);
@@ -503,14 +565,14 @@
     hideEmpty(emptyBox);
     items.forEach((row) => {
       const tr = document.createElement('tr');
-      const detail = row.detail && typeof row.detail === 'object' ? JSON.stringify(row.detail) : String(row.detail || '');
+      const summary = summarizeAuditRow(row);
       const values = [
         formatTime(row.created_at),
-        row.email || '—',
-        categoryLabel[row.category] || row.category || '—',
-        row.event_type || '—',
-        row.path || '—',
-        detail.slice(0, 160) || '—',
+        summary.actor,
+        summary.action,
+        summary.target,
+        summary.before || '—',
+        summary.after || '—',
         sourceLabel[row.source] || row.source || '—',
       ];
       values.forEach((value, index) => {
@@ -872,6 +934,9 @@
   }
 
   async function exportLogs() {
+    if (!isPreview() || getSession()) {
+      if (!currentAdminId()) throw new Error('仅管理员可导出审计日志');
+    }
     const stamp = todayISO();
     let items = [];
     if (isPreview() && !getSession()) {
@@ -879,20 +944,21 @@
     } else {
       const filters = logFilters();
       filters.p_limit = 200;
-      filters.p_offset = 0;
-      const response = await request('rpc/admin_list_activity_logs', { method: 'POST', body: JSON.stringify(filters) });
-      const data = await response.json();
-      items = asArray(data);
+      let offset = 0;
+      while (offset < 2000) {
+        filters.p_offset = offset;
+        const response = await request('rpc/admin_list_activity_logs', { method: 'POST', body: JSON.stringify(filters) });
+        const data = await response.json();
+        const page = asArray(data);
+        items = items.concat(page);
+        if (page.length < 200) break;
+        offset += 200;
+      }
     }
-    downloadCsv(`utilora-logs-${stamp}.csv`, ['时间', '账户', '分类', '类型', '路径', '详情', '来源'], items.map((row) => [
-      row.created_at || '',
-      row.email || '',
-      row.category || '',
-      row.event_type || '',
-      row.path || '',
-      row.detail && typeof row.detail === 'object' ? JSON.stringify(row.detail) : String(row.detail || ''),
-      row.source || '',
-    ]));
+    downloadCsv(`utilora-logs-${stamp}.csv`, ['时间戳', '操作者', '动作', '目标摘要', '变更前', '变更后', '类型', '来源'], items.map((row) => {
+      const summary = summarizeAuditRow(row);
+      return [summary.at, summary.actor, summary.action, summary.target, summary.before, summary.after, summary.event_type, row.source || ''];
+    }));
   }
 
   document.getElementById('promo-form')?.addEventListener('submit', savePromotion);

@@ -358,4 +358,18 @@ describe("product architecture", () => {
     expect(read("admin/limits.js")).not.toMatch(/service[_-]?role|sb_secret/i);
     expect(read("supabase/admin-ops.sql")).toContain("202608310012_admin_platform_limits.sql");
   });
+
+  it("lets admins search and export audit logs with before/after summaries", () => {
+    expect(read("admin/index.html")).toContain('id="export-logs"');
+    expect(read("admin/index.html")).toContain(">提权/取消管理员<");
+    expect(read("admin/index.html")).toContain('value="grant_entitlement"');
+    expect(read("admin/index.html")).toContain('value="update_platform_limits"');
+    expect(read("admin/index.html")).toContain(">目标摘要<");
+    expect(read("admin/index.html")).toContain(">变更前<");
+    expect(read("admin/admin-ops.js")).toContain("summarizeAuditRow");
+    expect(read("admin/admin-ops.js")).toContain("仅管理员可导出审计日志");
+    expect(read("admin/admin-ops.js")).toContain("时间戳");
+    expect(read("admin/admin-ops.js")).toContain("变更后");
+    expect(read("admin/admin-ops.js")).not.toMatch(/service[_-]?role|sb_secret/i);
+  });
 });

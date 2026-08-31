@@ -723,6 +723,13 @@
             <label for="log-type">类型</label>
             <select id="log-type">
               <option value="">全部类型</option>
+              <option value="set_user_admin">提权/取消管理员</option>
+              <option value="set_user_disabled">停用/启用账号</option>
+              <option value="grant_entitlement">发放专业版/试用</option>
+              <option value="revoke_entitlement">收回专业版</option>
+              <option value="update_platform_limits">改限额</option>
+              <option value="promotion_upsert">改促销</option>
+              <option value="intent_followup">意向跟进</option>
               <option value="login">login</option>
               <option value="logout">logout</option>
               <option value="login_success">login_success</option>
@@ -733,10 +740,6 @@
               <option value="bank_use">bank_use</option>
               <option value="receivable_use">receivable_use</option>
               <option value="month_end_use">month_end_use</option>
-              <option value="set_user_admin">set_user_admin</option>
-              <option value="set_user_disabled">set_user_disabled</option>
-              <option value="intent_followup">intent_followup</option>
-              <option value="promotion_upsert">promotion_upsert</option>
             </select>
           </div>
           <div>
@@ -759,11 +762,11 @@
             <thead>
               <tr>
                 <th>时间</th>
-                <th>账户</th>
-                <th>分类</th>
-                <th>类型</th>
-                <th>路径</th>
-                <th>详情</th>
+                <th>操作者</th>
+                <th>动作</th>
+                <th>目标摘要</th>
+                <th>变更前</th>
+                <th>变更后</th>
                 <th>来源</th>
               </tr>
             </thead>
