@@ -46,25 +46,28 @@
     const isUp = mode === "up";
     const isRecover = mode === "recover";
     const isVerify = mode === "verify";
-    title.textContent = isUp ? "创建账号" : isRecover ? "重置密码" : isVerify ? "验证邮箱" : "登录";
+    const isReset = mode === "reset";
+    title.textContent = isUp ? "创建账号" : isRecover ? "重置密码" : isVerify ? "验证邮箱" : isReset ? "设置新密码" : "登录";
     lead.textContent = isUp
       ? "使用真实邮箱。我们会发送验证码，验证成功后才能登录。"
       : isRecover
         ? "输入注册邮箱，我们会发送重置邮件。"
         : isVerify
           ? `验证码已发送到 ${pendingEmail}，请输入邮件中的数字验证码。`
-          : "使用已验证的邮箱登录。工具本身仍可免登录使用。";
+          : isReset
+            ? "请设置新密码，保存后进入账号页。"
+            : "使用已验证的邮箱登录。工具本身仍可免登录使用。";
     nameField.hidden = !isUp;
-    confirmField.hidden = !isUp;
+    confirmField.hidden = !(isUp || isReset);
     passwordField.hidden = isRecover || isVerify;
     otpField.hidden = !isVerify;
     passwordInput.required = !isRecover && !isVerify;
-    confirmInput.required = isUp;
+    confirmInput.required = isUp || isReset;
     otpInput.required = isVerify;
-    emailInput.readOnly = isVerify;
-    submit.textContent = isUp ? "发送验证码" : isRecover ? "发送重置邮件" : isVerify ? "验证并完成注册" : "登录";
-    toggleMode.textContent = isUp || isRecover || isVerify ? "返回登录" : "没有账号？注册";
-    toggleRecover.hidden = isRecover || isVerify;
+    emailInput.readOnly = isVerify || isReset;
+    submit.textContent = isUp ? "发送验证码" : isRecover ? "发送重置邮件" : isVerify ? "验证并完成注册" : isReset ? "保存新密码" : "登录";
+    toggleMode.textContent = isUp || isRecover || isVerify || isReset ? "返回登录" : "没有账号？注册";
+    toggleRecover.hidden = isRecover || isVerify || isReset;
     resend.hidden = !pendingEmail || !isVerify;
     resend.textContent = cooldown > 0 ? resend.textContent : "重新发送验证码";
     strength.hidden = !(isUp && passwordInput.value);
@@ -72,7 +75,12 @@
 
   const goAccount = () => {
     const next = new URLSearchParams(location.search).get("next");
-    location.href = next && !/^https?:|^\/\//i.test(next) ? next : "../account/";
+    const allowed = next && /^(?:\.\.\/|\.\/|\/)(?!\/)/.test(next) && !/^javascript:|^data:/i.test(next);
+    location.href = allowed ? next : "../account/";
+  };
+
+  const goLoggedInHome = () => {
+    location.href = "../account/";
   };
 
   const trackLoginSuccess = () => {
@@ -109,12 +117,29 @@
   };
 
   (async () => {
-    const captured = await auth.captureRedirect();
-    if (captured && captured.error) setMsg(banner, captured.error, true);
-    else if (captured) goAccount();
-    else {
+    try {
+      const captured = await auth.captureRedirect();
+      const wantReset = new URLSearchParams(location.search).get("reset") === "1";
+      if (captured && captured.error) {
+        setMsg(banner, captured.error, true);
+        return;
+      }
+      if ((captured && captured.type === "recovery") || wantReset) {
+        mode = "reset";
+        const session = await auth.refreshIfNeeded();
+        if (session?.user?.email) emailInput.value = session.user.email;
+        paint();
+        setMsg(formMsg, "请设置新密码后继续。");
+        return;
+      }
+      if (captured) {
+        goLoggedInHome();
+        return;
+      }
       const session = await auth.refreshIfNeeded();
-      if (session) goAccount();
+      if (session) goLoggedInHome();
+    } catch {
+      /* 留在登录页 */
     }
   })();
 
@@ -189,7 +214,15 @@
     try {
       if (mode === "recover") {
         await auth.recover(email);
-        setMsg(formMsg, "如果该邮箱已注册，重置邮件已发出。请同时检查垃圾箱。");
+        setMsg(formMsg, "如果该邮箱已注册，重置邮件已发出。请同时检查垃圾箱。点邮件里的链接后设置新密码。");
+        return;
+      }
+      if (mode === "reset") {
+        const issue = passwordIssue(password, confirm);
+        if (issue) throw new Error(issue);
+        await auth.setPassword(password);
+        trackLoginSuccess();
+        goLoggedInHome();
         return;
       }
       if (mode === "verify") {

@@ -31,6 +31,8 @@ describe("product architecture", () => {
     expect(vite).not.toContain('{ src: "pro", dest: "." }');
     expect(vite).toContain('{ src: "pro/app.js", dest: "." }');
     expect(vite).toContain('{ src: "pro/pro.css", dest: "." }');
+    expect(vite).toContain('{ src: "pro/u01.js", dest: "." }');
+    expect(read("src/pro.ts")).toContain('loadScript("u01.js?v=1").catch');
   });
 
   it("requires an email OTP before registration completes", () => {
@@ -42,6 +44,11 @@ describe("product architecture", () => {
     expect(logic).toContain('await auth.sendOtp');
     expect(logic).toContain('await auth.setPassword');
     expect(read("assets/js/auth.js")).toContain("/auth/v1/otp");
+    expect(read("assets/js/auth.js")).toContain("/auth/v1/recover");
+    expect(logic).toContain('mode === "reset"');
+    expect(logic).toContain('goLoggedInHome');
+    expect(logic).toContain('captured.type === "recovery"');
+    expect(read("account/account.js")).toContain('../login/?reset=1');
     expect(read("supabase/templates/confirmation.html")).toContain("{{ .Token }}");
     expect(read("supabase/templates/magic_link.html")).toContain("{{ .Token }}");
   });
