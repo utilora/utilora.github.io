@@ -272,14 +272,4 @@ describe("product architecture", () => {
     expect(read("supabase/functions/password-reset-limit/index.ts")).toContain("withEdgeGuard");
     expect(read("supabase/functions/password-reset-limit/index.ts")).not.toMatch(/sb_secret/i);
   });
-
-  it("keeps user-facing navigation on the site root URL", () => {
-    expect(read("assets/js/root-url.js")).toContain("utilora_view");
-    expect(read("assets/js/root-url.js")).toContain('history.replaceState(null, "", "/")');
-    expect(read("index.html")).toContain("assets/js/root-url.js");
-    expect(read("pro/index.html")).toContain("assets/js/root-url.js");
-    expect(read("login/index.html")).toContain("assets/js/root-url.js");
-    expect(read("account/index.html")).toContain("assets/js/root-url.js");
-    expect(read("admin/index.html")).not.toContain("root-url.js");
-  });
 });

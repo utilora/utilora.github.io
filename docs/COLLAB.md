@@ -163,7 +163,7 @@ S-08 找回密码限流：发送重置邮件与提交新密码接口均读配置
 
 ## 变更记录
 
-- 2026-08-31：合入 main：关闭全员限免、找回密码限流；用户端地址栏保持 https://utilora.github.io/。占用改为今日待办 Dashboard / 后台待办 / 安全空闲。
+- 2026-08-31：撤回用户端根地址壳（进子页后无法返回）。占用：今日待办 Dashboard / 后台待办 / 安全空闲。
 - 2026-08-31：合入 main：U-02 部分匹配（05facb9）；占用更新为 U-03 / A-03 / S-08。
 - 2026-08-31：合入 main：chore/remove-side-tools、A-01、A-02、U-01、S-01–S-07。占用改为 U-02 / A-03 / S-08。
 - 2026-08-31：追加 U-17、U-18、A-11。借鉴来源：Xero / QuickBooks Online（credit note / credit memo 冲减应收）、Xero bank reconciliation（忽略/匹配须可解释且可恢复）、商业 AR 账龄报告可配置分桶边界。
