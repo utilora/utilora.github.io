@@ -142,6 +142,12 @@ describe("product architecture", () => {
     expect(home).toContain("当前内测免费");
     expect(read("pro/index.html")).toContain("我愿意购买");
     expect(read("pro/index.html")).toContain("正式版上线通知我");
+    expect(read("pro/index.html")).toContain('data-route="intent"');
+    expect(read("pro/index.html")).toContain('id="intent-modal"');
+    expect(read("pro/index.html")).not.toContain('class="intent-panel"');
+    expect(read("feedback/index.html")).toContain("登录后提交");
+    expect(read("feedback/index.html")).toContain("assets/js/auth.js");
+    expect(read("feedback/feedback.js")).toContain("../login/?next=");
     expect(home).not.toMatch(/stripe|wechatpay|js\.stripe/i);
 
 

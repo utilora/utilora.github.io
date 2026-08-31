@@ -12,8 +12,9 @@
   <main class="tool-main">
     <div class="panel">
       <h1>功能建议</h1>
-      <p class="hint">无需登录。告诉我们你希望 Utilora 增加什么工具，留言将直接发送给管理员。</p>
-      <form id="form">
+      <p class="hint">登录后提交。告诉我们你希望 Utilora 增加什么工具，留言将发给管理员。</p>
+      <p id="login-needed" class="message">正在确认登录状态……</p>
+      <form id="form" hidden>
         <div class="field"><label for="name">称呼</label><input id="name" required maxlength="50" autocomplete="name" placeholder="怎么称呼你？"></div>
         <div class="field"><label for="title">想增加的功能</label><input id="title" required minlength="2" maxlength="100" placeholder="例如：二维码生成器"></div>
         <div class="field"><label for="detail">使用场景或详细说明</label><textarea id="detail" required minlength="5" maxlength="2000" placeholder="请描述你希望它解决什么问题……"></textarea></div>
@@ -49,7 +50,8 @@
       document.head.appendChild(s);
     })();
   </script>
+  <script src="../assets/js/auth.js?v=19"></script>
 <script src="config.js"></script>
-  <script src="feedback.js"></script>
+  <script src="feedback.js?v=2"></script>
 <script src="../assets/js/analytics.js"></script></body>
 </html>

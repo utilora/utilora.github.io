@@ -5,6 +5,7 @@ import { submitPurchaseIntent, validatePurchaseIntent } from "../core/purchase-i
 
 
 const STORAGE_KEY = "utilora_purchase_intent_submitted";
+const DISMISS_KEY = "utilora_intent_dismissed";
 const SUCCESS_TEXT = "已记录你的意向。正式版上线前会通知你，当前不会扣费。";
 
 const showMessage = (form: HTMLFormElement, text: string, error = false): void => {
@@ -21,6 +22,7 @@ const markSubmitted = (form: HTMLFormElement): void => {
     button.disabled = true;
   });
   showMessage(form, SUCCESS_TEXT);
+  hideIntentModal();
 };
 
 const bindForm = (form: HTMLFormElement): void => {
@@ -68,17 +70,43 @@ const bindForm = (form: HTMLFormElement): void => {
   });
 };
 
+export const hideIntentModal = (): void => {
+  const modal = document.getElementById("intent-modal");
+  if (modal) modal.hidden = true;
+};
+
+export const maybeShowIntentModal = (): void => {
+  if (new URLSearchParams(location.search).get("demo") === "1") return;
+  if (localStorage.getItem(STORAGE_KEY) || localStorage.getItem(DISMISS_KEY)) return;
+  const modal = document.getElementById("intent-modal");
+  if (!modal) return;
+  modal.hidden = false;
+};
+
 export const bindPurchaseIntentForms = async (): Promise<void> => {
   const forms = [...document.querySelectorAll<HTMLFormElement>("[data-purchase-intent]")];
-  if (!forms.length) return;
   forms.forEach((form) => bindForm(form));
+
+  document.querySelectorAll("[data-intent-dismiss]").forEach((node) => {
+    if (!(node instanceof HTMLElement) || node.dataset.bound === "1") return;
+    node.dataset.bound = "1";
+    node.addEventListener("click", () => {
+      localStorage.setItem(DISMISS_KEY, "1");
+      hideIntentModal();
+    });
+  });
 
   const user = await getUser().catch(() => null);
   if (!user?.email) return;
   forms.forEach((form) => {
     const emailInput = form.querySelector<HTMLInputElement>('[name="email"]');
     if (emailInput && !emailInput.value) emailInput.value = user.email ?? "";
-
   });
 };
+
+if (typeof window !== "undefined") {
+  (window as Window & { UtiloraPurchaseIntent?: { bind: typeof bindPurchaseIntentForms } }).UtiloraPurchaseIntent = {
+    bind: bindPurchaseIntentForms
+  };
+}
 

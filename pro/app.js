@@ -1133,6 +1133,44 @@
     downloadText(`utilora-应收账龄-${today()}.csv`, csvText(["客户", "应收单号", "到期日", "状态", "应收金额", "已收金额", "未收金额"], rows));
   }
 
+  function renderIntent() {
+    primary.hidden = true;
+    view.innerHTML = `<div class="panel"><h2>购买意向</h2><p class="data-note">正式收费前留下邮箱和用途，上线会提前通知。当前不接入支付，不会扣费。</p>
+      <form data-purchase-intent>
+        <div class="intent-grid">
+          <label>邮箱<input name="email" type="email" required maxlength="254" autocomplete="email" placeholder="you@company.com"></label>
+          <label>主要用途
+            <select name="use_case" required>
+              <option value="">请选择</option>
+              <option value="银行流水">银行流水</option>
+              <option value="应收回款">应收回款</option>
+              <option value="月结检查">月结检查</option>
+              <option value="经营报表">经营报表</option>
+              <option value="其他">其他</option>
+            </select>
+          </label>
+          <label>公司规模
+            <select name="company_size" required>
+              <option value="">请选择</option>
+              <option value="1-10">1–10 人</option>
+              <option value="11-50">11–50 人</option>
+              <option value="51-200">51–200 人</option>
+              <option value="200+">200 人以上</option>
+            </select>
+          </label>
+        </div>
+        <input type="hidden" name="intended_plan" value="pro">
+        <div hidden aria-hidden="true"><label>网站<input name="website" tabindex="-1" autocomplete="off"></label></div>
+        <div class="intent-actions">
+          <button type="submit">我愿意购买</button>
+          <button type="submit" class="secondary">正式版上线通知我</button>
+        </div>
+        <p class="intent-message" data-intent-message role="status" aria-live="polite"></p>
+      </form>
+    </div>`;
+    window.UtiloraPurchaseIntent?.bind?.();
+  }
+
   async function renderSettings() {
     const c = db.company;
     primary.hidden = true;
@@ -1371,7 +1409,7 @@
     paint();
   }
 
-  const titles = { dashboard: "今天的工作", customers: "客户", customer: "客户往来", items: "项目", estimates: "报价", invoices: "应收单", payments: "收款", expenses: "费用", reimbursements: "报销", assets: "固定资产", payroll: "工资表", bank: "银行流水", bookkeeping: "科目与凭证", checks: "月结与检查", reports: "报表", settings: "数据与设置", estimate: "编辑报价", invoice: "编辑应收单" };
+  const titles = { dashboard: "今天的工作", customers: "客户", customer: "客户往来", items: "项目", estimates: "报价", invoices: "应收单", payments: "收款", expenses: "费用", reimbursements: "报销", assets: "固定资产", payroll: "工资表", bank: "银行流水", bookkeeping: "科目与凭证", checks: "月结与检查", reports: "报表", intent: "购买意向", settings: "数据与设置", estimate: "编辑报价", invoice: "编辑应收单" };
   let lastAnalyticsRoute = "";
   const trackWorkspaceRoute = (name) => {
     try {
@@ -1411,6 +1449,7 @@
     else if (r.name === "bookkeeping") renderBookkeeping();
     else if (r.name === "checks") renderChecks();
     else if (r.name === "reports") renderReports();
+    else if (r.name === "intent") renderIntent();
     else if (r.name === "settings") renderSettings();
     else if (r.name === "estimate") renderEditor(true, r.id);
     else if (r.name === "invoice") renderEditor(false, r.id);

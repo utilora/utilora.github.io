@@ -3,7 +3,7 @@ import * as UtiloraBank from "./core/banking/local";
 import * as UtiloraBankQueue from "./core/banking/queue";
 import * as UtiloraMonthEnd from "./core/month-end/local";
 import * as UtiloraReceivables from "./core/receivables/local";
-import { bindPurchaseIntentForms } from "./app/purchase-intent";
+import { bindPurchaseIntentForms, maybeShowIntentModal } from "./app/purchase-intent";
 import { ANALYTICS_EVENTS } from "./core/analytics/events";
 import { trackEvent } from "./core/analytics/track";
 import { getUser } from "./core/auth/session";
@@ -55,7 +55,7 @@ const loadWorkspace = async (): Promise<void> => {
       "../assets/js/csv.js?v=11",
       "../assets/js/xlsx-lite.js?v=11",
       "../assets/js/app.js?v=14",
-      "app.js?v=19"
+      "app.js?v=20"
     ]) {
       await loadScript(src);
     }
@@ -99,6 +99,7 @@ const start = async (): Promise<void> => {
     await revealWorkspace(`${name} · 专业版限时免费`);
     trackEvent(ANALYTICS_EVENTS.workspace_enter);
     await bindPurchaseIntentForms();
+    maybeShowIntentModal();
     return;
   }
 
