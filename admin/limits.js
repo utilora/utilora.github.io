@@ -3,7 +3,8 @@
   const GROUP_LABEL = {
     security: '注册与登录',
     strategy: '运营策略',
-    ops: '试用、邀请与账龄',
+    aging: '账龄分桶',
+    ops: '试用与邀请',
   };
   const LIMIT_FIELDS = [
     { key: 'registration_success_per_ip_per_day', label: '每 IP 每天成功注册次数', hint: 'Asia/Shanghai 自然日；验证成功才计数', min: 1, max: 100, default: 3, group: 'security' },
@@ -17,11 +18,11 @@
     { key: 'match_date_near_days', label: '匹配日期接近天数', hint: '流水与应收建议匹配时，日期差不超过此值（天）', min: 0, max: 30, default: 3, group: 'strategy' },
     { key: 'match_amount_tolerance_cents', label: '匹配金额容差（分）', hint: '0 表示必须分毫不差才可作高/中置信建议', min: 0, max: 100, default: 0, group: 'strategy' },
     { key: 'backup_stale_days', label: '备份过期天数', hint: '超过此天数未成功导出则在工作台提醒', min: 1, max: 90, default: 7, group: 'strategy' },
+    { key: 'aging_bucket_1_days', label: '账龄桶1上限天', hint: '逾期 1–N 天为第一桶；须满足 0 < 桶1 < 桶2 < 桶3 ≤ 365', min: 1, max: 365, default: 30, group: 'aging' },
+    { key: 'aging_bucket_2_days', label: '账龄桶2上限天', hint: '逾期 桶1+1–桶2 天为第二桶', min: 1, max: 365, default: 60, group: 'aging' },
+    { key: 'aging_bucket_3_days', label: '账龄桶3上限天', hint: '逾期 桶2+1–桶3 天为第三桶；超过为桶3+', min: 1, max: 365, default: 90, group: 'aging' },
     { key: 'trial_days', label: '试用天数', hint: '发放试用的默认天数，单次仍可手填', min: 1, max: 365, default: 14, group: 'ops' },
     { key: 'invite_reward_months', label: '邀请成功奖励月数', hint: '被邀请人首次实际付费后才入账；支付接通前不展示邀请', min: 1, max: 24, default: 3, group: 'ops' },
-    { key: 'aging_bucket_1_days', label: '账龄桶1上限天', hint: '须满足 0 < 桶1 < 桶2 < 桶3 ≤ 365', min: 1, max: 365, default: 30, group: 'ops' },
-    { key: 'aging_bucket_2_days', label: '账龄桶2上限天', hint: '须满足 0 < 桶1 < 桶2 < 桶3 ≤ 365', min: 1, max: 365, default: 60, group: 'ops' },
-    { key: 'aging_bucket_3_days', label: '账龄桶3上限天', hint: '须满足 0 < 桶1 < 桶2 < 桶3 ≤ 365', min: 1, max: 365, default: 90, group: 'ops' },
   ];
 
   let limitsCache = LIMIT_FIELDS.map((field) => ({ ...field, value: field.default }));
@@ -51,6 +52,43 @@
       return { ok: false, error: '账龄分桶须满足 0 < 桶1 < 桶2 < 桶3 ≤ 365' };
     }
     return { ok: true, values: next };
+  }
+
+  function agingPreviewLabels(b1, b2, b3) {
+    const n1 = Number(b1);
+    const n2 = Number(b2);
+    const n3 = Number(b3);
+    if (!(Number.isInteger(n1) && Number.isInteger(n2) && Number.isInteger(n3) && n1 > 0 && n1 < n2 && n2 < n3 && n3 <= 365)) {
+      return { ok: false, error: '账龄分桶须满足 0 < 桶1 < 桶2 < 桶3 ≤ 365', labels: [] };
+    }
+    return {
+      ok: true,
+      error: '',
+      labels: [
+        '未到期',
+        `逾期 1–${n1} 天`,
+        `逾期 ${n1 + 1}–${n2} 天`,
+        `逾期 ${n2 + 1}–${n3} 天`,
+        `逾期 ${n3} 天以上`,
+      ],
+    };
+  }
+
+  function renderAgingPreview(values) {
+    const box = document.getElementById('aging-preview');
+    if (!box) return;
+    const preview = agingPreviewLabels(
+      values?.aging_bucket_1_days,
+      values?.aging_bucket_2_days,
+      values?.aging_bucket_3_days,
+    );
+    if (!preview.ok) {
+      box.dataset.invalid = '1';
+      box.innerHTML = `<p class="aging-preview-title">账龄视图预览</p><p class="error">${preview.error}</p>`;
+      return;
+    }
+    box.dataset.invalid = '0';
+    box.innerHTML = `<p class="aging-preview-title">新打开的账龄视图将显示为</p><ol>${preview.labels.map((label) => `<li>${label}</li>`).join('')}</ol>`;
   }
 
   function mergeItems(items) {
@@ -94,6 +132,7 @@
             </div>
           `).join('')}
         </div>
+        ${group.group === 'aging' ? '<div class="aging-preview" id="aging-preview"></div>' : ''}
       </div>
     `).join('') + `
       <div class="row-actions">
@@ -109,6 +148,7 @@
     }
     const hint = document.querySelector('#dossier-grant-form .hint');
     if (hint && trial) hint.textContent = `试用默认 ${trial} 天，可改。专业版天数留空为长期。支付未接通，只写 entitlement_grants。`;
+    renderAgingPreview(savedValues);
   }
 
   function readFormValues() {
@@ -184,6 +224,9 @@
   document.getElementById('limits-form')?.addEventListener('submit', (event) => {
     saveLimits(event).catch((error) => setMessage(document.getElementById('limits-message'), error.message, true));
   });
+  document.getElementById('limits-form')?.addEventListener('input', () => {
+    renderAgingPreview(readFormValues());
+  });
   document.getElementById('limits-form')?.addEventListener('click', (event) => {
     if (event.target?.id === 'limits-reset') {
       renderLimitsForm(limitsCache);
@@ -191,7 +234,7 @@
     }
   });
 
-  window.AdminLimits = { loadLimits, validateLimits, LIMIT_FIELDS };
+  window.AdminLimits = { loadLimits, validateLimits, agingPreviewLabels, LIMIT_FIELDS };
   window.AdminOps = window.AdminOps || {};
   window.AdminOps.loadLimits = loadLimits;
 })();

@@ -6,6 +6,7 @@
 -- A-02 风控台：见 migrations/202608310002_admin_risk_console.sql（admin_risk_console RPC）
 -- A-03 意向跟进：见 migrations/202608310003_admin_intent_followup.sql
 -- A-07 限额配置：见 migrations/202608310012_admin_platform_limits.sql（请一并执行）
+-- A-11 账龄分桶边界：见 migrations/202608310015_aging_bucket_bounds.sql
 
 create table if not exists public.purchase_intent_followups (
   intent_id uuid primary key references public.purchase_intents(id) on delete cascade,

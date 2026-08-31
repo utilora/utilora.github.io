@@ -19,11 +19,11 @@ const FIELDS = [
   { key: "match_date_near_days", min: 0, max: 30, label: "匹配日期接近天数", group: "strategy" },
   { key: "match_amount_tolerance_cents", min: 0, max: 100, label: "匹配金额容差（分）", group: "strategy" },
   { key: "backup_stale_days", min: 1, max: 90, label: "备份过期天数", group: "strategy" },
+  { key: "aging_bucket_1_days", min: 1, max: 365, label: "账龄桶1上限天", group: "aging" },
+  { key: "aging_bucket_2_days", min: 1, max: 365, label: "账龄桶2上限天", group: "aging" },
+  { key: "aging_bucket_3_days", min: 1, max: 365, label: "账龄桶3上限天", group: "aging" },
   { key: "trial_days", min: 1, max: 365, label: "试用天数", group: "ops" },
   { key: "invite_reward_months", min: 1, max: 24, label: "邀请成功奖励月数", group: "ops" },
-  { key: "aging_bucket_1_days", min: 1, max: 365, label: "账龄桶1上限天", group: "ops" },
-  { key: "aging_bucket_2_days", min: 1, max: 365, label: "账龄桶2上限天", group: "ops" },
-  { key: "aging_bucket_3_days", min: 1, max: 365, label: "账龄桶3上限天", group: "ops" },
 ];
 
 function parseLimitValue(field, raw) {
@@ -52,6 +52,26 @@ function validateLimits(values) {
   return { ok: true, values: next };
 }
 
+function agingPreviewLabels(b1, b2, b3) {
+  const n1 = Number(b1);
+  const n2 = Number(b2);
+  const n3 = Number(b3);
+  if (!(Number.isInteger(n1) && Number.isInteger(n2) && Number.isInteger(n3) && n1 > 0 && n1 < n2 && n2 < n3 && n3 <= 365)) {
+    return { ok: false, error: "账龄分桶须满足 0 < 桶1 < 桶2 < 桶3 ≤ 365", labels: [] };
+  }
+  return {
+    ok: true,
+    error: "",
+    labels: [
+      "未到期",
+      `逾期 1–${n1} 天`,
+      `逾期 ${n1 + 1}–${n2} 天`,
+      `逾期 ${n2 + 1}–${n3} 天`,
+      `逾期 ${n3} 天以上`,
+    ],
+  };
+}
+
 const defaults = {
   registration_success_per_ip_per_day: 3,
   otp_per_email_per_hour: 3,
@@ -73,12 +93,16 @@ const defaults = {
 
 assert(FIELDS.length === 16, "all configurable limits present");
 assert(FIELDS.filter((field) => field.group === "strategy").map((field) => field.key).join(",") === "match_date_near_days,match_amount_tolerance_cents,backup_stale_days", "ops strategy keys grouped");
+assert(FIELDS.filter((field) => field.group === "aging").map((field) => field.key).join(",") === "aging_bucket_1_days,aging_bucket_2_days,aging_bucket_3_days", "aging keys grouped");
 assert(validateLimits(defaults).ok === true, "defaults valid");
 assert(validateLimits({ ...defaults, invite_reward_months: 6 }).ok === true, "invite months ok");
 assert(validateLimits({ ...defaults, match_amount_tolerance_cents: 0 }).ok === true, "zero fen ok");
 assert(validateLimits({ ...defaults, trial_days: 0 }).ok === false, "trial 0 rejected");
 assert(validateLimits({ ...defaults, trial_days: "14.5" }).ok === false, "float rejected");
 assert(validateLimits({ ...defaults, aging_bucket_1_days: 90, aging_bucket_2_days: 60, aging_bucket_3_days: 30 }).ok === false, "bucket order rejected");
+assert(validateLimits({ ...defaults, aging_bucket_1_days: 15, aging_bucket_2_days: 45, aging_bucket_3_days: 90 }).ok === true, "custom buckets allowed");
+assert(validateLimits({ ...defaults, aging_bucket_3_days: 365 }).ok === true, "bucket 365 allowed");
+assert(validateLimits({ ...defaults, aging_bucket_1_days: 30, aging_bucket_2_days: 30, aging_bucket_3_days: 90 }).ok === false, "equal buckets rejected");
 assert(validateLimits({ ...defaults, login_failure_max_attempts: 99 }).ok === false, "over max rejected");
 
 const msg = validateLimits({ ...defaults, login_failure_max_attempts: 99 });
@@ -101,5 +125,12 @@ const fenMsg = validateLimits({ ...defaults, match_amount_tolerance_cents: 101 }
 assert(fenMsg.ok === false && /匹配金额容差/.test(fenMsg.error) && /0–100/.test(fenMsg.error), "fen range message");
 const backupMsg = validateLimits({ ...defaults, backup_stale_days: 0 });
 assert(backupMsg.ok === false && /备份过期/.test(backupMsg.error) && /1–90/.test(backupMsg.error), "backup range message");
+
+const preview = agingPreviewLabels(15, 45, 90);
+assert(preview.ok === true, "preview ok");
+assert(preview.labels[1] === "逾期 1–15 天", "preview bucket1");
+assert(preview.labels[2] === "逾期 16–45 天", "preview bucket2");
+assert(preview.labels[4] === "逾期 90 天以上", "preview over");
+assert(agingPreviewLabels(90, 60, 30).ok === false, "preview rejects order");
 
 console.log("platform-limits.test.js: ok");

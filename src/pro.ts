@@ -3,6 +3,7 @@ import * as UtiloraBank from "./core/banking/local";
 import * as UtiloraBankQueue from "./core/banking/queue";
 import * as UtiloraMonthEnd from "./core/month-end/local";
 import * as UtiloraReceivables from "./core/receivables/local";
+import { fetchAgingBounds } from "./core/receivables/bounds";
 import { bindPurchaseIntentForms, maybeShowIntentModal } from "./app/purchase-intent";
 import { ANALYTICS_EVENTS } from "./core/analytics/events";
 import { trackEvent } from "./core/analytics/track";
@@ -17,6 +18,7 @@ declare global {
     UtiloraReceivables: typeof UtiloraReceivables;
     UtiloraMonthEnd: typeof UtiloraMonthEnd;
     UtiloraBackup: typeof UtiloraBackup;
+    UtiloraAgingBounds: UtiloraReceivables.AgingBounds;
   }
 }
 
@@ -49,13 +51,14 @@ const loadWorkspace = async (): Promise<void> => {
   window.UtiloraReceivables = UtiloraReceivables;
   window.UtiloraMonthEnd = UtiloraMonthEnd;
   window.UtiloraBackup = UtiloraBackup;
+  window.UtiloraAgingBounds = await withTimeout(fetchAgingBounds(), STARTUP_TIMEOUT_MS, UtiloraReceivables.DEFAULT_AGING_BOUNDS);
   try {
     for (const src of [
       "../assets/js/finance.js?v=11",
       "../assets/js/csv.js?v=11",
       "../assets/js/xlsx-lite.js?v=11",
       "../assets/js/app.js?v=14",
-      "app.js?v=24"
+      "app.js?v=25"
     ]) {
       await loadScript(src);
     }

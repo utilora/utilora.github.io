@@ -613,7 +613,7 @@
       </section>
 
       <section id="limits-section" hidden>
-        <p class="hint">数量类限额全部在这里改，保存后立即生效。运营策略（匹配日期接近天数、匹配金额容差、备份过期天数）单独成组；非法值会拒绝保存。改限额须二次确认并写入操作日志。邀请奖励月数可配，但支付接通前不对用户展示邀请。</p>
+        <p class="hint">数量类限额全部在这里改，保存后立即生效。运营策略（匹配日期接近天数、匹配金额容差、备份过期天数）与账龄分桶单独成组；账龄须满足 0 < 桶1 < 桶2 < 桶3 ≤ 365，保存后新打开的账龄视图采用新边界。非法值会拒绝保存。改限额须二次确认并写入操作日志。邀请奖励月数可配，但支付接通前不对用户展示邀请。</p>
         <div id="limits-message" class="message" role="status"></div>
         <form id="limits-form" class="limits-form"></form>
       </section>

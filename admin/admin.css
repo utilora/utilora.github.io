@@ -19,6 +19,11 @@ button:disabled{opacity:.55;cursor:not-allowed}
 .limits-grid .field{display:flex;flex-direction:column;gap:6px}
 .limits-grid small{color:var(--muted);font-size:12px;line-height:1.45}
 .limits-form .row-actions{display:flex;flex-wrap:wrap;gap:8px}
+.aging-preview{margin-top:14px;padding:12px 14px;background:#fff;border:1px dashed var(--line);border-radius:10px}
+.aging-preview[data-invalid="1"]{border-color:#b91c1c}
+.aging-preview-title{margin:0 0 8px;font-size:13px;color:var(--muted)}
+.aging-preview ol{margin:0;padding-left:18px;display:grid;gap:4px}
+.aging-preview li{font-size:13px}
 
 .admin-tabs{display:flex;gap:6px;margin:18px 0 0;padding:5px;background:#f1f5f9;border-radius:12px;width:fit-content}
 .admin-tabs .tab{padding:8px 16px;color:#475569;background:transparent;border:0;border-radius:8px;font-weight:700}

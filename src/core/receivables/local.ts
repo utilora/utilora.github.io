@@ -2,13 +2,55 @@ import { fromFen, toFen } from "../banking/local";
 
 export type AgingBucket = "current" | "d30" | "d60" | "d90" | "over90";
 
-export const AGING_BUCKET_LABEL: Record<AgingBucket, string> = {
-  current: "未到期",
-  d30: "逾期 1–30 天",
-  d60: "逾期 31–60 天",
-  d90: "逾期 61–90 天",
-  over90: "逾期 90 天以上"
+export interface AgingBounds {
+  bucket1: number;
+  bucket2: number;
+  bucket3: number;
+}
+
+export const DEFAULT_AGING_BOUNDS: AgingBounds = { bucket1: 30, bucket2: 60, bucket3: 90 };
+
+export const normalizeAgingBounds = (raw?: Partial<AgingBounds> | null): AgingBounds => {
+  const bucket1 = Number(raw?.bucket1);
+  const bucket2 = Number(raw?.bucket2);
+  const bucket3 = Number(raw?.bucket3);
+  if (
+    Number.isInteger(bucket1) &&
+    Number.isInteger(bucket2) &&
+    Number.isInteger(bucket3) &&
+    bucket1 > 0 &&
+    bucket1 < bucket2 &&
+    bucket2 < bucket3 &&
+    bucket3 <= 365
+  ) {
+    return { bucket1, bucket2, bucket3 };
+  }
+  return DEFAULT_AGING_BOUNDS;
 };
+
+export const agingBucketLabels = (bounds?: Partial<AgingBounds> | null): Record<AgingBucket, string> => {
+  const { bucket1, bucket2, bucket3 } = normalizeAgingBounds(bounds);
+  return {
+    current: "未到期",
+    d30: `逾期 1–${bucket1} 天`,
+    d60: `逾期 ${bucket1 + 1}–${bucket2} 天`,
+    d90: `逾期 ${bucket2 + 1}–${bucket3} 天`,
+    over90: `逾期 ${bucket3} 天以上`
+  };
+};
+
+export const agingBucketShortLabels = (bounds?: Partial<AgingBounds> | null): Record<AgingBucket, string> => {
+  const { bucket1, bucket2, bucket3 } = normalizeAgingBounds(bounds);
+  return {
+    current: "未到期",
+    d30: `1–${bucket1} 天`,
+    d60: `${bucket1 + 1}–${bucket2} 天`,
+    d90: `${bucket2 + 1}–${bucket3} 天`,
+    over90: `${bucket3} 天以上`
+  };
+};
+
+export const AGING_BUCKET_LABEL: Record<AgingBucket, string> = agingBucketLabels(DEFAULT_AGING_BOUNDS);
 
 export interface ReceivableInvoice {
   id: string;
@@ -66,12 +108,17 @@ export const daysOverdue = (dueDate: string | undefined, asOf: string): number =
   return Math.floor((today - due) / 86400000);
 };
 
-export const agingBucket = (dueDate: string | undefined, asOf: string): AgingBucket => {
+export const agingBucket = (
+  dueDate: string | undefined,
+  asOf: string,
+  bounds?: Partial<AgingBounds> | null
+): AgingBucket => {
   const days = daysOverdue(dueDate, asOf);
+  const { bucket1, bucket2, bucket3 } = normalizeAgingBounds(bounds);
   if (days <= 0) return "current";
-  if (days <= 30) return "d30";
-  if (days <= 60) return "d60";
-  if (days <= 90) return "d90";
+  if (days <= bucket1) return "d30";
+  if (days <= bucket2) return "d60";
+  if (days <= bucket3) return "d90";
   return "over90";
 };
 
@@ -188,16 +235,24 @@ export const promisedOnDay = (notes: CollectionNote[], asOf: string): Collection
 
 
 
-export const summarizeAging = (invoices: ReceivableInvoice[], asOf: string): AgingTotals => {
+export const summarizeAging = (
+  invoices: ReceivableInvoice[],
+  asOf: string,
+  bounds?: Partial<AgingBounds> | null
+): AgingTotals => {
   const totals = emptyAging();
   openReceivables(invoices).forEach((invoice) => {
-    const bucket = agingBucket(invoice.dueDate, asOf);
+    const bucket = agingBucket(invoice.dueDate, asOf, bounds);
     totals[bucket] = fromFen(toFen(totals[bucket]) + toFen(remainingOf(invoice)));
   });
   return totals;
 };
 
-export const customerDebts = (invoices: ReceivableInvoice[], asOf: string): CustomerDebt[] => {
+export const customerDebts = (
+  invoices: ReceivableInvoice[],
+  asOf: string,
+  bounds?: Partial<AgingBounds> | null
+): CustomerDebt[] => {
   const map = new Map<string, CustomerDebt>();
   openReceivables(invoices).forEach((invoice) => {
     const key = invoice.customerId || invoice.customerName || invoice.id;
@@ -211,7 +266,7 @@ export const customerDebts = (invoices: ReceivableInvoice[], asOf: string): Cust
       aging: emptyAging()
     };
     const remaining = remainingOf(invoice);
-    const bucket = agingBucket(invoice.dueDate, asOf);
+    const bucket = agingBucket(invoice.dueDate, asOf, bounds);
     current.openCount += 1;
     current.openAmount = fromFen(toFen(current.openAmount) + toFen(remaining));
     current.aging[bucket] = fromFen(toFen(current.aging[bucket]) + toFen(remaining));
@@ -224,12 +279,16 @@ export const customerDebts = (invoices: ReceivableInvoice[], asOf: string): Cust
   return [...map.values()].sort((a, b) => toFen(b.openAmount) - toFen(a.openAmount));
 };
 
-export const collectionProgress = (invoices: ReceivableInvoice[], asOf: string): CollectionProgress => {
+export const collectionProgress = (
+  invoices: ReceivableInvoice[],
+  asOf: string,
+  bounds?: Partial<AgingBounds> | null
+): CollectionProgress => {
   const relevant = invoices.filter((invoice) => isOpenReceivableStatus(invoice.status));
   const issuedFen = relevant.reduce((sum, invoice) => sum + toFen(invoice.total), 0);
   const collectedFen = relevant.reduce((sum, invoice) => sum + Math.min(toFen(invoice.paid), toFen(invoice.total)), 0);
   const open = openReceivables(relevant);
-  const overdue = open.filter((invoice) => agingBucket(invoice.dueDate, asOf) !== "current");
+  const overdue = open.filter((invoice) => agingBucket(invoice.dueDate, asOf, bounds) !== "current");
   const openFen = open.reduce((sum, invoice) => sum + toFen(remainingOf(invoice)), 0);
   const overdueFen = overdue.reduce((sum, invoice) => sum + toFen(remainingOf(invoice)), 0);
   return {
@@ -244,8 +303,12 @@ export const collectionProgress = (invoices: ReceivableInvoice[], asOf: string):
   };
 };
 
-export const agingTotalsMatchOpen = (invoices: ReceivableInvoice[], asOf: string): boolean => {
-  const aging = summarizeAging(invoices, asOf);
+export const agingTotalsMatchOpen = (
+  invoices: ReceivableInvoice[],
+  asOf: string,
+  bounds?: Partial<AgingBounds> | null
+): boolean => {
+  const aging = summarizeAging(invoices, asOf, bounds);
   const openFen = openReceivables(invoices).reduce((sum, invoice) => sum + toFen(remainingOf(invoice)), 0);
   const bucketFen = toFen(aging.current) + toFen(aging.d30) + toFen(aging.d60) + toFen(aging.d90) + toFen(aging.over90);
   return openFen === bucketFen;

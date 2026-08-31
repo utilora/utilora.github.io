@@ -1,9 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
   agingBucket,
+  agingBucketLabels,
   agingTotalsMatchOpen,
   collectionProgress,
   customerDebts,
+  DEFAULT_AGING_BOUNDS,
+  normalizeAgingBounds,
   remainingOf,
   summarizeAging
 } from "../core/receivables/local";
@@ -31,6 +34,19 @@ describe("receivable aging", () => {
     expect(aging.over90).toBe(400);
     expect(agingTotalsMatchOpen(invoices, asOf)).toBe(true);
     expect(aging.current + aging.d30 + aging.d60 + aging.d90 + aging.over90).toBe(6516);
+  });
+
+  it("reads configurable bucket bounds instead of hard-coded 30/60/90", () => {
+    const tight = { bucket1: 7, bucket2: 14, bucket3: 21 };
+    expect(agingBucket("2026-08-25", asOf, tight)).toBe("d30");
+    expect(agingBucket("2026-08-15", asOf, tight)).toBe("d90");
+    expect(agingBucket("2026-05-01", asOf, tight)).toBe("over90");
+    expect(agingBucketLabels(tight).d30).toBe("逾期 1–7 天");
+    expect(agingBucketLabels(tight).d60).toBe("逾期 8–14 天");
+    expect(agingBucketLabels(tight).over90).toBe("逾期 21 天以上");
+    expect(agingBucketLabels({ bucket1: 15, bucket2: 45, bucket3: 90 }).d30).toBe("逾期 1–15 天");
+    expect(normalizeAgingBounds({ bucket1: 90, bucket2: 60, bucket3: 30 })).toEqual(DEFAULT_AGING_BOUNDS);
+    expect(agingTotalsMatchOpen(invoices, asOf, tight)).toBe(true);
   });
 });
 

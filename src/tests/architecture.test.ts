@@ -419,4 +419,26 @@ describe("product architecture", () => {
     expect(read("admin/admin-ops.js")).toContain("变更后");
     expect(read("admin/admin-ops.js")).not.toMatch(/service[_-]?role|sb_secret/i);
   });
+
+  it("lets admins configure receivable aging bucket bounds", () => {
+    const sql = read("supabase/migrations/202608310015_aging_bucket_bounds.sql");
+    expect(sql).toContain("get_aging_bucket_bounds");
+    expect(sql).toContain("aging_bucket_1_days");
+    expect(sql).toContain("grant execute on function public.get_aging_bucket_bounds()");
+    expect(sql).not.toMatch(/grant\s+(select|insert|update|delete)\s+on\s+public\.platform_config/i);
+    expect(read("supabase/migrations/202608310012_admin_platform_limits.sql")).toContain("账龄分桶须满足 0 < 桶1 < 桶2 < 桶3 ≤ 365");
+    expect(read("supabase/admin-ops.sql")).toContain("202608310015_aging_bucket_bounds.sql");
+    expect(read("admin/limits.js")).toContain("aging: '账龄分桶'");
+    expect(read("admin/limits.js")).toContain("agingPreviewLabels");
+    expect(read("admin/limits.js")).toContain('id="aging-preview"');
+    expect(read("admin/index.html")).toContain("账龄分桶单独成组");
+    expect(read("src/core/receivables/local.ts")).toContain("normalizeAgingBounds");
+    expect(read("src/core/receivables/local.ts")).toContain("DEFAULT_AGING_BOUNDS");
+    expect(read("src/core/receivables/bounds.ts")).toContain("get_aging_bucket_bounds");
+    expect(read("src/core/receivables/bounds.ts")).not.toMatch(/service[_-]?role|sb_secret/i);
+    expect(read("src/pro.ts")).toContain("fetchAgingBounds");
+    expect(read("src/pro.ts")).toContain("UtiloraAgingBounds");
+    expect(read("pro/app.js")).toContain("agingBucketLabels");
+    expect(read("pro/app.js")).toContain("agingConfig()");
+  });
 });

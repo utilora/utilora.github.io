@@ -53,7 +53,7 @@
 | 线 | 分支 | 当前项 | 状态 |
 |----|------|--------|------|
 | 用户端 | feat/user-workspace | 五个财税工具打磨 | 待开始 |
-| 管理端 | feat/admin-ops | 账龄分桶边界配置 | 待开始 |
+| 管理端 | feat/admin-ops | — | 空闲 |
 | 安全 | fix/security-hardening | — | 空闲 |
 | 安全 | fix/security-hardening | — | 空闲 |
 
@@ -100,7 +100,7 @@ U-18 流水忽略须填原因：未匹配队列中「忽略」必须选择预设
 | U-05 | 已合入 main | feat/user-workspace | 56157a5 | 月结纪律；67 tests；build PASS |
 | U-06 | 已合入 main | feat/user-workspace | 5132217 | 备份预览；70 tests；build PASS |
 | U-07 | 已合入 main | feat/user-workspace | cad6f3b | 账户页权益；76 tests；build PASS |
-| U-08 | 已合入 main | feat/user-workspace | — | 登录注册走通；验证码可恢复；next 站内相对路径；停用提示；超限读配置 |
+| U-08 | 已合入 main | feat/user-workspace | 17aaa9e | 登录注册走通；验证码可恢复；next 站内相对路径；停用提示；超限读配置 |
 | U-09 | 待开始 | feat/user-workspace | — | — |
 | U-10 | 待开始 | feat/user-workspace | — | — |
 | U-11 | 预埋 / 不展示 | feat/user-workspace | — | — |
@@ -140,7 +140,7 @@ A-11 账龄分桶边界配置：在限额/运营策略配置中增加「账龄�
 | A-08 | 预埋 / 待支付 | feat/admin-ops | — | 邀请预埋 |
 | A-09 | 已合入 main | feat/admin-ops | 489b3af | 审计日志查询与导出；71 tests；build PASS |
 | A-10 | 已合入 main | feat/admin-ops | 0e80a78 | 运营策略配置（匹配窗口 / 金额容差 / 备份过期）；71 tests；build PASS；生产 SQL 已执行 |
-| A-11 | 待开始 | feat/admin-ops | — | — |
+| A-11 | 已合入 main | feat/admin-ops | — | 账龄分桶边界配置；非法序拒绝；预览五桶；用户端读配置 |
 
 ## 安全改善（分支 fix/security-hardening）
 
@@ -170,6 +170,7 @@ S-09 留言与购买意向提交限流：功能建议必须登录后走 submit-f
 
 ## 变更记录
 
+- 2026-08-31：合入 main：账龄分桶边界配置。限额页独立账龄组与五桶预览；非法序拒绝保存并写审计；get_aging_bucket_bounds 供新打开的账龄视图读取。占用改为五个财税工具打磨 / 空闲 / 安全空闲。
 - 2026-08-31：合入 main：登录注册走通。验证码失败可重发、找回密码、next 只允许站内相对路径、停用账号提示、超限文案读服务端限额。占用改为五个财税工具打磨 / 账龄分桶边界配置 / 安全空闲。
 - 2026-08-31：合入 main：账户页权益展示（cad6f3b）。占用改为登录注册走通 / 账龄分桶边界配置 / 安全空闲。
 - 2026-08-31：部署 submit-feedback（留言提交限流）。未登录返回需登录；生产 SQL 已执行。占用仍为账户页权益展示 / 账龄分桶边界配置 / 安全空闲。

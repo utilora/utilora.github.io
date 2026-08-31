@@ -21,6 +21,13 @@
   const addDays = (n) => { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10); };
   const esc = (v) => String(v || "").replace(/[&<>"]/g, (ch) => ({ "&": "\u0026amp;", "<": "\u0026lt;", ">": "\u0026gt;", '"': "\u0026quot;" }[ch]));
   const money = (n) => F.formatRmb(F.roundFen(Number(n) || 0));
+  const agingConfig = () => window.UtiloraAgingBounds || undefined;
+  const agingLabels = (short = false) => {
+    const Rec = window.UtiloraReceivables;
+    if (short && Rec?.agingBucketShortLabels) return Rec.agingBucketShortLabels(agingConfig());
+    if (Rec?.agingBucketLabels) return Rec.agingBucketLabels(agingConfig());
+    return { current: "未到期", d30: "逾期 1–30 天", d60: "逾期 31–60 天", d90: "逾期 61–90 天", over90: "逾期 90 天以上" };
+  };
 
   const empty = (name = "我的企业") => ({
     schemaVersion: 3,
@@ -542,7 +549,7 @@
     const payments = db.payments.filter((p) => invoices.some((inv) => inv.id === p.invoiceId));
     const Rec = window.UtiloraReceivables;
     const rows = receivableRows().filter((row) => row.customerId === id);
-    const progress = Rec ? Rec.collectionProgress(rows, today()) : null;
+    const progress = Rec ? Rec.collectionProgress(rows, today(), agingConfig()) : null;
     const billed = invoices.reduce((sum, inv) => sum + compute(inv).inclusive, 0);
     const received = payments.reduce((sum, p) => sum + Number(p.amount || 0), 0);
     const notes = Rec && Rec.notesForCustomer ? Rec.notesForCustomer(db.collectionNotes || [], id) : (db.collectionNotes || []).filter((item) => item.customerId === id);
@@ -621,9 +628,11 @@
     const Rec = window.UtiloraReceivables;
     const asOf = today();
     const rows = isEst || !Rec ? [] : receivableRows();
-    const progress = Rec && !isEst ? Rec.collectionProgress(rows, asOf) : null;
-    const aging = Rec && !isEst ? Rec.summarizeAging(rows, asOf) : null;
-    const debts = Rec && !isEst ? Rec.customerDebts(rows, asOf) : [];
+    const progress = Rec && !isEst ? Rec.collectionProgress(rows, asOf, agingConfig()) : null;
+    const aging = Rec && !isEst ? Rec.summarizeAging(rows, asOf, agingConfig()) : null;
+    const debts = Rec && !isEst ? Rec.customerDebts(rows, asOf, agingConfig()) : [];
+    const labels = agingLabels();
+    const short = agingLabels(true);
     const overview = !isEst && progress && aging ? `
       <div class="panel ar-overview">
         <h2>应收回款概览</h2>
@@ -634,12 +643,12 @@
           <div class="stat-card"><div><b>${progress.collectedRate}%</b><span>回款进度</span><small>已收 ${money(progress.collectedTotal)} / 应收 ${money(progress.issuedTotal)}</small></div></div>
           <div class="stat-card"><div><b>${progress.settledCount}</b><span>已结清</span><small>不含草稿和作废</small></div></div>
         </div>
-        <div class="table-wrap"><table class="sheet-table"><thead><tr><th>未到期</th><th>逾期 1–30 天</th><th>逾期 31–60 天</th><th>逾期 61–90 天</th><th>逾期 90 天以上</th></tr></thead>
+        <div class="table-wrap"><table class="sheet-table"><thead><tr><th>${labels.current}</th><th>${labels.d30}</th><th>${labels.d60}</th><th>${labels.d90}</th><th>${labels.over90}</th></tr></thead>
         <tbody><tr><td>${money(aging.current)}</td><td>${money(aging.d30)}</td><td>${money(aging.d60)}</td><td>${money(aging.d90)}</td><td>${money(aging.over90)}</td></tr></tbody></table></div>
       </div>
       <div class="panel" style="margin-top:14px">
         <h2>客户欠款</h2>
-        <div class="table-wrap"><table class="sheet-table"><thead><tr><th>客户</th><th>未收</th><th>逾期</th><th>未到期</th><th>1–30 天</th><th>31–60 天</th><th>61–90 天</th><th>90 天以上</th></tr></thead>
+        <div class="table-wrap"><table class="sheet-table"><thead><tr><th>客户</th><th>未收</th><th>逾期</th><th>${short.current}</th><th>${short.d30}</th><th>${short.d60}</th><th>${short.d90}</th><th>${short.over90}</th></tr></thead>
         <tbody>${debts.map((row) => `<tr data-ar-customer="${esc(row.customerId)}" class="${row.overdueAmount > 0 ? "warn-row" : ""}"><td>${esc(row.customerName)}</td><td>${money(row.openAmount)}</td><td>${money(row.overdueAmount)}</td><td>${money(row.aging.current)}</td><td>${money(row.aging.d30)}</td><td>${money(row.aging.d60)}</td><td>${money(row.aging.d90)}</td><td>${money(row.aging.over90)}</td></tr>`).join("") || `<tr><td colspan="8">没有未收应收</td></tr>`}</tbody></table></div>
       </div>` : "";
     view.innerHTML = `${overview}<div class="split-app${overview ? " ar-docs" : ""}">
@@ -1062,13 +1071,15 @@
   function renderReports() {
     const series = monthSeries();
     const Rec = window.UtiloraReceivables;
-    const aging = Rec ? Rec.summarizeAging(receivableRows(), today()) : { current: 0, d30: 0, d60: 0, d90: 0, over90: 0 };
-    const progress = Rec ? Rec.collectionProgress(receivableRows(), today()) : null;
+    const bounds = agingConfig();
+    const labels = agingLabels();
+    const aging = Rec ? Rec.summarizeAging(receivableRows(), today(), bounds) : { current: 0, d30: 0, d60: 0, d90: 0, over90: 0 };
+    const progress = Rec ? Rec.collectionProgress(receivableRows(), today(), bounds) : null;
     const receivable = progress ? progress.openTotal : db.invoices.reduce((s,inv)=>s+Math.max(0,compute(inv).inclusive-paidOf(inv.id)),0);
     const assetNet=db.assets.reduce((s,a)=>s+assetDepreciation(a).net,0), bankNet=db.bankTransactions.reduce((s,x)=>s+Number(x.amount||0),0);
     const sales=db.invoices.reduce((s,inv)=>s+compute(inv).inclusive,0), costs=db.expenses.reduce((s,x)=>s+Number(x.amount||0),0)+db.reimbursements.reduce((s,x)=>s+Number(x.amount||0),0), receipts=db.payments.reduce((s,x)=>s+Number(x.amount||0),0);
     view.innerHTML = `<div class="panel"><p class="data-note"><b>管理口径：</b>以当前工作台数据生成的简化报表，尚不是法定财务报表，需与会计凭证和总账复核。应收账龄不含草稿和作废。</p></div><div class="stat-row" style="margin-top:14px"><div class="stat-card"><div><b>${money(sales-costs)}</b><span>简化利润</span></div></div><div class="stat-card"><div><b>${money(receipts-costs)}</b><span>简化经营现金净额</span></div></div><div class="stat-card"><div><b>${money(receivable)}</b><span>应收余额</span></div></div></div><div class="chart-card"><h2>近 8 个月销售与费用</h2>${svgChart(series)}</div>
-      <div class="panel" style="margin-top:14px"><h2>应收账龄</h2><table class="sheet-table"><thead><tr><th>未到期</th><th>逾期 1–30 天</th><th>逾期 31–60 天</th><th>逾期 61–90 天</th><th>逾期 90 天以上</th></tr></thead><tbody><tr><td>${money(aging.current)}</td><td>${money(aging.d30)}</td><td>${money(aging.d60)}</td><td>${money(aging.d90)}</td><td>${money(aging.over90)}</td></tr></tbody></table></div>
+      <div class="panel" style="margin-top:14px"><h2>应收账龄</h2><table class="sheet-table"><thead><tr><th>${labels.current}</th><th>${labels.d30}</th><th>${labels.d60}</th><th>${labels.d90}</th><th>${labels.over90}</th></tr></thead><tbody><tr><td>${money(aging.current)}</td><td>${money(aging.d30)}</td><td>${money(aging.d60)}</td><td>${money(aging.d90)}</td><td>${money(aging.over90)}</td></tr></tbody></table></div>
       <div class="panel" style="margin-top:14px"><h2>简化资产负债表</h2><table class="sheet-table"><tbody><tr><td>银行流水净额</td><td>${money(bankNet)}</td></tr><tr><td>应收账款</td><td>${money(receivable)}</td></tr><tr><td>固定资产净值</td><td>${money(assetNet)}</td></tr><tr><th>已识别资产合计</th><th>${money(bankNet+receivable+assetNet)}</th></tr></tbody></table></div><div class="panel" style="margin-top:14px"><h2>简化利润表 / 现金流量表</h2><table class="sheet-table"><tbody><tr><td>营业收入</td><td>${money(sales)}</td></tr><tr><td>费用与报销</td><td>${money(costs)}</td></tr><tr><th>简化利润</th><th>${money(sales-costs)}</th></tr><tr><td>客户收款</td><td>${money(receipts)}</td></tr><tr><th>经营现金净额</th><th>${money(receipts-costs)}</th></tr></tbody></table></div><div class="panel" style="margin-top:14px"><table class="sheet-table"><thead><tr><th>月份</th><th>销售</th><th>费用</th><th>净额</th></tr></thead><tbody>${series.map((s) => `<tr><td>${s.label}</td><td>${money(s.sales)}</td><td>${money(s.expenses)}</td><td>${money(s.sales - s.expenses)}</td></tr>`).join("")}</tbody></table></div>`;
     primary.hidden = true;
   }
