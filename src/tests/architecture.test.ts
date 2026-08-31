@@ -334,6 +334,17 @@ describe("product architecture", () => {
     expect(read("assets/js/announcement.js")).not.toMatch(/sb_secret/i);
   });
 
+  it("lets admins expire an announcement so the popup stops", () => {
+    const sql = read("supabase/migrations/202608310014_admin_expire_announcement.sql");
+    expect(sql).toContain("admin_expire_announcement");
+    expect(sql).toContain("announcement_expire");
+    expect(sql).toContain("is_active = false");
+    expect(sql).not.toMatch(/grant\s+(select|insert|update|delete)\s+on\s+public\.announcements/i);
+    expect(read("admin/admin-ops.js")).toContain("rpc/admin_expire_announcement");
+    expect(read("admin/admin-ops.js")).toContain("停止弹出");
+    expect(read("admin/index.html")).toContain("停止弹出");
+  });
+
   it("lets admins change every quantity limit from a config page", () => {
     const sql = read("supabase/migrations/202608310012_admin_platform_limits.sql");
     expect(sql).toContain("admin_list_platform_limits");

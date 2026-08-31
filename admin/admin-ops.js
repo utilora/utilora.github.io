@@ -3,6 +3,7 @@
   const GRANT_SQL = 'supabase/migrations/202608310001_admin_grant_entitlement.sql';
   const FOLLOW_SQL = 'supabase/migrations/202608310003_admin_intent_followup.sql';
   const ANNOUNCE_SQL = 'supabase/migrations/202608310010_announcements.sql';
+  const EXPIRE_SQL = 'supabase/migrations/202608310014_admin_expire_announcement.sql';
   const TRIAL_DAYS_DEFAULT = 14;
   const LOG_PAGE = 50;
   let promotionsCache = [];
@@ -60,6 +61,8 @@
     set_user_admin: '提权/取消管理员',
     set_user_disabled: '停用/启用账号',
     update_platform_limits: '改限额',
+    announcement_upsert: '发布/改公告',
+    announcement_expire: '停止弹出公告',
     grant_entitlement: '发放专业版/试用',
     revoke_entitlement: '收回专业版',
     intent_followup: '意向跟进',
@@ -340,6 +343,13 @@
     }
   }
 
+  function announcementStatus(row) {
+    const end = row?.ends_at ? new Date(row.ends_at) : null;
+    if (end && !Number.isNaN(end.getTime()) && end.getTime() <= Date.now()) return 'expired';
+    if (row?.is_active) return 'live';
+    return 'off';
+  }
+
   function renderAnnouncements() {
     const list = document.getElementById('announcements-list');
     const emptyBox = document.getElementById('announcements-empty');
@@ -361,10 +371,11 @@
       const body = document.createElement('td');
       body.textContent = (row.body || '').slice(0, 80);
       const status = document.createElement('td');
-      status.innerHTML = `<span class="status-pill ${row.is_active ? 'ok' : 'off'}"></span>`;
-      status.querySelector('span').textContent = row.is_active ? '发布中' : '未发布';
+      const kind = announcementStatus(row);
+      status.innerHTML = `<span class="status-pill ${kind === 'live' ? 'ok' : 'off'}"></span>`;
+      status.querySelector('span').textContent = kind === 'live' ? '弹出中' : (kind === 'expired' ? '已过期' : '未发布');
       const time = document.createElement('td');
-      time.textContent = row.created_at ? new Date(row.created_at).toLocaleString() : '—';
+      time.textContent = row.ends_at ? formatTime(row.ends_at) : '未设过期';
       const actions = document.createElement('td');
       const use = document.createElement('button');
       use.type = 'button';
@@ -372,6 +383,16 @@
       use.textContent = '填入表单';
       use.addEventListener('click', () => fillAnnouncementForm(row));
       actions.append(use);
+      if (kind === 'live') {
+        const stop = document.createElement('button');
+        stop.type = 'button';
+        stop.className = 'secondary';
+        stop.textContent = '停止弹出';
+        stop.addEventListener('click', () => {
+          expireAnnouncement(row).catch((error) => setMessage(document.getElementById('announcements-message'), error.message, true));
+        });
+        actions.append(stop);
+      }
       tr.append(title, body, status, time, actions);
       list.append(tr);
     });
@@ -417,6 +438,40 @@
       await loadAnnouncements();
     } catch (error) {
       setMessage(msg, setupHint(classifyError(error), ANNOUNCE_SQL) || error.message, true);
+    }
+  }
+
+  async function expireAnnouncement(row) {
+    const msg = document.getElementById('announcements-message');
+    if (!row?.id) {
+      setMessage(msg, '找不到这条公告。', true);
+      return;
+    }
+    if (announcementStatus(row) !== 'live') {
+      setMessage(msg, '这条已经不再弹出。');
+      return;
+    }
+    if (!(await askConfirm(`停止弹出公告「${row.title || '未命名'}」。公告立即过期，用户端不再出现。须二次确认并写入操作日志。`))) {
+      return;
+    }
+    if (isPreview() && !getSession()) {
+      row.is_active = false;
+      row.ends_at = new Date().toISOString();
+      renderAnnouncements();
+      setMessage(msg, '预览已停止弹出，未写入生产。');
+      return;
+    }
+    setMessage(msg, '正在停止弹出……');
+    try {
+      await request('rpc/admin_expire_announcement', {
+        method: 'POST',
+        body: JSON.stringify({ p_id: row.id }),
+      });
+      setMessage(msg, '已停止弹出，公告已过期。');
+      if (document.getElementById('announcement-id')?.value === row.id) resetAnnouncementForm();
+      await loadAnnouncements();
+    } catch (error) {
+      setMessage(msg, setupHint(classifyError(error), EXPIRE_SQL) || error.message, true);
     }
   }
 
