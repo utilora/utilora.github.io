@@ -25,6 +25,8 @@ const TABLES_DENY_ANON = [
   "profiles",
   "feedback",
   "edge_function_call_log",
+  "public_submit_log",
+  "password_reset_log",
 ];
 
 const RPC_DENY_ANON = [
@@ -55,6 +57,10 @@ const RPC_DENY_ANON = [
   "account_is_disabled",
   "check_edge_function_call_allowed",
   "record_edge_function_call",
+  "check_password_reset_allowed",
+  "record_password_reset",
+  "check_public_submit_allowed",
+  "record_public_submit",
 ];
 
 const RPC_ALLOW_ANON = ["track_analytics_event", "submit_purchase_intent"];
