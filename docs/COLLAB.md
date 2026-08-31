@@ -48,8 +48,8 @@
 
 | 线 | 分支 | 当前项 | 状态 |
 |----|------|--------|------|
-| 用户端 | feat/user-workspace | U-03 | 待开始 |
-| 管理端 | feat/admin-ops | A-05 | 待开始 |
+| 用户端 | feat/user-workspace | U-04 | 待开始 |
+| 管理端 | feat/admin-ops | A-06 | 待开始 |
 | 安全 | fix/security-hardening | — | 空闲 |
 
 ## AI 开工前必读
@@ -90,7 +90,7 @@ U-18 流水忽略须填原因：未匹配队列中「忽略」必须选择预设
 |------|------|------|----------|------|
 | U-01 | 已合入 main | feat/user-workspace | 5d8e032 | 未匹配流水队列 |
 | U-02 | 已合入 main | feat/user-workspace | 05facb9 | 部分匹配；46 tests；build PASS |
-| U-03 | 待开始 | feat/user-workspace | — | — |
+| U-03 | 已合入 main | feat/user-workspace | — | 待匹配 / 今日该催 / 本周到期 / 备份过期 |
 | U-04 | 待开始 | feat/user-workspace | — | — |
 | U-05 | 待开始 | feat/user-workspace | — | — |
 | U-06 | 待开始 | feat/user-workspace | — | — |
@@ -129,7 +129,7 @@ A-11 账龄分桶边界配置：在限额/运营策略配置中增加「账龄�
 | A-02 | 已合入 main | feat/admin-ops | 40dd341 | 风控台已接线；生产 SQL 已执行 |
 | A-03 | 已合入 main | feat/admin-ops | 74ad518 | 下次跟进日 / 结果 / 已发试用；需执行 migrations/202608310003_admin_intent_followup.sql |
 | A-04 | 已合入 main | feat/admin-ops | — | 关闭/开启全员限免；payment_required 仍为 false |
-| A-05 | 待开始 | feat/admin-ops | — | — |
+| A-05 | 已合入 main | feat/admin-ops | — | 新留言 / 待跟进意向 / 今日异常注册 |
 | A-06 | 待开始 | feat/admin-ops | — | — |
 | A-07 | 待开始 | feat/admin-ops | — | — |
 | A-08 | 预埋 / 待支付 | feat/admin-ops | — | — |
@@ -163,7 +163,7 @@ S-08 找回密码限流：发送重置邮件与提交新密码接口均读配置
 
 ## 变更记录
 
-- 2026-08-31：撤回用户端根地址壳（进子页后无法返回）。占用：今日待办 Dashboard / 后台待办 / 安全空闲。
+- 2026-08-31：合入 main：今日待办 Dashboard、后台待办。占用改为客户催收备忘 / 敏感操作二次确认 / 安全空闲。
 - 2026-08-31：合入 main：U-02 部分匹配（05facb9）；占用更新为 U-03 / A-03 / S-08。
 - 2026-08-31：合入 main：chore/remove-side-tools、A-01、A-02、U-01、S-01–S-07。占用改为 U-02 / A-03 / S-08。
 - 2026-08-31：追加 U-17、U-18、A-11。借鉴来源：Xero / QuickBooks Online（credit note / credit memo 冲减应收）、Xero bank reconciliation（忽略/匹配须可解释且可恢复）、商业 AR 账龄报告可配置分桶边界。

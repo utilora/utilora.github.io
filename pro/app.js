@@ -371,25 +371,33 @@
 
   function renderDashboard() {
     const month = today().slice(0, 7);
-    const unmatched = db.bankTransactions.filter((tx) => bankRemaining(tx) > 0);
+    const Rec = window.UtiloraReceivables;
+    const Queue = window.UtiloraBankQueue;
+    const asOf = today();
+    const unmatched = Queue ? Queue.pendingBankTransactions(db.bankTransactions) : db.bankTransactions.filter((tx) => bankRemaining(tx) > 0);
     const unmatchedAmount = unmatched.reduce((s, tx) => s + bankRemaining(tx), 0);
+    const receivable = receivableRows();
+    const dueToday = Rec ? Rec.collectToday(receivable, asOf) : db.invoices.filter((inv) => isCollectable(inv) && inv.dueDate && inv.dueDate <= asOf);
+    const weekDue = Rec ? Rec.dueThisWeek(receivable, asOf) : db.invoices.filter((inv) => isCollectable(inv) && inv.dueDate && inv.dueDate >= asOf && inv.dueDate <= asOf);
+    const dueTodayAmount = dueToday.reduce((s, inv) => s + (Rec ? Rec.remainingOf(inv) : invoiceBalance(inv)), 0);
+    const weekAmount = weekDue.reduce((s, inv) => s + (Rec ? Rec.remainingOf(inv) : invoiceBalance(inv)), 0);
     const monthPendingInvoices = db.invoices.filter((inv) => isCollectable(inv) && String(inv.dueDate || today()) <= `${month}-31`);
     const monthPendingAmount = monthPendingInvoices.reduce((s, inv) => s + invoiceBalance(inv), 0);
-    const overdue = db.invoices.filter((inv) => invoiceStatus(inv) === "overdue");
-    const dues = monthPendingInvoices.slice().sort((a, b) => String(a.dueDate || today()).localeCompare(String(b.dueDate || today()))).slice(0, 8);
     const recentPayments = db.payments.slice().sort((a, b) => String(b.date).localeCompare(String(a.date))).slice(0, 6);
     const anomalies = collectAnomalies();
     const { result: closePack } = monthEndPack(month);
     const closeSteps = closePack.steps;
     const closeDone = closePack.done;
     const closePct = closePack.percent;
-    const todos = [];
-    if (unmatched.length) todos.push({ go: "bank", title: "匹配银行流水", detail: `${unmatched.length} 笔未匹配 · ${money(unmatchedAmount)}` });
-    if (monthPendingAmount > 0) todos.push({ go: "invoices", title: "跟进应收回款", detail: `本月待收 ${money(monthPendingAmount)}${overdue.length ? ` · 逾期 ${overdue.length} 张` : ""}` });
-    if (anomalies.length) todos.push({ go: "checks", title: "处理异常事项", detail: `${anomalies.length} 项待处理` });
-    if (!db.closedMonths.includes(month)) todos.push({ go: "checks", title: `完成本月月结`, detail: closePct >= 75 ? "检查完成后可月结" : "先完成流水匹配和异常检查" });
-    const lead = todos.length
-      ? `今天有 ${todos.length} 项财务工作需要处理`
+    const todoCards = [
+      { go: "bank", title: "待匹配流水", count: unmatched.length, detail: unmatched.length ? `${unmatched.length} 笔 · ${money(unmatchedAmount)}` : "没有待匹配流水", warn: unmatched.length > 0 },
+      { go: "invoices", title: "今日该催", count: dueToday.length, detail: dueToday.length ? `${dueToday.length} 张 · ${money(dueTodayAmount)}` : "今天没有该催的应收", warn: dueToday.length > 0 },
+      { go: "invoices", title: "本周到期", count: weekDue.length, detail: weekDue.length ? `${weekDue.length} 张 · ${money(weekAmount)}` : "本周没有到期应收", warn: weekDue.length > 0 },
+      { go: "settings", title: "备份过期", count: 0, detail: "正在检查本地备份…", warn: false, backup: true }
+    ];
+    const urgent = (unmatched.length ? 1 : 0) + (dueToday.length ? 1 : 0) + (weekDue.length ? 1 : 0);
+    const lead = urgent
+      ? `今天有 ${urgent} 类待办需要处理`
       : "今天没有紧急待办，可以查看经营报表或继续录入。";
     const strip = workflowStrip({
       bank: db.bankTransactions.length ? (unmatched.length ? `${unmatched.length} 笔待匹配 · ${money(unmatchedAmount)}` : "已全部匹配") : "尚未导入流水",
@@ -400,51 +408,77 @@
       checkWarn: anomalies.length > 0 || !db.closedMonths.includes(month),
       report: "查看利润、现金流和账龄",
     });
+    const dueRow = (inv) => {
+      const name = inv.customerName || customer(inv.customerId).name;
+      const due = inv.dueDate || "";
+      const amt = Rec ? Rec.remainingOf(inv) : invoiceBalance(inv);
+      return `<div class="mini-row" data-go="invoices/${inv.id}"><div><b>${esc(name)}</b><small>${esc(due)} · ${esc(inv.number)}</small></div><b>${money(amt)}</b></div>`;
+    };
 
-    if (!db.customers.length && !db.estimates.length && !db.invoices.length && !db.expenses.length) {
-      view.innerHTML = `<div class="today-work-lead"><h2>今天有什么财务工作需要处理？</h2><p>还没有业务数据。先建立账套，或载入演示查看完整工作流。</p></div>${strip}<div class="welcome-panel"><span>3 分钟上手</span><h2>建立你的第一个本地财务账套</h2><div class="onboarding-steps"><b>1. 填写公司信息</b><b>2. 建立第一个客户</b><b>3. 录入应收或导入银行流水</b></div><p>如果只想看效果，可先载入明确标记的演示数据，不会上传。</p><div class="actions"><button data-start="settings">开始第 1 步</button><button class="secondary" data-start="customers">创建客户</button><button class="secondary" data-start="demo">先看演示</button></div><small>数据仅保存在当前浏览器，请定期导出备份。</small></div>`;
-      view.querySelector('[data-start="settings"]').onclick = () => go("settings");
-      view.querySelector('[data-start="customers"]').onclick = () => go("customers");
-      view.querySelector('[data-start="demo"]').onclick = async () => { if (window.confirm("在当前空公司中载入演示数据？")) { db = demo(); await save(); draw(); } };
-      view.querySelectorAll("[data-go]").forEach((el) => { el.onclick = () => { location.hash = `#/${el.dataset.go}`; }; });
-      return;
-    }
-
-    view.innerHTML = `
+    const body = `
       <div class="today-work-lead">
         <h2>今天有什么财务工作需要处理？</h2>
         <p>${esc(lead)}</p>
       </div>
       ${strip}
-      <div class="stat-row">
-        <div class="stat-card${monthPendingAmount > 0 ? " warn" : ""}" data-go="invoices"><div><b>${money(monthPendingAmount)}</b><span>本月待收金额</span><small>${monthPendingInvoices.length} 张待收${overdue.length ? ` · 逾期 ${overdue.length} 张` : ""}</small></div><div class="stat-ico pink">收</div></div>
-        <div class="stat-card${unmatched.length ? " warn" : ""}" data-go="bank"><div><b>${unmatched.length ? money(unmatchedAmount) : "已匹配"}</b><span>银行流水匹配</span><small>${db.bankTransactions.length ? `${unmatched.length} 笔待匹配 / 共 ${db.bankTransactions.length} 笔` : "尚未导入流水"}</small></div><div class="stat-ico blue">流</div></div>
-        <div class="stat-card${anomalies.length ? " warn" : ""}" data-go="checks"><div><b>${anomalies.length}</b><span>异常 / 待处理</span><small>${anomalies.length ? anomalies[0].issue : "未发现明显异常"}</small></div><div class="stat-ico pink">异</div></div>
-        <div class="stat-card${closePct < 100 ? " warn" : ""}" data-go="checks"><div><b>${closePct}%</b><span>月结完成度</span><small>${closeDone}/${closeSteps.length} 项已完成</small></div><div class="stat-ico violet">结</div></div>
+      <div class="stat-row dash-today">
+        ${todoCards.map((card) => `<div class="stat-card${card.warn ? " warn" : ""}" data-go="${card.go}" ${card.backup ? 'id="dashboard-backup-card"' : ""}><div><b>${card.backup ? "—" : (card.count || "0")}</b><span>${esc(card.title)}</span><small>${esc(card.detail)}</small></div></div>`).join("")}
       </div>
-      <div class="month-progress" aria-label="月结完成度"><i style="width:${closePct}%"></i></div>
-      <div class="list-card dash-todo">
-        <h2>今日待办</h2>
-        ${todos.length ? todos.map((item) => `<div class="mini-row" data-go="${item.go}"><div><b>${esc(item.title)}</b><small>${esc(item.detail)}</small></div><b>去处理</b></div>`).join("") : `<p class="empty">今天没有紧急待办。可以查看经营报表。</p>`}
-      </div>
-      <div class="backup-banner" id="dashboard-backup">正在检查本地备份状态…</div>
       <div class="split-lists">
         <div class="list-card">
-          <h2 data-go="invoices">到期应收</h2>
-          ${dues.length ? dues.map((inv) => `<div class="mini-row" data-go="invoices/${inv.id}"><div><b>${esc(customer(inv.customerId).name)}</b><small>${esc(inv.dueDate)} · ${esc(inv.number)}</small></div><b>${money(invoiceBalance(inv))}</b></div>`).join("") : `<p class="empty">没有到期应收单</p>`}
+          <h2 data-go="invoices">今日该催</h2>
+          ${dueToday.length ? dueToday.slice(0, 8).map(dueRow).join("") : `<p class="empty">今天没有该催的应收</p>`}
+        </div>
+        <div class="list-card">
+          <h2 data-go="invoices">本周到期</h2>
+          ${weekDue.length ? weekDue.slice(0, 8).map(dueRow).join("") : `<p class="empty">本周没有到期应收</p>`}
+        </div>
+      </div>
+      <div class="split-lists">
+        <div class="list-card">
+          <h2 data-go="bank">待匹配流水</h2>
+          ${unmatched.length ? unmatched.slice(0, 8).map((tx) => `<div class="mini-row" data-go="bank"><div><b>${esc(tx.summary || "银行流水")}</b><small>${esc(tx.date)} · 待匹配 ${money(bankRemaining(tx))}</small></div><b>${money(tx.amount)}</b></div>`).join("") : `<p class="empty">没有待匹配流水</p>`}
         </div>
         <div class="list-card">
           <h2 data-go="payments">最近收款</h2>
           ${recentPayments.map((p) => { const inv = db.invoices.find((i) => i.id === p.invoiceId) || {}; return `<div class="mini-row" data-go="payments"><div><b>${esc(customer(inv.customerId).name || "未关联客户")}</b><small>${esc(p.date)} · ${esc(inv.number)}</small></div><b>${money(p.amount)}</b></div>`; }).join("") || `<p class="empty">还没有收款记录</p>`}
         </div>
-      </div>`;
+      </div>
+      <div class="month-progress" aria-label="月结完成度"><i style="width:${closePct}%"></i></div>
+      <p class="empty">月结完成度 ${closePct}% · ${closeDone}/${closeSteps.length} 项</p>`;
+
+    if (!db.customers.length && !db.estimates.length && !db.invoices.length && !db.expenses.length) {
+      view.innerHTML = `<div class="today-work-lead"><h2>今天有什么财务工作需要处理？</h2><p>还没有业务数据。先建立账套，或载入演示查看完整工作流。</p></div>
+        <div class="stat-row dash-today">
+          <div class="stat-card" data-go="bank"><div><b>0</b><span>待匹配流水</span><small>没有待匹配流水</small></div></div>
+          <div class="stat-card" data-go="invoices"><div><b>0</b><span>今日该催</span><small>今天没有该催的应收</small></div></div>
+          <div class="stat-card" data-go="invoices"><div><b>0</b><span>本周到期</span><small>本周没有到期应收</small></div></div>
+          <div class="stat-card" data-go="settings" id="dashboard-backup-card"><div><b>—</b><span>备份过期</span><small>正在检查本地备份…</small></div></div>
+        </div>
+        <div class="welcome-panel"><span>3 分钟上手</span><h2>建立你的第一个本地财务账套</h2><div class="onboarding-steps"><b>1. 填写公司信息</b><b>2. 建立第一个客户</b><b>3. 录入应收或导入银行流水</b></div><p>如果只想看效果，可先载入明确标记的演示数据，不会上传。</p><div class="actions"><button data-start="settings">开始第 1 步</button><button class="secondary" data-start="customers">创建客户</button><button class="secondary" data-start="demo">先看演示</button></div><small>数据仅保存在当前浏览器，请定期导出备份。</small></div>`;
+      view.querySelector('[data-start="settings"]').onclick = () => go("settings");
+      view.querySelector('[data-start="customers"]').onclick = () => go("customers");
+      view.querySelector('[data-start="demo"]').onclick = async () => { if (window.confirm("在当前空公司中载入演示数据？")) { db = demo(); await save(); draw(); } };
+      view.querySelectorAll("[data-go]").forEach((el) => { el.onclick = () => { location.hash = `#/${el.dataset.go}`; }; });
+      paintBackupCard();
+      return;
+    }
+
+    view.innerHTML = body;
     view.querySelectorAll("[data-go]").forEach((el) => el.onclick = () => { location.hash = `#/${el.dataset.go}`; });
+    paintBackupCard();
+  }
+
+  function paintBackupCard() {
     getSetting(backupKey()).then((item) => {
-      const node = document.getElementById("dashboard-backup");
+      const node = document.getElementById("dashboard-backup-card");
       if (!node) return;
       const status = window.UtiloraBackup ? window.UtiloraBackup.backupStatus(item?.value || null) : { stale: !item?.value, reminder: item?.value ? `最近备份：${new Date(item.value).toLocaleString("zh-CN")}` : "尚未导出备份 · 建议立即备份" };
       node.classList.toggle("warn", status.stale);
-      node.textContent = `${status.reminder} · 打开数据与设置`;
+      const b = node.querySelector("b");
+      const small = node.querySelector("small");
+      if (b) b.textContent = status.stale ? "过期" : "正常";
+      if (small) small.textContent = status.reminder;
       node.onclick = () => go("settings");
     });
   }

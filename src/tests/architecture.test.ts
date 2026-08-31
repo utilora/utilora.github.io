@@ -114,6 +114,12 @@ describe("product architecture", () => {
     expect(read("pro/app.js")).toContain("buildBackup");
     expect(read("pro/app.js")).toContain("parseBackup");
     expect(read("pro/app.js")).toContain("backupStatus");
+    expect(read("pro/app.js")).toContain("今日该催");
+    expect(read("pro/app.js")).toContain("本周到期");
+    expect(read("pro/app.js")).toContain("待匹配流水");
+    expect(read("pro/app.js")).toContain("dashboard-backup-card");
+    expect(read("src/core/receivables/local.ts")).toContain("collectToday");
+    expect(read("src/core/receivables/local.ts")).toContain("dueThisWeek");
     expect(read("pro/app.js")).toContain("完整备份包含客户、应收、收款、银行流水、费用和科目");
   });
 
@@ -201,6 +207,11 @@ describe("product architecture", () => {
     expect(read("admin/admin.js")).toContain("utilora_admin_sidebar");
     expect(read("admin/index.html")).toContain("sidebar-resizer");
     expect(read("admin/admin-ops.js")).toContain("refreshAll()");
+    expect(read("admin/index.html")).toContain("后台待办");
+    expect(read("admin/index.html")).toContain('id="todo-feedback"');
+    expect(read("admin/admin-ops.js")).toContain("abnormal_registrations_today");
+    expect(read("supabase/migrations/202608310011_admin_ops_todos.sql")).toContain("abnormal_registrations_today");
+    expect(read("supabase/admin-ops.sql")).toContain("abnormal_registrations_today");
     expect(read("assets/js/auth.js")).toContain("record_user_activity");
     expect(read("assets/js/analytics.js")).toContain("record_user_activity");
     expect(read("src/core/auth/session.ts")).toContain("record_user_activity");

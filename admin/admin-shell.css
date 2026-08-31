@@ -156,6 +156,19 @@ html,body.admin-body{height:100%;min-height:100vh;background:#f1f5f9}
 .launch-promo-box strong{display:block;margin-bottom:4px}
 .launch-promo-box .row-actions{margin:0}
 #announcement-form textarea{width:100%;min-height:120px;resize:vertical}
+.admin-todo{margin:0 0 18px;padding:16px 18px;border:1px solid #e2e8f0;border-radius:16px;background:#fff}
+.admin-todo h2{margin:0 0 12px;font-size:16px}
+.admin-todo-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.admin-todo-grid button{
+  display:flex;flex-direction:column;align-items:flex-start;gap:6px;
+  padding:14px;border:1px solid #e2e8f0;border-radius:12px;background:#f8fafc;
+  text-align:left;cursor:pointer
+}
+.admin-todo-grid button:hover{border-color:#818cf8;background:#eef2ff}
+.admin-todo-grid span{color:#64748b;font-size:12px;font-weight:700}
+.admin-todo-grid strong{font-size:28px;color:#0f172a}
+.admin-todo-grid em{font-style:normal;color:#94a3b8;font-size:12px}
+@media(max-width:900px){.admin-todo-grid{grid-template-columns:1fr}}
 .filter-actions{flex-wrap:wrap}
 .check{display:flex;align-items:center;gap:8px;font-size:13px}
 #intents-list input[type=text]{min-width:140px;margin-right:8px}

@@ -305,6 +305,7 @@ function paintOverviewExtras() {
   set('overview-new-users', newUsers);
   set('overview-signins', signins);
   set('overview-open-intents', openIntents);
+  set('todo-intents', openIntents);
 }
 
 function paginate(rows, page) {
@@ -1175,7 +1176,10 @@ renderAnalytics = function(data, range) {
 const originalRenderRows = renderRows;
 renderRows = function(rows) {
   originalRenderRows(rows);
-  document.getElementById('overview-feedback').textContent = String(rows.length);
+  const fresh = (rows || []).filter((row) => (row.status || 'new') === 'new').length;
+  document.getElementById('overview-feedback').textContent = String(fresh);
+  const todo = document.getElementById('todo-feedback');
+  if (todo) todo.textContent = String(fresh);
 };
 
 function filteredIntents() {

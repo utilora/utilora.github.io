@@ -579,6 +579,10 @@
       fill('overview-new-users', data.new_users_today);
       fill('overview-signins', data.signins_today);
       fill('overview-open-intents', data.open_intents);
+      fill('overview-feedback', data.new_feedback ?? '—');
+      fill('todo-feedback', data.new_feedback ?? '—');
+      fill('todo-intents', data.open_intents ?? '—');
+      fill('todo-risk', data.abnormal_registrations_today ?? '—');
     } catch {
       paintOverviewExtras();
     }

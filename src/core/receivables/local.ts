@@ -78,6 +78,49 @@ export const agingBucket = (dueDate: string | undefined, asOf: string): AgingBuc
 export const openReceivables = (invoices: ReceivableInvoice[]): ReceivableInvoice[] =>
   invoices.filter((invoice) => isOpenReceivableStatus(invoice.status) && remainingOf(invoice) > 0);
 
+const parseDay = (iso: string): Date => {
+  const [year = 1970, month = 1, day = 1] = iso.split("-").map((part) => Number(part));
+  return new Date(year, month - 1, day);
+};
+
+const formatDay = (date: Date): string => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+
+export const mondayOf = (asOf: string): string => {
+  const date = parseDay(asOf);
+  const weekday = date.getDay();
+  date.setDate(date.getDate() + (weekday === 0 ? -6 : 1 - weekday));
+  return formatDay(date);
+};
+
+export const sundayOf = (asOf: string): string => {
+  const date = parseDay(mondayOf(asOf));
+  date.setDate(date.getDate() + 6);
+  return formatDay(date);
+};
+
+/** 今日该催：到期日已到或已过，仍未收完 */
+export const collectToday = (invoices: ReceivableInvoice[], asOf: string): ReceivableInvoice[] =>
+  openReceivables(invoices)
+    .filter((invoice) => typeof invoice.dueDate === "string" && invoice.dueDate <= asOf)
+    .sort((a, b) => String(a.dueDate).localeCompare(String(b.dueDate)));
+
+/** 本周到期：今天到本周日（含今天）仍未收完 */
+export const dueThisWeek = (invoices: ReceivableInvoice[], asOf: string): ReceivableInvoice[] => {
+  const end = sundayOf(asOf);
+  return openReceivables(invoices)
+    .filter((invoice) => typeof invoice.dueDate === "string" && invoice.dueDate >= asOf && invoice.dueDate <= end)
+    .sort((a, b) => String(a.dueDate).localeCompare(String(b.dueDate)));
+};
+
+export const amountOf = (invoices: ReceivableInvoice[]): number =>
+  fromFen(invoices.reduce((sum, invoice) => sum + toFen(remainingOf(invoice)), 0));
+
+
 export const summarizeAging = (invoices: ReceivableInvoice[], asOf: string): AgingTotals => {
   const totals = emptyAging();
   openReceivables(invoices).forEach((invoice) => {

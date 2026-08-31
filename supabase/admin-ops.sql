@@ -570,6 +570,8 @@ declare
   v_signins integer;
   v_open_intents integer;
   v_new_feedback integer;
+  v_abnormal integer := 0;
+  v_ip_limit integer := 3;
 begin
   if not public.is_admin() then
     raise insufficient_privilege;
@@ -590,11 +592,46 @@ begin
   if to_regclass('public.feedback') is not null then
     execute 'select count(*)::int from public.feedback where status = ''new''' into v_new_feedback;
   end if;
+
+  if to_regprocedure('public.get_platform_config_int(text, integer)') is not null then
+    v_ip_limit := public.get_platform_config_int('registration_success_per_ip_per_day', 3);
+  end if;
+
+  if to_regclass('public.registration_ip_log') is not null then
+    execute $q$
+      select count(*)::int from (
+        select u.id
+        from auth.users u
+        left join public.user_flags f on f.user_id = u.id
+        where (u.created_at at time zone 'Asia/Shanghai')::date = $1
+          and coalesce(f.is_disabled, false)
+        union
+        select r.user_id
+        from public.registration_ip_log r
+        where r.reg_day = $1
+          and r.user_id is not null
+          and r.ip_hash in (
+            select ip_hash from public.registration_ip_log
+            where reg_day = $1
+            group by ip_hash
+            having count(*) >= $2
+          )
+      ) x
+    $q$ into v_abnormal using v_today, v_ip_limit;
+  else
+    select count(*)::int into v_abnormal
+    from auth.users u
+    left join public.user_flags f on f.user_id = u.id
+    where (u.created_at at time zone 'Asia/Shanghai')::date = v_today
+      and coalesce(f.is_disabled, false);
+  end if;
+
   return jsonb_build_object(
     'new_users_today', v_new_users,
     'signins_today', v_signins,
     'open_intents', v_open_intents,
-    'new_feedback', v_new_feedback
+    'new_feedback', v_new_feedback,
+    'abnormal_registrations_today', coalesce(v_abnormal, 0)
   );
 end;
 $$;

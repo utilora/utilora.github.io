@@ -67,6 +67,26 @@
         </header>
         <div class="admin-pages">
           <section id="overview-section" class="page-section">
+            <div class="admin-todo">
+              <h2>后台待办</h2>
+              <div class="admin-todo-grid">
+                <button type="button" data-page="feedback">
+                  <span>新留言</span>
+                  <strong id="todo-feedback">—</strong>
+                  <em>待处理的功能建议</em>
+                </button>
+                <button type="button" data-page="intents">
+                  <span>待跟进意向</span>
+                  <strong id="todo-intents">—</strong>
+                  <em>尚未关闭的购买意向</em>
+                </button>
+                <button type="button" data-page="risk">
+                  <span>今日异常注册</span>
+                  <strong id="todo-risk">—</strong>
+                  <em>停用或同 IP 达上限</em>
+                </button>
+              </div>
+            </div>
             <div class="overview-grid">
               <button class="overview-card" data-page="users" type="button">
                 <span>注册用户</span>
@@ -74,7 +94,7 @@
                 <em>进入用户管理</em>
               </button>
               <button class="overview-card" data-page="feedback" type="button">
-                <span>用户留言</span>
+                <span>新留言</span>
                 <strong id="overview-feedback">—</strong>
                 <em>进入留言处理</em>
               </button>
