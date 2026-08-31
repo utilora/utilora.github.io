@@ -7,7 +7,6 @@ function assert(cond, msg) {
   if (!cond) throw new Error(msg || "assertion failed");
 }
 
-/** 禁止 anon 直接 SELECT/拖取的表（用户、分析、管理、限流状态） */
 const TABLES_DENY_ANON = [
   "admin_users",
   "user_flags",
@@ -28,7 +27,6 @@ const TABLES_DENY_ANON = [
   "edge_function_call_log",
 ];
 
-/** 禁止 anon EXECUTE 的 admin / 内部 RPC */
 const RPC_DENY_ANON = [
   "is_admin",
   "admin_list_users",
@@ -45,6 +43,8 @@ const RPC_DENY_ANON = [
   "admin_write_activity",
   "get_analytics_summary",
   "get_platform_config_int",
+  "admin_list_platform_limits",
+  "admin_set_platform_limits",
   "check_registration_ip_allowed",
   "record_registration_ip",
   "check_otp_send_allowed",
@@ -57,10 +57,7 @@ const RPC_DENY_ANON = [
   "record_edge_function_call",
 ];
 
-/** 允许 anon 的写入口（不返回列表/敏感行） */
 const RPC_ALLOW_ANON = ["track_analytics_event", "submit_purchase_intent"];
-
-/** 允许 anon 只读的公开表 */
 const TABLES_ALLOW_ANON_SELECT = ["plans"];
 
 function roleMaySelectTable(role, table) {
@@ -81,26 +78,20 @@ function roleMayExecuteRpc(role, fn) {
   return true;
 }
 
-// 表：anon 不可拖用户与分析
 for (const t of TABLES_DENY_ANON) {
   assert(roleMaySelectTable("anon", t) === false, `anon must not select ${t}`);
 }
 assert(roleMaySelectTable("anon", "plans") === true, "anon may select plans");
 assert(roleMaySelectTable("authenticated", "profiles") === true, "authenticated may select profiles under RLS");
-
-// RPC：anon 不可调 admin / 内部限流
 for (const fn of RPC_DENY_ANON) {
   assert(roleMayExecuteRpc("anon", fn) === false, `anon must not execute ${fn}`);
 }
 assert(roleMayExecuteRpc("anon", "track_analytics_event") === true, "anon may track analytics");
 assert(roleMayExecuteRpc("anon", "submit_purchase_intent") === true, "anon may submit intent");
 assert(roleMayExecuteRpc("authenticated", "admin_list_users") === true, "authenticated may call admin rpc (is_admin gated)");
-
-// 清单非空且无交叉
 assert(TABLES_DENY_ANON.length >= 10, "deny table list coverage");
 assert(RPC_DENY_ANON.length >= 15, "deny rpc list coverage");
 for (const fn of RPC_ALLOW_ANON) {
   assert(!RPC_DENY_ANON.includes(fn), `${fn} must not be in deny list`);
 }
-
 console.log("rls-admin-rpc-audit.test.js: ok");

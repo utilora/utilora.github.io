@@ -7,7 +7,7 @@
     "test": "tests"
   },
   "scripts": {
-    "test": "vitest run && node tests/finance.test.js && node tests/csv.test.js",
+    "test": "vitest run && node tests/finance.test.js && node tests/csv.test.js && node tests/platform-limits.test.js && node tests/rls-admin-rpc-audit.test.js",
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview"
