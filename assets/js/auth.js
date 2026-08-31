@@ -2,6 +2,8 @@
   const API = "https://nkxgnqzdswugbjjquxfj.supabase.co";
   const KEY = "sb_publishable_IUK0swkEhqmaWKjUGv_IIQ_Y7LjtayF";
   const SESSION_KEY = "utilora_sb_session";
+  const LAST_ACTIVE_KEY = "utilora_last_active";
+  const IDLE_TIMEOUT_MS = 30 * 60 * 1000;
   const REDIRECT = "https://utilora.github.io/account/";
   const REG_LIMIT_FN = API + "/functions/v1/registration-limit";
   const OTP_LIMIT_FN = API + "/functions/v1/otp-rate-limit";
@@ -51,16 +53,64 @@
     return fallback || raw || "请求失败";
   };
 
+  const readLastActive = () => {
+    try {
+      const value = Number(localStorage.getItem(LAST_ACTIVE_KEY) || 0);
+      return Number.isFinite(value) ? value : 0;
+    } catch {
+      return 0;
+    }
+  };
+
+  const touchActivity = () => {
+    try { localStorage.setItem(LAST_ACTIVE_KEY, String(Date.now())); } catch {}
+  };
+
+  const expireIdleSession = () => {
+    try {
+      if (!localStorage.getItem(SESSION_KEY)) return false;
+      const last = readLastActive();
+      if (!last) {
+        touchActivity();
+        return false;
+      }
+      if (Date.now() - last <= IDLE_TIMEOUT_MS) return false;
+      localStorage.removeItem(SESSION_KEY);
+      localStorage.removeItem(LAST_ACTIVE_KEY);
+      document.dispatchEvent(new CustomEvent("utilora:idle-expired"));
+      return true;
+    } catch {
+      return false;
+    }
+  };
+
+  const bindIdleTracking = () => {
+    if (window.__utiloraIdleBound) return;
+    window.__utiloraIdleBound = true;
+    if (localStorage.getItem(SESSION_KEY) && !readLastActive()) touchActivity();
+    document.addEventListener("click", () => {
+      if (expireIdleSession()) return;
+      if (localStorage.getItem(SESSION_KEY)) touchActivity();
+    }, true);
+  };
+
   const readSession = () => {
     try {
+      if (expireIdleSession()) return null;
       return JSON.parse(localStorage.getItem(SESSION_KEY) || "null");
     } catch {
       return null;
     }
   };
 
-  const writeSession = (session) => localStorage.setItem(SESSION_KEY, JSON.stringify(session));
-  const clearSession = () => localStorage.removeItem(SESSION_KEY);
+  const writeSession = (session) => {
+    localStorage.setItem(SESSION_KEY, JSON.stringify(session));
+    touchActivity();
+  };
+  const clearSession = () => {
+    localStorage.removeItem(SESSION_KEY);
+    localStorage.removeItem(LAST_ACTIVE_KEY);
+  };
 
   const parseJson = async (response) => {
     const data = await response.json().catch(() => ({}));
@@ -356,6 +406,7 @@
   };
 
   const refreshIfNeeded = async () => {
+    if (expireIdleSession()) return null;
     const session = readSession();
     if (!session) return null;
     const skew = 60;
@@ -624,4 +675,6 @@
     verifyCaptcha,
     consumePasswordResetLimit,
   };
+
+  bindIdleTracking();
 })();

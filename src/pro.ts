@@ -7,6 +7,7 @@ import { bindPurchaseIntentForms } from "./app/purchase-intent";
 import { ANALYTICS_EVENTS } from "./core/analytics/events";
 import { trackEvent } from "./core/analytics/track";
 import { getUser } from "./core/auth/session";
+import { bindIdleTracking } from "./core/auth/idle";
 import { getEffectiveEntitlement, resolveLocalEntitlement } from "./core/entitlements/service";
 
 declare global {
@@ -53,7 +54,7 @@ const loadWorkspace = async (): Promise<void> => {
       "../assets/js/finance.js?v=11",
       "../assets/js/csv.js?v=11",
       "../assets/js/xlsx-lite.js?v=11",
-      "../assets/js/app.js?v=13",
+      "../assets/js/app.js?v=14",
       "app.js?v=19"
     ]) {
       await loadScript(src);
@@ -83,6 +84,11 @@ const start = async (): Promise<void> => {
     await bindPurchaseIntentForms();
     return;
   }
+
+  bindIdleTracking();
+  document.addEventListener("utilora:idle-expired", () => {
+    location.href = "../login/?next=" + encodeURIComponent("../pro/");
+  });
 
   const user = await withTimeout(getUser(), STARTUP_TIMEOUT_MS, null);
   const entitlement = user

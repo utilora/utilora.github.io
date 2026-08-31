@@ -122,4 +122,8 @@
     await auth.logout();
     location.href = "../";
   });
+
+  document.addEventListener("utilora:idle-expired", () => {
+    location.href = "../login/";
+  });
 })();

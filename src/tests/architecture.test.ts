@@ -49,6 +49,10 @@ describe("product architecture", () => {
     expect(logic).toContain('goLoggedInHome');
     expect(logic).toContain('captured.type === "recovery"');
     expect(read("account/account.js")).toContain('../login/?reset=1');
+    expect(read("assets/js/auth.js")).toContain("IDLE_TIMEOUT_MS = 30 * 60 * 1000");
+    expect(read("src/core/auth/idle.ts")).toContain("IDLE_TIMEOUT_MS = 30 * 60 * 1000");
+    expect(read("src/pro.ts")).toContain("utilora:idle-expired");
+    expect(read("account/account.js")).toContain("utilora:idle-expired");
     expect(read("supabase/templates/confirmation.html")).toContain("{{ .Token }}");
     expect(read("supabase/templates/magic_link.html")).toContain("{{ .Token }}");
   });

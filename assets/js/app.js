@@ -2,6 +2,27 @@
   if (window.__utiloraAppLoaded) return;
   window.__utiloraAppLoaded = true;
 
+  const SESSION_KEY = "utilora_sb_session";
+  const LAST_ACTIVE_KEY = "utilora_last_active";
+  const IDLE_TIMEOUT_MS = 30 * 60 * 1000;
+  if (!window.__utiloraIdleBound) {
+    window.__utiloraIdleBound = true;
+    const last = () => Number(localStorage.getItem(LAST_ACTIVE_KEY) || 0);
+    const touch = () => { try { localStorage.setItem(LAST_ACTIVE_KEY, String(Date.now())); } catch {} };
+    if (localStorage.getItem(SESSION_KEY) && !last()) touch();
+    document.addEventListener("click", () => {
+      try {
+        if (localStorage.getItem(SESSION_KEY) && last() && Date.now() - last() > IDLE_TIMEOUT_MS) {
+          localStorage.removeItem(SESSION_KEY);
+          localStorage.removeItem(LAST_ACTIVE_KEY);
+          document.dispatchEvent(new CustomEvent("utilora:idle-expired"));
+          return;
+        }
+        if (localStorage.getItem(SESSION_KEY)) touch();
+      } catch {}
+    }, true);
+  }
+
   const RECENT_KEY = "utilora_recent";
   const FAV_KEY = "utilora_favorites";
   const MAX_RECENT = 8;
