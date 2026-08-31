@@ -73,15 +73,14 @@
     strength.hidden = !(isUp && passwordInput.value);
   };
 
-  const goAccount = () => {
+  const goAfterAuth = () => {
     const next = new URLSearchParams(location.search).get("next");
-    const allowed = next && /^(?:\.\.\/|\.\/|\/)(?!\/)/.test(next) && !/^javascript:|^data:/i.test(next);
-    location.href = allowed ? next : "../account/";
+    const dest = auth.safeNextPath ? auth.safeNextPath(next, "../account/") : "../account/";
+    location.href = dest;
   };
 
-  const goLoggedInHome = () => {
-    location.href = "../account/";
-  };
+  const goAccount = goAfterAuth;
+  const goLoggedInHome = goAfterAuth;
 
   const trackLoginSuccess = () => {
     try {
@@ -98,6 +97,13 @@
   };
 
 
+
+  const resetCaptcha = () => {
+    window.__turnstileToken = "";
+    try { window.turnstile?.reset?.(); } catch {}
+  };
+
+  const inviteCode = () => (document.getElementById("invite-code")?.value || "").trim();
 
   const startCooldown = (seconds) => {
     cooldown = seconds;
@@ -117,6 +123,13 @@
   };
 
   (async () => {
+    const inviteInput = document.getElementById("invite-code");
+    if (inviteInput && auth.parseInviteCode) {
+      inviteInput.value = auth.parseInviteCode(location.search);
+    }
+    if (auth.consumeDisabledFlag && auth.consumeDisabledFlag()) {
+      setMsg(banner, auth.DISABLED_ACCOUNT_MESSAGE || "该账号已停用，请联系管理员。", true);
+    }
     try {
       const captured = await auth.captureRedirect();
       const wantReset = new URLSearchParams(location.search).get("reset") === "1";
@@ -133,11 +146,11 @@
         return;
       }
       if (captured) {
-        goLoggedInHome();
+        goAfterAuth();
         return;
       }
       const session = await auth.refreshIfNeeded();
-      if (session) goLoggedInHome();
+      if (session) goAfterAuth();
     } catch {
       /* 留在登录页 */
     }
@@ -183,23 +196,27 @@
   const sendMail = async (email, name, password) => {
     pendingPassword = password || pendingPassword;
     pendingName = name || pendingName;
-    await auth.sendOtp(email, pendingName, readCaptchaToken());
+    await auth.sendOtp(email, pendingName, readCaptchaToken(), { invite_code: inviteCode() });
+    resetCaptcha();
     pendingEmail = email;
     mode = "verify";
     startCooldown(60);
     paint();
-    setMsg(formMsg, "验证码已发送到 " + email + "。请按邮件里的完整数字填写（6 到 8 位）；QQ / 网易邮箱请同时检查垃圾箱。");
+    setMsg(formMsg, "验证码已发送到 " + email + "。填错可重试，过期请重新发送。QQ / 网易邮箱请同时检查垃圾箱。");
   };
 
   resend.addEventListener("click", async () => {
     if (!pendingEmail || cooldown > 0) return;
     resend.disabled = true;
     try {
-      await auth.resend(pendingEmail, pendingName);
+      await auth.resend(pendingEmail, pendingName, readCaptchaToken(), { invite_code: inviteCode() });
+      resetCaptcha();
       startCooldown(60);
-      setMsg(formMsg, "新的验证码已发送，请查收邮件。");
+      setMsg(formMsg, "新的验证码已发送。填错不必重新注册，直接再填一次即可。");
     } catch (error) {
+      resetCaptcha();
       setMsg(formMsg, error.message || "发送失败", true);
+      resend.disabled = false;
     }
   });
 
@@ -232,18 +249,25 @@
       if (mode === "verify") {
         const token = otpInput.value.trim();
         if (!/^\d{6,8}$/.test(token)) throw new Error("请输入邮件中的 6 到 8 位验证码");
-        await auth.verifyOtp(pendingEmail || email, token);
+        try {
+          await auth.verifyOtp(pendingEmail || email, token);
+        } catch (error) {
+          const text = String(error.message || "");
+          if (/过期|expired/i.test(text)) {
+            throw new Error("验证码已过期，请点下方重新发送，不必重新注册。");
+          }
+          throw new Error(text || "验证码不对，可改完再试，或点重新发送。");
+        }
         if (pendingPassword) {
           try { await auth.setPassword(pendingPassword); } catch { /* 会话已建立时密码稍后可在账户页设置 */ }
         }
         if (await auth.isDisabled()) {
           await auth.logout();
-          throw new Error("账号已被停用，请联系管理员");
+          throw new Error(auth.DISABLED_ACCOUNT_MESSAGE || "该账号已停用，请联系管理员。");
         }
         pendingPassword = "";
         trackLoginSuccess();
-        goAccount();
-
+        goAfterAuth();
         return;
       }
       if (mode === "up") {
@@ -256,10 +280,10 @@
         await auth.login(email, password);
         if (await auth.isDisabled()) {
           await auth.logout();
-          throw new Error("账号已被停用，请联系管理员");
+          throw new Error(auth.DISABLED_ACCOUNT_MESSAGE || "该账号已停用，请联系管理员。");
         }
         trackLoginSuccess();
-        goAccount();
+        goAfterAuth();
 
       } catch (error) {
         if (/尚未验证|not_confirmed|confirm/i.test((error.code || "") + error.message)) {
@@ -269,7 +293,13 @@
         throw error;
       }
     } catch (error) {
-      setMsg(formMsg, error.message || "登录失败", true);
+      const text = String(error.message || "登录失败");
+      if (mode === "verify") {
+        setMsg(formMsg, text, true);
+        paint();
+      } else {
+        setMsg(formMsg, text, true);
+      }
     } finally {
       submit.disabled = false;
     }

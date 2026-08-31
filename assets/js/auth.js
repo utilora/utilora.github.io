@@ -18,6 +18,80 @@
     Accept: "application/json",
   });
 
+  const DISABLED_FLAG = "utilora_account_disabled";
+  const DISABLED_ACCOUNT_MESSAGE = "该账号已停用，请联系管理员。";
+
+  const safeNextPath = (raw, fallback) => {
+    const home = fallback || "../account/";
+    if (raw == null) return home;
+    let value = String(raw).trim();
+    if (!value) return home;
+    try { value = decodeURIComponent(value); } catch { return home; }
+    value = value.trim();
+    if (!value || value.length > 180) return home;
+    if (/^[a-z][a-z0-9+.-]*:/i.test(value)) return home;
+    if (value.startsWith("//") || value.includes("://") || value.includes("\\")) return home;
+    if (/[\s<>'"`]/.test(value) || value.includes("@")) return home;
+    if (!/^(?:\.\.\/|\.\/|\/)/.test(value) || /^\/\//.test(value)) return home;
+    return value;
+  };
+
+  const parseInviteCode = (search) => {
+    const params = new URLSearchParams(String(search || "").replace(/^\?/, ""));
+    const raw = (params.get("invite") || params.get("code") || "").trim();
+    if (!raw || raw.length > 32) return "";
+    if (!/^[A-Za-z0-9_-]+$/.test(raw)) return "";
+    return raw;
+  };
+
+  const registrationLimitMessage = (data) => {
+    if (data && data.message) return String(data.message);
+    const limit = Number(data && data.limit);
+    if (Number.isInteger(limit) && limit > 0) {
+      return "今日该网络注册次数已达上限（当前每 IP 每天 " + limit + " 次），请明日再试或更换网络。";
+    }
+    return "今日该网络注册次数已达上限，请明日再试或更换网络。";
+  };
+
+  const otpLimitMessage = (data) => {
+    if (data && data.message) return String(data.message);
+    if (data && data.reason === "ip_limit") {
+      const limit = Number(data.ip_limit);
+      if (Number.isInteger(limit) && limit > 0) {
+        return "当前网络发送验证码次数已达上限（每小时 " + limit + " 次），请稍后再试或更换网络。";
+      }
+      return "当前网络发送验证码次数已达上限，请稍后再试或更换网络。";
+    }
+    const limit = Number(data && data.email_limit);
+    if (Number.isInteger(limit) && limit > 0) {
+      return "该邮箱发送验证码次数已达上限（每小时 " + limit + " 次），请稍后再试。";
+    }
+    return "验证码发送次数已达上限，请稍后再试。";
+  };
+
+  const loginCooldownMessage = (data) => {
+    if (data && data.message) return String(data.message);
+    const mins = Number(data && (data.remaining_minutes || data.cooldown_minutes));
+    if (Number.isInteger(mins) && mins > 0) {
+      return "登录失败次数过多，请约 " + mins + " 分钟后再试。";
+    }
+    return "登录失败次数过多，请稍后再试。";
+  };
+
+  const markDisabled = () => {
+    try { sessionStorage.setItem(DISABLED_FLAG, "1"); } catch {}
+  };
+
+  const consumeDisabledFlag = () => {
+    try {
+      const flagged = sessionStorage.getItem(DISABLED_FLAG) === "1";
+      if (flagged) sessionStorage.removeItem(DISABLED_FLAG);
+      return flagged;
+    } catch {
+      return false;
+    }
+  };
+
   const friendlyError = (error, fallback) => {
     const raw = String(error && (error.message || error.msg || error) || "");
     const code = String(error && (error.code || error.error_code) || "");
@@ -37,7 +111,7 @@
       return "重置次数已达上限，请稍后再试。";
     }
     if (/account_disabled|账号已停用/i.test(code + raw)) {
-      return raw || "该账号已停用，请联系管理员。";
+      return raw || DISABLED_ACCOUNT_MESSAGE;
     }
     if (/rate_limit|too many|429/i.test(code + raw)) return "发信通道这小时次数已用完（不是你点错）。请稍后再发验证码。";
     if (/otp_expired|expired/i.test(code + raw)) return "验证码已过期，请重新发送。";
@@ -186,9 +260,7 @@
       const data = await response.json().catch(() => ({}));
       if (!response.ok) return { allowed: true, skipped: true };
       if (data && data.allowed === false) {
-        const err = new Error(
-          data.message || "今日该网络注册次数已达上限，请明日再试或更换网络。",
-        );
+        const err = new Error(registrationLimitMessage(data));
         err.code = "registration_ip_limit_exceeded";
         err.status = 429;
         throw err;
@@ -238,9 +310,7 @@
       const data = await response.json().catch(() => ({}));
       if (!response.ok && response.status !== 429) return { allowed: true, skipped: true };
       if (data && data.allowed === false) {
-        const err = new Error(
-          data.message || "验证码发送次数已达上限，请稍后再试。",
-        );
+        const err = new Error(otpLimitMessage(data));
         err.code = "otp_rate_limit_exceeded";
         err.status = 429;
         throw err;
@@ -289,9 +359,7 @@
       const data = await response.json().catch(() => ({}));
       if (!response.ok && response.status !== 429) return { allowed: true, skipped: true };
       if (data && data.allowed === false) {
-        const err = new Error(
-          data.message || "验证码发送次数已达上限，请稍后再试。",
-        );
+        const err = new Error(loginCooldownMessage(data));
         err.code = "login_cooldown";
         err.status = 429;
         throw err;
@@ -396,6 +464,7 @@
         body: "{}",
       }, 1);
       if (data === true) {
+        markDisabled();
         clearSession();
         return null;
       }
@@ -459,19 +528,23 @@
     return { type };
   };
 
-  const sendOtp = async (email, name, captchaToken) => {
+  const sendOtp = async (email, name, captchaToken, extra) => {
     try {
       await verifyCaptcha(captchaToken, "register");
       await checkRegistrationLimit();
       await checkOtpRateLimit(email);
       await recordOtpSend(email);
+      const meta = {};
+      if (name) meta.name = name;
+      const invite = extra && extra.invite_code ? String(extra.invite_code).trim() : "";
+      if (invite) meta.invite_code = invite;
       return await request("/auth/v1/otp", {
         method: "POST",
         headers: headers(),
         body: JSON.stringify({
           email,
           create_user: true,
-          data: name ? { name } : {}
+          data: meta
         })
       });
     } catch (error) {
@@ -531,7 +604,7 @@
       let session = await saveTokens(data);
       session = await enforceActiveAccount(session);
       if (!session) {
-        const err = new Error("该账号已停用，请联系管理员。");
+        const err = new Error(DISABLED_ACCOUNT_MESSAGE);
         err.code = "account_disabled";
         throw err;
       }
@@ -546,7 +619,7 @@
         throw error;
       }
       if (error && error.code === "account_disabled") {
-        error.message = friendlyError(error, "该账号已停用，请联系管理员。");
+        error.message = friendlyError(error, DISABLED_ACCOUNT_MESSAGE);
         throw error;
       }
       if (/invalid login|invalid_credentials|invalid.*password|邮箱或密码/i.test(code + msg)) {
@@ -578,7 +651,7 @@
     }
   };
 
-  const resend = async (email, name) => sendOtp(email, name);
+  const resend = async (email, name, captchaToken, extra) => sendOtp(email, name, captchaToken, extra);
 
   const updateUser = async (body) => {
     const session = await refreshIfNeeded();
@@ -644,6 +717,7 @@
         body: "{}",
       }, 1);
       if (data === true) {
+        markDisabled();
         clearSession();
         return true;
       }
@@ -674,6 +748,10 @@
     checkRegistrationLimit,
     verifyCaptcha,
     consumePasswordResetLimit,
+    safeNextPath,
+    parseInviteCode,
+    consumeDisabledFlag,
+    DISABLED_ACCOUNT_MESSAGE,
   };
 
   bindIdleTracking();

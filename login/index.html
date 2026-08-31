@@ -41,8 +41,9 @@
         <div class="field" id="otp-field" hidden>
           <label for="otp">邮箱验证码</label>
           <input id="otp" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="8" pattern="[0-9]{6,8}" placeholder="请输入邮件中的验证码">
-          <p class="hint tight">验证码为 6 到 8 位数字，请按邮件里的完整数字填写。</p>
+          <p class="hint tight">填错或过期可点下方「重新发送验证码」，不必重新注册。</p>
         </div>
+        <input id="invite-code" type="hidden" autocomplete="off">
         <div id="turnstile-slot" class="field" hidden></div>
         <button id="submit" type="submit">登录</button>
       </form>
@@ -54,7 +55,7 @@
       </div>
     </div>
   </main>
-  <script src="../assets/js/auth.js?v=19"></script>
+  <script src="../assets/js/auth.js?v=20"></script>
   <script src="../assets/js/analytics.js"></script>
   <script>
     (function () {
@@ -79,7 +80,7 @@
       document.head.appendChild(s);
     })();
   </script>
-  <script src="login.js?v=19"></script>
+  <script src="login.js?v=20"></script>
 
 </body>
 </html>
