@@ -45,6 +45,7 @@
           <button class="side-link" data-page="logs" type="button" title="操作日志"><i aria-hidden="true">志</i><span>操作日志</span></button>
           <p>账号</p>
           <button class="side-link" data-page="users" type="button" title="用户管理"><i aria-hidden="true">户</i><span>用户管理</span></button>
+          <button class="side-link" data-page="risk" type="button" title="风控台"><i aria-hidden="true">控</i><span>风控台</span></button>
           <button class="side-link" data-page="entitlements" type="button" title="权益一览"><i aria-hidden="true">权</i><span>权益一览</span></button>
         </nav>
         <div class="side-foot">
@@ -101,10 +102,10 @@
                 <strong id="overview-promos">—</strong>
                 <em>生产控制，未接支付</em>
               </button>
-              <button class="overview-card" data-page="users" type="button">
+              <button class="overview-card" data-page="risk" type="button">
                 <span>今日新注册</span>
                 <strong id="overview-new-users">—</strong>
-                <em>进入用户管理</em>
+                <em>进入风控台</em>
               </button>
               <button class="overview-card" data-page="logs" type="button">
                 <span>今日登录</span>
@@ -526,6 +527,92 @@
         </div>
       </section>
 
+      <section id="risk-section" hidden>
+        <p id="risk-day" class="hint"></p>
+        <p id="risk-tables-hint" class="hint"></p>
+        <div class="users-toolbar">
+          <button type="button" class="secondary" id="risk-refresh">刷新风控</button>
+        </div>
+        <div id="risk-message" class="message" role="status"></div>
+        <div class="stats analytics-overview risk-kpis">
+          <div class="stat kpi"><span>今日新注册</span><strong id="risk-new-count">—</strong></div>
+          <div class="stat kpi"><span>每 IP 注册限额</span><strong id="risk-ip-limit">—</strong></div>
+          <div class="stat kpi"><span>每邮箱每小时验证码</span><strong id="risk-otp-email-limit">—</strong></div>
+          <div class="stat kpi"><span>每 IP 每小时验证码</span><strong id="risk-otp-ip-limit">—</strong></div>
+        </div>
+        <h3>今日新注册</h3>
+        <div class="table-wrap analytics-table">
+          <table>
+            <thead>
+              <tr>
+                <th>邮箱</th>
+                <th>昵称</th>
+                <th>注册时间</th>
+                <th>状态</th>
+                <th>操作</th>
+              </tr>
+            </thead>
+            <tbody id="risk-new-users"></tbody>
+          </table>
+        </div>
+        <div id="risk-new-empty" class="empty-state" hidden>
+          <strong>今日还没有新注册。</strong>
+          <p class="hint">统计按 Asia/Shanghai 自然日。</p>
+        </div>
+        <h3>每 IP 注册次数（今日）</h3>
+        <div class="table-wrap analytics-table">
+          <table>
+            <thead>
+              <tr>
+                <th>IP</th>
+                <th>次数</th>
+                <th>限额</th>
+                <th>关联账号</th>
+              </tr>
+            </thead>
+            <tbody id="risk-ip-regs"></tbody>
+          </table>
+        </div>
+        <div id="risk-ip-empty" class="empty-state" hidden>
+          <strong>暂无 IP 注册明细。</strong>
+          <p class="hint">依赖安全线表 registration_ip_log。</p>
+        </div>
+        <h3>验证码发送（近 1 小时 · 按邮箱）</h3>
+        <div class="table-wrap analytics-table">
+          <table>
+            <thead>
+              <tr>
+                <th>邮箱</th>
+                <th>次数</th>
+                <th>限额</th>
+              </tr>
+            </thead>
+            <tbody id="risk-otp-email"></tbody>
+          </table>
+        </div>
+        <div id="risk-otp-email-empty" class="empty-state" hidden>
+          <strong>暂无按邮箱的验证码发送记录。</strong>
+          <p class="hint">依赖安全线表 otp_send_log。</p>
+        </div>
+        <h3>验证码发送（近 1 小时 · 按 IP）</h3>
+        <div class="table-wrap analytics-table">
+          <table>
+            <thead>
+              <tr>
+                <th>IP</th>
+                <th>次数</th>
+                <th>限额</th>
+              </tr>
+            </thead>
+            <tbody id="risk-otp-ip"></tbody>
+          </table>
+        </div>
+        <div id="risk-otp-ip-empty" class="empty-state" hidden>
+          <strong>暂无按 IP 的验证码发送记录。</strong>
+          <p class="hint">依赖安全线表 otp_send_log。</p>
+        </div>
+      </section>
+
       <section id="logs-section" hidden>
         <form id="logs-filter-form" class="filters">
           <div>
@@ -615,6 +702,29 @@
         <dl id="dossier-account" class="dossier-dl"></dl>
         <h3>权益</h3>
         <ul id="dossier-grants"></ul>
+        <form id="dossier-grant-form" class="dossier-grant" hidden>
+          <div>
+            <label for="dossier-grant-plan">方案</label>
+            <select id="dossier-grant-plan">
+              <option value="pro_trial">专业版试用</option>
+              <option value="pro">财务专业版</option>
+            </select>
+          </div>
+          <div>
+            <label for="dossier-grant-days">天数</label>
+            <input id="dossier-grant-days" type="number" min="1" max="3650" value="14" placeholder="试用默认 14">
+          </div>
+          <div>
+            <label for="dossier-grant-note">备注</label>
+            <input id="dossier-grant-note" type="text" maxlength="200" placeholder="可选">
+          </div>
+          <div class="row-actions">
+            <button id="dossier-grant" type="submit">发放</button>
+            <button id="dossier-revoke" class="delete" type="button">收回当前权益</button>
+          </div>
+          <p class="hint">试用默认 14 天，可改。专业版天数留空为长期。支付未接通，只写 entitlement_grants。</p>
+        </form>
+        <p id="dossier-grant-unavailable" class="hint" hidden>未匹配到注册用户，不能发放或收回权益。</p>
         <h3>最近日志</h3>
         <div class="table-wrap">
           <table>
@@ -638,5 +748,6 @@
   <script src="../feedback/config.js"></script>
   <script src="admin.js"></script>
   <script src="admin-ops.js"></script>
+  <script src="risk-console.js"></script>
 </body>
 </html>

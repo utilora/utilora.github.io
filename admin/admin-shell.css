@@ -173,4 +173,20 @@ button.linkish:hover{text-decoration:underline}
 .dossier-dl dd{margin:0;font-weight:700}
 .dossier-card ul{margin:0;padding-left:18px}
 .dossier-card .row-actions{margin-top:16px}
+.dossier-grant{
+  display:grid;grid-template-columns:minmax(0,1.2fr) 110px minmax(0,1fr);
+  gap:10px;align-items:end;margin-top:12px;padding:12px;
+  background:#f8fafc;border:1px solid var(--line);border-radius:12px
+}
+.dossier-grant label{margin:0 0 6px;color:#64748b;font-size:12px}
+.dossier-grant input,.dossier-grant select{width:100%;background:#fff}
+.dossier-grant .row-actions{grid-column:1/-1;margin:4px 0 0}
+.dossier-grant .hint{grid-column:1/-1;margin:0}
+@media(max-width:640px){
+  .dossier-grant{grid-template-columns:1fr}
+}
+
+#risk-section h3{margin:22px 0 8px;font-size:15px}
+#risk-section .table-wrap table{min-width:520px}
+#risk-section .row-actions,#risk-section td button{margin-top:0}
 
