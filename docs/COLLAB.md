@@ -143,7 +143,7 @@ A-11 账龄分桶边界配置：在限额/运营策略配置中增加「账龄�
 
 ## 安全改善（分支 fix/security-hardening）
 
-允许路径：`supabase/functions/`、`supabase/migrations/`（限流/验证码/RLS）、`assets/js/auth.js`、`login/`、`feedback/`。S-10 可改全站 HTML 与为去掉内联脚本新增的 `assets/js/` 文件。
+允许路径：`supabase/functions/`、`supabase/migrations/`（限流/验证码/RLS）、`assets/js/auth.js`、`login/`、`feedback/`。S-10 / S-11 可改全站 HTML、CSS，以及为去掉内联脚本/样式而新增或改动的 `assets/` 与工作台模板（`pro/app.js`）。
 
 S-01 每 IP 每天成功注册不超过配置值（默认 3；验证成功才计数，不是点发送就计数）。  
 S-02 验证码服务端限额：读配置（默认每邮箱每小时 3 封；每 IP 每小时 10 封）。  
@@ -155,6 +155,7 @@ S-07 停用账号后 refresh 立即失效。
 S-08 找回密码限流：发送重置邮件与提交新密码接口均读配置（默认每邮箱每小时 3 次、每 IP 每小时 10 次）；超限返回明确文案且不泄露邮箱是否存在；成功与失败均计入审计可查事件。验收：超限后同邮箱/同 IP 在窗口内无法再触发发送；配置变更后立即生效。
 S-09 留言与购买意向提交限流：功能建议必须登录后走 submit-feedback；购买意向走 submit-purchase-intent。服务端读配置（默认每用户每小时留言 5、每 IP 每小时留言 10、每邮箱每小时购买意向 3、每 IP 每小时购买意向 10）。关闭 feedback 表的匿名/登录直写。验收：超限返回明确文案；anon key 不能直接 INSERT feedback。
 S-10 内容安全策略：所有公开页用 meta CSP（GitHub Pages 设不了响应头）。禁止插件与改 base；脚本默认本站 + 人机验证域名；连接仅本站与账号服务。页面不得有未哈希的可执行内联脚本。frame-ancestors 无法经 meta 生效，不在本项承诺。
+S-11 收紧样式策略：去掉 style-src 的 unsafe-inline。公开页和工作台模板不得有 style 标签和 style 属性；动态宽度改由脚本设置元素样式。验收：策略不含样式内联；源码与构建产物公开 HTML 无 style 属性/标签；工作台模板无 style 属性。
 
 | 编号 | 状态 | 分支 | 最近提交 | 测试 |
 |------|------|------|----------|------|
@@ -168,8 +169,11 @@ S-10 内容安全策略：所有公开页用 meta CSP（GitHub Pages 设不了�
 | S-08 | 已合入 main | fix/security-hardening | — | 找回密码限流；生产 SQL 已执行；Edge Function 已部署 |
 | S-09 | 已合入 main | fix/security-hardening | 9facb2b | 留言与购买意向提交限流；购买意向改走云函数并记账；直连 RPC 已收回；留言表收掉改删清空 |
 | S-10 | 已合入 main | fix/security-hardening | ee0f49a | 内容安全策略；公开页 meta CSP；禁止未哈希的可执行内联脚本；构建关闭 modulepreload 内联垫片 |
+| S-11 | 已合入 main | fix/security-hardening | — | 收紧样式策略；去掉 style-src unsafe-inline；公开页与工作台模板无 style 属性 |
 
 ## 变更记录
+
+- 2026-08-31：合入 main：收紧样式策略。去掉 style-src 的 unsafe-inline；账户页和工具页内联样式改到样式表；工作台模板去掉 style 属性，进度条宽度改由脚本设置。占用改为五个财税工具打磨 / 空闲 / 安全空闲。
 
 - 2026-08-31：合入 main：内容安全策略（ee0f49a）。12 个公开页加 CSP 与 referrer；首页 JSON-LD 用哈希放行；菜单与人机验证启动脚本外置；Vite 关闭会注入内联脚本的 modulepreload 垫片。GitHub Pages 设不了响应头，frame-ancestors 不在本项。占用改为五个财税工具打磨 / 空闲 / 安全空闲。
 - 2026-08-31：合入 main：提交限流收口（e272b14）。购买意向只走带人机验证和次数上限的云函数；直连 RPC 已拒绝；留言表访客无法改删清空；人机验证密钥缺失时拒绝；已下线无鉴权遗留函数。生产已执行 202608310016_submit_path_lockdown.sql。增加 SECURITY.md、Dependabot，并打开密钥扫描与私下漏洞报告。占用改为五个财税工具打磨 / 空闲 / 安全空闲。

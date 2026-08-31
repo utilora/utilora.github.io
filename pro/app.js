@@ -20,6 +20,12 @@
   const today = () => new Date().toISOString().slice(0, 10);
   const addDays = (n) => { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10); };
   const esc = (v) => String(v || "").replace(/[&<>"]/g, (ch) => ({ "&": "\u0026amp;", "<": "\u0026lt;", ">": "\u0026gt;", '"': "\u0026quot;" }[ch]));
+  const paintMeter = (root = view) => {
+    root.querySelectorAll("[data-meter]").forEach((el) => {
+      const n = Number(el.getAttribute("data-meter"));
+      el.style.width = `${Number.isFinite(n) ? Math.max(0, Math.min(100, n)) : 0}%`;
+    });
+  };
   const money = (n) => F.formatRmb(F.roundFen(Number(n) || 0));
   const agingConfig = () => window.UtiloraAgingBounds || undefined;
   const agingLabels = (short = false) => {
@@ -363,8 +369,8 @@
           <p><span>税额</span><span>${money(sum.tax)}</span></p>
           <p class="pay"><span>应付</span><span>${money(sum.inclusive)}</span></p>
         </div>
-        ${doc.notes ? `<p style="color:#6b7280;margin-top:18px">${esc(doc.notes)}</p>` : ""}
-        ${co.payInfo ? `<p style="color:#6b7280">收款 ${esc(co.payInfo)}</p>` : ""}
+        ${doc.notes ? `<p class="inv-note">${esc(doc.notes)}</p>` : ""}
+        ${co.payInfo ? `<p class="inv-pay">收款 ${esc(co.payInfo)}</p>` : ""}
       </div>
     </div>`;
   }
@@ -375,7 +381,6 @@
     const co = db.company;
     const sum = compute(doc);
     sheet.innerHTML = `<div class="quote-card theme-navy">${paper(doc, kind)}</div>`;
-    sheet.querySelector(".inv-paper").style.width = "100%";
     window.print();
     void c; void co; void sum;
   }
@@ -464,7 +469,7 @@
           ${recentPayments.map((p) => { const inv = db.invoices.find((i) => i.id === p.invoiceId) || {}; return `<div class="mini-row" data-go="payments"><div><b>${esc(customer(inv.customerId).name || "未关联客户")}</b><small>${esc(p.date)} · ${esc(inv.number)}</small></div><b>${money(p.amount)}</b></div>`; }).join("") || `<p class="empty">还没有收款记录</p>`}
         </div>
       </div>
-      <div class="month-progress" aria-label="月结完成度"><i style="width:${closePct}%"></i></div>
+      <div class="month-progress" aria-label="月结完成度"><i data-meter="${closePct}"></i></div>
       <p class="empty">月结完成度 ${closePct}% · ${closeDone}/${closeSteps.length} 项</p>`;
 
     if (!db.customers.length && !db.estimates.length && !db.invoices.length && !db.expenses.length) {
@@ -485,6 +490,7 @@
     }
 
     view.innerHTML = body;
+    paintMeter();
     view.querySelectorAll("[data-go]").forEach((el) => el.onclick = () => { location.hash = `#/${el.dataset.go}`; });
     paintBackupCard();
   }
@@ -510,13 +516,13 @@
     const resultLabel = Rec && Rec.COLLECTION_RESULT_LABEL ? Rec.COLLECTION_RESULT_LABEL : { missed: "未接", promised: "已答应", paid: "已付" };
     const latest = (id) => Rec && Rec.latestNote ? Rec.latestNote(db.collectionNotes || [], id) : (db.collectionNotes || []).filter((item) => item.customerId === id)[0];
     view.innerHTML = `<div class="panel">${list.length ? `<table class="sheet-table"><thead><tr>${isCust ? "<th>客户</th><th>未收金额</th><th>最近催收</th><th>电话 / 邮箱</th><th></th>" : "<th>项目</th><th>单价</th><th>税率</th><th></th>"}</tr></thead><tbody>${list.map((row) => `<tr>
-      <td><b>${esc(row.name)}</b><div style="color:#9ca3af;font-size:12px">${esc(isCust ? row.address : row.spec)}</div></td>
+      <td><b>${esc(row.name)}</b><div class="sub">${esc(isCust ? row.address : row.spec)}</div></td>
       <td>${isCust ? money(db.invoices.filter((inv) => inv.customerId === row.id).reduce((sum, inv) => sum + Math.max(0, compute(inv).inclusive - paidOf(inv.id)), 0)) : money(row.price)}</td>
-      ${isCust ? `<td>${(() => { const note = latest(row.id); return note ? `${esc(resultLabel[note.result] || note.result)}<div style="color:#9ca3af;font-size:12px">${esc(note.contactedOn)}${note.promisedOn ? ` · 承诺 ${esc(note.promisedOn)}` : ""}</div>` : "尚无备忘"; })()}</td>` : ""}
-      <td>${isCust ? `${esc(row.phone)}<div style="color:#9ca3af;font-size:12px">${esc(row.email)}</div>` : `${row.rate}%`}</td>
+      ${isCust ? `<td>${(() => { const note = latest(row.id); return note ? `${esc(resultLabel[note.result] || note.result)}<div class="sub">${esc(note.contactedOn)}${note.promisedOn ? ` · 承诺 ${esc(note.promisedOn)}` : ""}</div>` : "尚无备忘"; })()}</td>` : ""}
+      <td>${isCust ? `${esc(row.phone)}<div class="sub">${esc(row.email)}</div>` : `${row.rate}%`}</td>
       <td class="actions">${isCust ? `<button class="secondary" data-customer-detail="${row.id}">往来</button>` : ""}<button class="secondary" data-edit="${row.id}">编辑</button><button class="secondary" data-del="${row.id}">删除</button></td>
     </tr>`).join("")}</tbody></table>` : `<p class="empty">${isCust ? "还没有客户" : "还没有项目"}</p>`}</div>
-    <div class="panel" id="box" hidden style="margin-top:14px"><div class="form-grid" id="form"></div><div class="actions"><button id="save">保存</button><button class="secondary" id="cancel">取消</button></div></div>`;
+    <div class="panel stack" id="box" hidden><div class="form-grid" id="form"></div><div class="actions"><button id="save">保存</button><button class="secondary" id="cancel">取消</button></div></div>`;
     const fields = isCust ? [["name", "名称"], ["taxId", "税号"], ["phone", "电话"], ["email", "邮箱"], ["address", "地址"]] : [["name", "名称"], ["spec", "规格"], ["unit", "单位"], ["price", "单价"], ["rate", "税率%"]];
     let current = null;
     const open = (row) => {
@@ -555,7 +561,7 @@
     const notes = Rec && Rec.notesForCustomer ? Rec.notesForCustomer(db.collectionNotes || [], id) : (db.collectionNotes || []).filter((item) => item.customerId === id);
     const resultLabel = Rec && Rec.COLLECTION_RESULT_LABEL ? Rec.COLLECTION_RESULT_LABEL : { missed: "未接", promised: "已答应", paid: "已付" };
     view.innerHTML = `<div class="panel"><div class="preview-actions"><button class="secondary" id="customer-back">返回客户</button><button id="customer-new-invoice">新建应收单</button></div><h2>${esc(c.name)}</h2><p class="data-note">${esc(c.taxId || "未填税号")} · ${esc(c.phone || "未填电话")} · ${esc(c.email || "未填邮箱")}</p><div class="data-health"><span><b>未收</b>${money(progress ? progress.openTotal : Math.max(0, billed - received))}</span><span><b>逾期</b>${money(progress ? progress.overdueTotal : 0)}</span><span><b>回款进度</b>${progress ? `${progress.collectedRate}%` : money(received)}</span></div><p class="data-note">未收和逾期不含草稿、作废和已结清单据。</p></div>
-      <div class="panel" style="margin-top:14px">
+      <div class="panel stack">
         <h2>催收备忘</h2>
         <div class="form-grid" id="collection-form">
           <div class="field"><label>联系日</label><input id="note-contacted" type="date" value="${esc(today())}"></div>
@@ -565,9 +571,9 @@
         </div>
         <div class="actions"><button id="note-save" type="button">记下这次催收</button></div>
         <p id="note-message" class="data-note"></p>
-        <div class="table-wrap" style="margin-top:12px"><table class="sheet-table"><thead><tr><th>联系日</th><th>承诺还款日</th><th>结果</th><th>备注</th><th></th></tr></thead><tbody>${notes.length ? notes.map((item) => `<tr><td>${esc(item.contactedOn)}</td><td>${esc(item.promisedOn || "—")}</td><td>${esc(resultLabel[item.result] || item.result)}</td><td>${esc(item.note || "")}</td><td class="actions"><button class="secondary" data-del-note="${esc(item.id)}">删除</button></td></tr>`).join("") : `<tr><td colspan="5">还没有催收备忘</td></tr>`}</tbody></table></div>
+        <div class="table-wrap stack-sm"><table class="sheet-table"><thead><tr><th>联系日</th><th>承诺还款日</th><th>结果</th><th>备注</th><th></th></tr></thead><tbody>${notes.length ? notes.map((item) => `<tr><td>${esc(item.contactedOn)}</td><td>${esc(item.promisedOn || "—")}</td><td>${esc(resultLabel[item.result] || item.result)}</td><td>${esc(item.note || "")}</td><td class="actions"><button class="secondary" data-del-note="${esc(item.id)}">删除</button></td></tr>`).join("") : `<tr><td colspan="5">还没有催收备忘</td></tr>`}</tbody></table></div>
       </div>
-      <div class="panel" style="margin-top:14px"><h2>应收与收款明细</h2><table class="sheet-table"><thead><tr><th>日期</th><th>类型</th><th>单号</th><th>金额</th></tr></thead><tbody>${[...invoices.map((inv) => ({ date: inv.date, type: "应收", number: inv.number, amount: compute(inv).inclusive })), ...payments.map((p) => ({ date: p.date, type: "收款", number: db.invoices.find((inv) => inv.id === p.invoiceId)?.number || "", amount: -Number(p.amount) }))].sort((a,b) => String(b.date).localeCompare(String(a.date))).map((row) => `<tr><td>${esc(row.date)}</td><td>${row.type}</td><td>${esc(row.number)}</td><td>${money(row.amount)}</td></tr>`).join("") || `<tr><td colspan="4">暂无往来</td></tr>`}</tbody></table></div>`;
+      <div class="panel stack"><h2>应收与收款明细</h2><table class="sheet-table"><thead><tr><th>日期</th><th>类型</th><th>单号</th><th>金额</th></tr></thead><tbody>${[...invoices.map((inv) => ({ date: inv.date, type: "应收", number: inv.number, amount: compute(inv).inclusive })), ...payments.map((p) => ({ date: p.date, type: "收款", number: db.invoices.find((inv) => inv.id === p.invoiceId)?.number || "", amount: -Number(p.amount) }))].sort((a,b) => String(b.date).localeCompare(String(a.date))).map((row) => `<tr><td>${esc(row.date)}</td><td>${row.type}</td><td>${esc(row.number)}</td><td>${money(row.amount)}</td></tr>`).join("") || `<tr><td colspan="4">暂无往来</td></tr>`}</tbody></table></div>`;
     primary.hidden = true;
     document.getElementById("customer-back").onclick = () => go("customers");
     document.getElementById("customer-new-invoice").onclick = () => go("invoice", "new");
@@ -646,7 +652,7 @@
         <div class="table-wrap"><table class="sheet-table"><thead><tr><th>${labels.current}</th><th>${labels.d30}</th><th>${labels.d60}</th><th>${labels.d90}</th><th>${labels.over90}</th></tr></thead>
         <tbody><tr><td>${money(aging.current)}</td><td>${money(aging.d30)}</td><td>${money(aging.d60)}</td><td>${money(aging.d90)}</td><td>${money(aging.over90)}</td></tr></tbody></table></div>
       </div>
-      <div class="panel" style="margin-top:14px">
+      <div class="panel stack">
         <h2>客户欠款</h2>
         <div class="table-wrap"><table class="sheet-table"><thead><tr><th>客户</th><th>未收</th><th>逾期</th><th>${short.current}</th><th>${short.d30}</th><th>${short.d60}</th><th>${short.d90}</th><th>${short.over90}</th></tr></thead>
         <tbody>${debts.map((row) => `<tr data-ar-customer="${esc(row.customerId)}" class="${row.overdueAmount > 0 ? "warn-row" : ""}"><td>${esc(row.customerName)}</td><td>${money(row.openAmount)}</td><td>${money(row.overdueAmount)}</td><td>${money(row.aging.current)}</td><td>${money(row.aging.d30)}</td><td>${money(row.aging.d60)}</td><td>${money(row.aging.d90)}</td><td>${money(row.aging.over90)}</td></tr>`).join("") || `<tr><td colspan="8">没有未收应收</td></tr>`}</tbody></table></div>
@@ -755,7 +761,7 @@
       </div>
       <div class="actions"><button id="x-save" type="button">记一笔</button></div>
     </div>
-    <div class="panel" style="margin-top:14px">${db.expenses.length ? `<table class="sheet-table"><thead><tr><th>日期</th><th>对象</th><th>类别</th><th>金额</th><th></th></tr></thead><tbody>${db.expenses.map((e) => `<tr><td>${esc(e.date)}</td><td>${esc(e.vendor)}</td><td>${esc(e.category)}</td><td>${money(e.amount)}</td><td class="actions"><button class="secondary" data-xedit="${e.id}">编辑</button><button class="secondary" data-xdel="${e.id}">删除</button></td></tr>`).join("")}</tbody></table>` : `<p class="empty">还没有费用</p>`}</div>`;
+    <div class="panel stack">${db.expenses.length ? `<table class="sheet-table"><thead><tr><th>日期</th><th>对象</th><th>类别</th><th>金额</th><th></th></tr></thead><tbody>${db.expenses.map((e) => `<tr><td>${esc(e.date)}</td><td>${esc(e.vendor)}</td><td>${esc(e.category)}</td><td>${money(e.amount)}</td><td class="actions"><button class="secondary" data-xedit="${e.id}">编辑</button><button class="secondary" data-xdel="${e.id}">删除</button></td></tr>`).join("")}</tbody></table>` : `<p class="empty">还没有费用</p>`}</div>`;
     primary.hidden = true;
     document.getElementById("x-save").onclick = () => {
       const amount = Number(document.getElementById("x-amount").value);
@@ -779,7 +785,7 @@
       <div class="field"><label>备注</label><input id="r-note"></div>
       <div class="field"><label>本地附件（图片/PDF，最大 2MB）</label><input id="r-attachment" type="file" accept="image/*,application/pdf"></div>
     </div><div class="actions"><button id="r-save">新增报销</button></div></div>
-    <div class="panel" style="margin-top:14px">${db.reimbursements.length ? `<table class="sheet-table"><thead><tr><th>日期</th><th>报销人</th><th>类别</th><th>金额</th><th>票据 / 附件</th><th>状态</th><th></th></tr></thead><tbody>${db.reimbursements.map((r) => `<tr><td>${esc(r.date)}</td><td>${esc(r.claimant)}</td><td>${esc(r.category)}</td><td>${money(r.amount)}</td><td>${r.hasInvoice ? "有" : "无"}${r.attachment ? ` · <a href="${r.attachment.data}" download="${esc(r.attachment.name)}">查看附件</a>` : ""}</td><td>${labels[r.status] || r.status}</td><td class="actions"><button class="secondary" data-redit="${r.id}">编辑</button><button class="secondary" data-review="${r.id}">${r.status === "draft" ? "审核" : "标为已报销"}</button><button class="secondary" data-rdel="${r.id}">删除</button></td></tr>`).join("")}</tbody></table>` : `<p class="empty">还没有报销记录</p>`}</div>`;
+    <div class="panel stack">${db.reimbursements.length ? `<table class="sheet-table"><thead><tr><th>日期</th><th>报销人</th><th>类别</th><th>金额</th><th>票据 / 附件</th><th>状态</th><th></th></tr></thead><tbody>${db.reimbursements.map((r) => `<tr><td>${esc(r.date)}</td><td>${esc(r.claimant)}</td><td>${esc(r.category)}</td><td>${money(r.amount)}</td><td>${r.hasInvoice ? "有" : "无"}${r.attachment ? ` · <a href="${r.attachment.data}" download="${esc(r.attachment.name)}">查看附件</a>` : ""}</td><td>${labels[r.status] || r.status}</td><td class="actions"><button class="secondary" data-redit="${r.id}">编辑</button><button class="secondary" data-review="${r.id}">${r.status === "draft" ? "审核" : "标为已报销"}</button><button class="secondary" data-rdel="${r.id}">删除</button></td></tr>`).join("")}</tbody></table>` : `<p class="empty">还没有报销记录</p>`}</div>`;
     primary.hidden = true;
     document.getElementById("r-save").onclick = async () => {
       const amount = Number(document.getElementById("r-amount").value);
@@ -829,7 +835,7 @@
       <div class="field"><label>折旧年限</label><input id="a-years" value="20" inputmode="decimal"></div>
       <div class="field"><label>开始使用日期</label><input id="a-start" type="date" value="${today()}"></div>
     </div><div class="actions"><button id="a-save">新增固定资产</button></div></div>
-      <div class="panel" style="margin-top:14px">${db.assets.length ? `<table class="sheet-table"><thead><tr><th>资产</th><th>原值</th><th>月折旧</th><th>累计折旧</th><th>账面净值</th><th></th></tr></thead><tbody>${db.assets.map((a) => { const d = assetDepreciation(a); return `<tr><td><b>${esc(a.name)}</b><small>${esc(a.category)} · ${a.years} 年</small></td><td>${money(a.cost)}</td><td>${money(d.monthly)}</td><td>${money(d.accumulated)}</td><td>${money(d.net)}</td><td class="actions"><button class="secondary" data-aedit="${a.id}">编辑</button><button class="secondary" data-adel="${a.id}">删除</button></td></tr>`; }).join("")}</tbody></table>` : `<p class="empty">还没有固定资产</p>`}</div>
+      <div class="panel stack">${db.assets.length ? `<table class="sheet-table"><thead><tr><th>资产</th><th>原值</th><th>月折旧</th><th>累计折旧</th><th>账面净值</th><th></th></tr></thead><tbody>${db.assets.map((a) => { const d = assetDepreciation(a); return `<tr><td><b>${esc(a.name)}</b><small>${esc(a.category)} · ${a.years} 年</small></td><td>${money(a.cost)}</td><td>${money(d.monthly)}</td><td>${money(d.accumulated)}</td><td>${money(d.net)}</td><td class="actions"><button class="secondary" data-aedit="${a.id}">编辑</button><button class="secondary" data-adel="${a.id}">删除</button></td></tr>`; }).join("")}</tbody></table>` : `<p class="empty">还没有固定资产</p>`}</div>
     <div class="policy-source"><b>政策依据</b><a href="https://www.mof.gov.cn/zhengwuxinxi/zhengcefabu/2006zcfb/200805/t20080519_23104.htm" target="_blank" rel="noopener">财政部《企业会计准则第4号——固定资产》</a><a href="https://tianjin.chinatax.gov.cn/nsrxt/11200000000/0500/050004/20230626142020719.shtml" target="_blank" rel="noopener">国家税务总局：固定资产最低折旧年限</a></div>`;
     primary.hidden = true;
     document.getElementById("a-category").onchange = (event) => { document.getElementById("a-years").value = event.target.selectedOptions[0].dataset.years; };
@@ -881,13 +887,13 @@
         <p id="bank-msg" class="data-note"></p>
         <div id="bank-preview" class="bank-preview" hidden></div>
       </div>
-      <div class="stat-row" style="margin-top:14px">
+      <div class="stat-row stack">
         <div class="stat-card"><div><b>${counts.unmatched}</b><span>未匹配</span></div></div>
         <div class="stat-card"><div><b>${counts.partial}</b><span>部分匹配</span></div></div>
         <div class="stat-card"><div><b>${counts.matched}</b><span>已匹配</span></div></div>
         <div class="stat-card"><div><b>${suggestions.length}</b><span>可自动建议</span></div></div>
       </div>
-      ${suggestions.length ? `<div class="panel" style="margin-top:14px">
+      ${suggestions.length ? `<div class="panel stack">
         <h2>匹配建议</h2>
         <p class="data-note">优先匹配金额唯一的应收；金额重复时，再用摘要中的客户名或接近的到期日。勾选后才会写入收款，可撤销，不会超额分配。</p>
         <div class="table-wrap"><table class="sheet-table"><thead><tr><th></th><th>流水</th><th>建议应收单</th><th>金额</th><th>把握</th><th>原因</th></tr></thead>
@@ -898,7 +904,7 @@
         }).join("")}</tbody></table></div>
         <div class="actions"><button id="bank-apply-suggest" type="button">确认勾选匹配</button></div>
       </div>` : ""}
-      <div class="panel" style="margin-top:14px">
+      <div class="panel stack">
         <h2>流水明细</h2>
         <div class="table-wrap"><table class="sheet-table"><thead><tr><th>日期</th><th>摘要</th><th>金额</th><th>已匹配</th><th>待匹配</th><th>状态</th><th></th></tr></thead>
         <tbody>${db.bankTransactions.map((tx) => {
@@ -1049,7 +1055,7 @@
   function renderPayroll() {
     const cityOptions=F.CITY_PRESETS.map((c)=>`<option value="${c.id}">${c.name}${c.verified?" · 已核验":" · 参考"}</option>`).join("");
     const calculate=(row)=>{const preset=F.CITY_PRESETS.find((c)=>c.id===row.city)||F.CITY_PRESETS[0],gross=Number(row.gross)||0,extra=Number(row.extra)||0,socialBase=F.clampBase(Number(row.socialBase)||gross,preset.socialMin,preset.socialMax),fundBase=F.clampBase(Number(row.fundBase)||gross,preset.fundMin,preset.fundMax),si=F.calcSocial({socialBase,fundBase,employee:preset.employee,employer:preset.employer}),tax=F.withholdingSchedule({incomes:[gross],specialMonthly:si.employee.total,extraMonthly:extra})[0]?.tax||0;return{si,tax,net:F.roundFen(gross-si.employee.total-extra-tax),cost:F.roundFen(gross+si.employer.total)};};
-    view.innerHTML=`<div class="panel"><h2>工资表批量测算</h2><p class="data-note">可直接新增，或导入 .xlsx / CSV / TSV。表头建议：姓名、税前工资、专项附加、社保基数、公积金基数。</p><div class="form-grid"><div class="field"><label>城市参数</label><select id="pay-city">${cityOptions}</select></div><div class="field"><label>工资表文件</label><input id="pay-file" type="file" accept=".xlsx,.csv,.tsv"></div></div><div class="actions"><button id="pay-add">新增员工</button><button id="pay-export" class="secondary">导出测算结果</button></div><p id="pay-msg" class="data-note"></p></div><div class="panel" style="margin-top:14px"><table class="sheet-table"><thead><tr><th>姓名</th><th>税前</th><th>个人五险一金</th><th>个税</th><th>实发</th><th>企业成本</th><th></th></tr></thead><tbody>${db.payrollRows.map((row)=>{const c=calculate(row);return`<tr><td>${esc(row.name)}</td><td>${money(row.gross)}</td><td>${money(c.si.employee.total)}</td><td>${money(c.tax)}</td><td>${money(c.net)}</td><td>${money(c.cost)}</td><td><button class="secondary" data-pay-edit="${row.id}">编辑</button></td></tr>`;}).join("")||`<tr><td colspan="7">还没有工资数据</td></tr>`}</tbody></table></div>`;
+    view.innerHTML=`<div class="panel"><h2>工资表批量测算</h2><p class="data-note">可直接新增，或导入 .xlsx / CSV / TSV。表头建议：姓名、税前工资、专项附加、社保基数、公积金基数。</p><div class="form-grid"><div class="field"><label>城市参数</label><select id="pay-city">${cityOptions}</select></div><div class="field"><label>工资表文件</label><input id="pay-file" type="file" accept=".xlsx,.csv,.tsv"></div></div><div class="actions"><button id="pay-add">新增员工</button><button id="pay-export" class="secondary">导出测算结果</button></div><p id="pay-msg" class="data-note"></p></div><div class="panel stack"><table class="sheet-table"><thead><tr><th>姓名</th><th>税前</th><th>个人五险一金</th><th>个税</th><th>实发</th><th>企业成本</th><th></th></tr></thead><tbody>${db.payrollRows.map((row)=>{const c=calculate(row);return`<tr><td>${esc(row.name)}</td><td>${money(row.gross)}</td><td>${money(c.si.employee.total)}</td><td>${money(c.tax)}</td><td>${money(c.net)}</td><td>${money(c.cost)}</td><td><button class="secondary" data-pay-edit="${row.id}">编辑</button></td></tr>`;}).join("")||`<tr><td colspan="7">还没有工资数据</td></tr>`}</tbody></table></div>`;
     primary.hidden=true;
     const edit=(row={id:"",name:"",gross:"",extra:0,socialBase:"",fundBase:"",city:document.getElementById("pay-city").value})=>openDrawer(row.id?"编辑员工工资":"新增员工工资",[{key:"name",label:"姓名",value:row.name},{key:"gross",label:"税前工资",value:row.gross},{key:"extra",label:"专项附加扣除",value:row.extra},{key:"socialBase",label:"社保基数（留空按工资）",value:row.socialBase},{key:"fundBase",label:"公积金基数（留空按工资）",value:row.fundBase},{key:"city",label:"城市",type:"select",value:row.city,options:F.CITY_PRESETS.map((c)=>({value:c.id,label:c.name}))}],async(v)=>{if(!v.name||!(Number(v.gross)>0))return false;const payload={...row,...v,id:row.id||uid("pay"),gross:F.roundFen(Number(v.gross)),extra:F.roundFen(Number(v.extra)||0),socialBase:Number(v.socialBase)||0,fundBase:Number(v.fundBase)||0};const i=db.payrollRows.findIndex((x)=>x.id===payload.id);if(i>=0)db.payrollRows[i]=payload;else db.payrollRows.push(payload);await save();draw();});
     document.getElementById("pay-add").onclick=()=>edit();view.querySelectorAll("[data-pay-edit]").forEach((b)=>b.onclick=()=>edit(db.payrollRows.find((x)=>x.id===b.dataset.payEdit)));
@@ -1062,7 +1068,7 @@
   function postVoucher(sourceType,sourceId,date,summary,amount){if(db.vouchers.some((v)=>v.sourceType===sourceType&&v.sourceId===sourceId))return;ensureAccounts();const account=(code)=>db.accounts.find((a)=>a.code===code)?.id;const pair=sourceType==="invoice"?[account("1122"),account("5001")]:sourceType==="payment"?[account("1002"),account("1122")]:[account("5602"),account("1002")];db.vouchers.unshift({id:uid("vo"),sourceType,sourceId,date,summary,debitId:pair[0],creditId:pair[1],amount:F.roundFen(Number(amount)||0),status:"自动生成"});}
   function renderBookkeeping(){
     ensureAccounts(); const opts=db.accounts.map((a)=>({value:a.id,label:`${a.code} ${a.name}`}));
-    view.innerHTML=`<div class="panel"><h2>记账凭证</h2><div class="form-grid"><div class="field"><label>日期</label><input id="v-date" type="date" value="${today()}"></div><div class="field"><label>摘要</label><input id="v-summary"></div><div class="field"><label>借方科目</label><select id="v-debit">${opts.map((o)=>`<option value="${o.value}">${o.label}</option>`).join("")}</select></div><div class="field"><label>贷方科目</label><select id="v-credit">${opts.map((o)=>`<option value="${o.value}">${o.label}</option>`).join("")}</select></div><div class="field"><label>金额</label><input id="v-amount"></div><div class="field"><label>凭证模板</label><select id="v-template"><option value="">不使用</option>${db.voucherTemplates.map((t)=>`<option value="${t.id}">${esc(t.name)}</option>`).join("")}</select></div></div><div class="actions"><button id="v-save">保存凭证</button><button id="v-template-save" class="secondary">将当前科目存为模板</button></div></div><div class="panel" style="margin-top:14px"><h2>科目表</h2><table class="sheet-table"><tbody>${db.accounts.map((a)=>`<tr><td>${a.code}</td><td>${esc(a.name)}</td><td>${a.type}</td></tr>`).join("")}</tbody></table></div><div class="panel" style="margin-top:14px"><h2>凭证列表</h2><table class="sheet-table"><thead><tr><th>日期</th><th>摘要</th><th>借</th><th>贷</th><th>金额</th></tr></thead><tbody>${db.vouchers.map((v)=>`<tr><td>${v.date}</td><td>${esc(v.summary)}</td><td>${esc(db.accounts.find((a)=>a.id===v.debitId)?.name)}</td><td>${esc(db.accounts.find((a)=>a.id===v.creditId)?.name)}</td><td>${money(v.amount)}</td></tr>`).join("")||`<tr><td colspan="5">暂无凭证</td></tr>`}</tbody></table></div>`;
+    view.innerHTML=`<div class="panel"><h2>记账凭证</h2><div class="form-grid"><div class="field"><label>日期</label><input id="v-date" type="date" value="${today()}"></div><div class="field"><label>摘要</label><input id="v-summary"></div><div class="field"><label>借方科目</label><select id="v-debit">${opts.map((o)=>`<option value="${o.value}">${o.label}</option>`).join("")}</select></div><div class="field"><label>贷方科目</label><select id="v-credit">${opts.map((o)=>`<option value="${o.value}">${o.label}</option>`).join("")}</select></div><div class="field"><label>金额</label><input id="v-amount"></div><div class="field"><label>凭证模板</label><select id="v-template"><option value="">不使用</option>${db.voucherTemplates.map((t)=>`<option value="${t.id}">${esc(t.name)}</option>`).join("")}</select></div></div><div class="actions"><button id="v-save">保存凭证</button><button id="v-template-save" class="secondary">将当前科目存为模板</button></div></div><div class="panel stack"><h2>科目表</h2><table class="sheet-table"><tbody>${db.accounts.map((a)=>`<tr><td>${a.code}</td><td>${esc(a.name)}</td><td>${a.type}</td></tr>`).join("")}</tbody></table></div><div class="panel stack"><h2>凭证列表</h2><table class="sheet-table"><thead><tr><th>日期</th><th>摘要</th><th>借</th><th>贷</th><th>金额</th></tr></thead><tbody>${db.vouchers.map((v)=>`<tr><td>${v.date}</td><td>${esc(v.summary)}</td><td>${esc(db.accounts.find((a)=>a.id===v.debitId)?.name)}</td><td>${esc(db.accounts.find((a)=>a.id===v.creditId)?.name)}</td><td>${money(v.amount)}</td></tr>`).join("")||`<tr><td colspan="5">暂无凭证</td></tr>`}</tbody></table></div>`;
     primary.hidden=true; document.getElementById("v-template").onchange=(e)=>{const t=db.voucherTemplates.find((x)=>x.id===e.target.value);if(t){document.getElementById("v-debit").value=t.debitId;document.getElementById("v-credit").value=t.creditId;document.getElementById("v-summary").value=t.summary||"";}};
     document.getElementById("v-save").onclick=async()=>{const date=document.getElementById("v-date").value,amount=Number(document.getElementById("v-amount").value);if(!date||!guardOpen(date)||!(amount>0))return;db.vouchers.unshift({id:uid("vo"),date,summary:document.getElementById("v-summary").value.trim(),debitId:document.getElementById("v-debit").value,creditId:document.getElementById("v-credit").value,amount:F.roundFen(amount)});await save();draw();};
     document.getElementById("v-template-save").onclick=async()=>{const name=window.prompt("模板名称");if(!name)return;db.voucherTemplates.push({id:uid("vt"),name,summary:document.getElementById("v-summary").value.trim(),debitId:document.getElementById("v-debit").value,creditId:document.getElementById("v-credit").value});await save();draw();};
@@ -1078,9 +1084,9 @@
     const receivable = progress ? progress.openTotal : db.invoices.reduce((s,inv)=>s+Math.max(0,compute(inv).inclusive-paidOf(inv.id)),0);
     const assetNet=db.assets.reduce((s,a)=>s+assetDepreciation(a).net,0), bankNet=db.bankTransactions.reduce((s,x)=>s+Number(x.amount||0),0);
     const sales=db.invoices.reduce((s,inv)=>s+compute(inv).inclusive,0), costs=db.expenses.reduce((s,x)=>s+Number(x.amount||0),0)+db.reimbursements.reduce((s,x)=>s+Number(x.amount||0),0), receipts=db.payments.reduce((s,x)=>s+Number(x.amount||0),0);
-    view.innerHTML = `<div class="panel"><p class="data-note"><b>管理口径：</b>以当前工作台数据生成的简化报表，尚不是法定财务报表，需与会计凭证和总账复核。应收账龄不含草稿和作废。</p></div><div class="stat-row" style="margin-top:14px"><div class="stat-card"><div><b>${money(sales-costs)}</b><span>简化利润</span></div></div><div class="stat-card"><div><b>${money(receipts-costs)}</b><span>简化经营现金净额</span></div></div><div class="stat-card"><div><b>${money(receivable)}</b><span>应收余额</span></div></div></div><div class="chart-card"><h2>近 8 个月销售与费用</h2>${svgChart(series)}</div>
-      <div class="panel" style="margin-top:14px"><h2>应收账龄</h2><table class="sheet-table"><thead><tr><th>${labels.current}</th><th>${labels.d30}</th><th>${labels.d60}</th><th>${labels.d90}</th><th>${labels.over90}</th></tr></thead><tbody><tr><td>${money(aging.current)}</td><td>${money(aging.d30)}</td><td>${money(aging.d60)}</td><td>${money(aging.d90)}</td><td>${money(aging.over90)}</td></tr></tbody></table></div>
-      <div class="panel" style="margin-top:14px"><h2>简化资产负债表</h2><table class="sheet-table"><tbody><tr><td>银行流水净额</td><td>${money(bankNet)}</td></tr><tr><td>应收账款</td><td>${money(receivable)}</td></tr><tr><td>固定资产净值</td><td>${money(assetNet)}</td></tr><tr><th>已识别资产合计</th><th>${money(bankNet+receivable+assetNet)}</th></tr></tbody></table></div><div class="panel" style="margin-top:14px"><h2>简化利润表 / 现金流量表</h2><table class="sheet-table"><tbody><tr><td>营业收入</td><td>${money(sales)}</td></tr><tr><td>费用与报销</td><td>${money(costs)}</td></tr><tr><th>简化利润</th><th>${money(sales-costs)}</th></tr><tr><td>客户收款</td><td>${money(receipts)}</td></tr><tr><th>经营现金净额</th><th>${money(receipts-costs)}</th></tr></tbody></table></div><div class="panel" style="margin-top:14px"><table class="sheet-table"><thead><tr><th>月份</th><th>销售</th><th>费用</th><th>净额</th></tr></thead><tbody>${series.map((s) => `<tr><td>${s.label}</td><td>${money(s.sales)}</td><td>${money(s.expenses)}</td><td>${money(s.sales - s.expenses)}</td></tr>`).join("")}</tbody></table></div>`;
+    view.innerHTML = `<div class="panel"><p class="data-note"><b>管理口径：</b>以当前工作台数据生成的简化报表，尚不是法定财务报表，需与会计凭证和总账复核。应收账龄不含草稿和作废。</p></div><div class="stat-row stack"><div class="stat-card"><div><b>${money(sales-costs)}</b><span>简化利润</span></div></div><div class="stat-card"><div><b>${money(receipts-costs)}</b><span>简化经营现金净额</span></div></div><div class="stat-card"><div><b>${money(receivable)}</b><span>应收余额</span></div></div></div><div class="chart-card"><h2>近 8 个月销售与费用</h2>${svgChart(series)}</div>
+      <div class="panel stack"><h2>应收账龄</h2><table class="sheet-table"><thead><tr><th>${labels.current}</th><th>${labels.d30}</th><th>${labels.d60}</th><th>${labels.d90}</th><th>${labels.over90}</th></tr></thead><tbody><tr><td>${money(aging.current)}</td><td>${money(aging.d30)}</td><td>${money(aging.d60)}</td><td>${money(aging.d90)}</td><td>${money(aging.over90)}</td></tr></tbody></table></div>
+      <div class="panel stack"><h2>简化资产负债表</h2><table class="sheet-table"><tbody><tr><td>银行流水净额</td><td>${money(bankNet)}</td></tr><tr><td>应收账款</td><td>${money(receivable)}</td></tr><tr><td>固定资产净值</td><td>${money(assetNet)}</td></tr><tr><th>已识别资产合计</th><th>${money(bankNet+receivable+assetNet)}</th></tr></tbody></table></div><div class="panel stack"><h2>简化利润表 / 现金流量表</h2><table class="sheet-table"><tbody><tr><td>营业收入</td><td>${money(sales)}</td></tr><tr><td>费用与报销</td><td>${money(costs)}</td></tr><tr><th>简化利润</th><th>${money(sales-costs)}</th></tr><tr><td>客户收款</td><td>${money(receipts)}</td></tr><tr><th>经营现金净额</th><th>${money(receipts-costs)}</th></tr></tbody></table></div><div class="panel stack"><table class="sheet-table"><thead><tr><th>月份</th><th>销售</th><th>费用</th><th>净额</th></tr></thead><tbody>${series.map((s) => `<tr><td>${s.label}</td><td>${money(s.sales)}</td><td>${money(s.expenses)}</td><td>${money(s.sales - s.expenses)}</td></tr>`).join("")}</tbody></table></div>`;
     primary.hidden = true;
   }
 
@@ -1107,13 +1113,13 @@
           <div class="form-grid">
             <div class="field"><label>月份</label><input id="close-month" type="month" value="${month}"></div>
           </div>
-          <div class="stat-row" style="margin-top:14px">
+          <div class="stat-row stack">
             <div class="stat-card${result.percent < 100 ? " warn" : ""}"><div><b>${result.percent}%</b><span>月结完成度</span><small>${result.done}/${result.total} 项已完成</small></div></div>
             <div class="stat-card${result.openReceivableTotal > 0 ? " warn" : ""}"><div><b>${money(result.openReceivableTotal)}</b><span>未收应收</span><small>${input.openReceivables.length} 张</small></div></div>
             <div class="stat-card${input.unmatchedBank.length ? " warn" : ""}"><div><b>${money(result.unmatchedTotal)}</b><span>未匹配流水</span><small>${input.unmatchedBank.length} 笔</small></div></div>
             <div class="stat-card${input.anomalies.length ? " warn" : ""}"><div><b>${input.anomalies.length}</b><span>异常</span><small>当月费用 ${money(result.expenseTotal)}</small></div></div>
           </div>
-          <div class="month-progress" aria-label="月结完成度"><i style="width:${result.percent}%"></i></div>
+          <div class="month-progress" aria-label="月结完成度"><i data-meter="${result.percent}"></i></div>
           <div class="close-steps">${result.steps.map((step) => `<div class="close-step ${step.ok ? "ok" : "wait"}"><b>${esc(step.label)}</b><small>${esc(step.detail)}</small></div>`).join("")}</div>
           ${!result.closed && !ready ? `<div class="field"><label for="close-reason">强制关账原因</label><textarea id="close-reason" rows="2" placeholder="例如：老板要求先关账，未匹配流水下周补"></textarea></div>` : ""}
           <div class="actions">
@@ -1123,10 +1129,11 @@
           </div>
           <p class="data-note">${esc(closeNote)} 已月结：${db.closedMonths.slice().sort().join("、") || "暂无"}</p>
         </div>
-        <div class="panel" style="margin-top:14px"><h2>未收应收</h2><div class="table-wrap"><table class="sheet-table"><thead><tr><th>客户</th><th>单号</th><th>到期日</th><th>未收</th></tr></thead><tbody>${input.openReceivables.map((row) => `<tr><td>${esc(row.customerName)}</td><td>${esc(row.number)}</td><td>${esc(row.dueDate || "—")}</td><td>${money(row.remaining)}</td></tr>`).join("") || `<tr><td colspan="4">没有未收应收</td></tr>`}</tbody></table></div></div>
-        <div class="panel" style="margin-top:14px"><h2>未匹配银行流水</h2><div class="table-wrap"><table class="sheet-table"><thead><tr><th>日期</th><th>摘要</th><th>待匹配</th></tr></thead><tbody>${input.unmatchedBank.map((row) => `<tr><td>${esc(row.date)}</td><td>${esc(row.summary)}</td><td>${money(row.remaining)}</td></tr>`).join("") || `<tr><td colspan="3">没有未匹配流水</td></tr>`}</tbody></table></div></div>
-        <div class="panel" style="margin-top:14px"><h2>当月费用与报销</h2><div class="table-wrap"><table class="sheet-table"><thead><tr><th>日期</th><th>类型</th><th>对象</th><th>金额</th></tr></thead><tbody>${input.expenses.map((row) => `<tr><td>${esc(row.date)}</td><td>${esc(row.kind)}</td><td>${esc(row.party)}</td><td>${money(row.amount)}</td></tr>`).join("") || `<tr><td colspan="4">当月暂无费用或报销</td></tr>`}</tbody></table></div></div>
-        <div class="panel" style="margin-top:14px"><h2>数据校验</h2><p class="data-note">检查时间：${new Date().toLocaleString("zh-CN")}</p><div class="validation-list">${input.anomalies.length ? input.anomalies.map((x) => `<div class="validation-item"><b>${esc(x.where)}：${esc(x.issue)}</b><small>修复建议：${esc(x.fix)}</small></div>`).join("") : `<p class="empty">未发现明显异常。请仍按原始凭证复核。</p>`}</div></div>`;
+        <div class="panel stack"><h2>未收应收</h2><div class="table-wrap"><table class="sheet-table"><thead><tr><th>客户</th><th>单号</th><th>到期日</th><th>未收</th></tr></thead><tbody>${input.openReceivables.map((row) => `<tr><td>${esc(row.customerName)}</td><td>${esc(row.number)}</td><td>${esc(row.dueDate || "—")}</td><td>${money(row.remaining)}</td></tr>`).join("") || `<tr><td colspan="4">没有未收应收</td></tr>`}</tbody></table></div></div>
+        <div class="panel stack"><h2>未匹配银行流水</h2><div class="table-wrap"><table class="sheet-table"><thead><tr><th>日期</th><th>摘要</th><th>待匹配</th></tr></thead><tbody>${input.unmatchedBank.map((row) => `<tr><td>${esc(row.date)}</td><td>${esc(row.summary)}</td><td>${money(row.remaining)}</td></tr>`).join("") || `<tr><td colspan="3">没有未匹配流水</td></tr>`}</tbody></table></div></div>
+        <div class="panel stack"><h2>当月费用与报销</h2><div class="table-wrap"><table class="sheet-table"><thead><tr><th>日期</th><th>类型</th><th>对象</th><th>金额</th></tr></thead><tbody>${input.expenses.map((row) => `<tr><td>${esc(row.date)}</td><td>${esc(row.kind)}</td><td>${esc(row.party)}</td><td>${money(row.amount)}</td></tr>`).join("") || `<tr><td colspan="4">当月暂无费用或报销</td></tr>`}</tbody></table></div></div>
+        <div class="panel stack"><h2>数据校验</h2><p class="data-note">检查时间：${new Date().toLocaleString("zh-CN")}</p><div class="validation-list">${input.anomalies.length ? input.anomalies.map((x) => `<div class="validation-item"><b>${esc(x.where)}：${esc(x.issue)}</b><small>修复建议：${esc(x.fix)}</small></div>`).join("") : `<p class="empty">未发现明显异常。请仍按原始凭证复核。</p>`}</div></div>`;
+      paintMeter();
       primary.hidden = true;
       document.getElementById("close-toggle").textContent = result.closed ? "重开该月" : (ready ? "完成该月月结" : "强制关账");
       view.querySelectorAll("[data-go]").forEach((el) => { el.onclick = () => { location.hash = `#/${el.dataset.go}`; }; });
@@ -1557,7 +1564,7 @@
             <div class="field"><label>日期</label><input id="d-date" type="date" value="${esc(working.date)}"></div>
             <div class="field"><label>${isEst ? "有效期" : "到期日"}</label><input id="d-due" type="date" value="${esc(isEst ? working.validUntil : working.dueDate)}"></div>
           </div>
-          <table class="sheet-table" style="margin-top:12px"><thead><tr><th>项目</th><th>数量</th><th>单价</th><th>税率</th><th></th></tr></thead>
+          <table class="sheet-table stack-sm"><thead><tr><th>项目</th><th>数量</th><th>单价</th><th>税率</th><th></th></tr></thead>
           <tbody>${working.rows.map((row, i) => `<tr>
             <td><input data-i="${i}" data-k="name" list="item-list" value="${esc(row.name)}"></td>
             <td><input data-i="${i}" data-k="qty" value="${esc(row.qty)}"></td>
@@ -1569,7 +1576,7 @@
           <div class="actions"><button class="secondary" id="d-add" type="button">加一行</button>
             <select id="d-item"><option value="">从项目库插入</option>${db.items.map((it) => `<option value="${it.id}">${esc(it.name)}</option>`).join("")}</select>
           </div>
-          <div class="field" style="margin-top:12px"><label>备注</label><textarea id="d-notes" style="min-height:70px">${esc(working.notes)}</textarea></div>
+          <div class="field stack-sm"><label>备注</label><textarea id="d-notes" class="note-box">${esc(working.notes)}</textarea></div>
           <div class="actions">
             <button id="d-save" type="button">保存</button>
             <button class="secondary" id="d-print" type="button">打印</button>

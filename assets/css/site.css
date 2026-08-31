@@ -67,6 +67,20 @@
 .plan-pill{display:inline-block;margin:8px 0 0;padding:4px 10px;border-radius:999px;color:#334155;background:#f1f5f9;font-size:12px;font-weight:750}
 .plan-pill.on{color:#4338ca;background:#eef2ff}
 a.plan-pill{margin:0}
+#plan-stats{grid-template-columns:repeat(3,minmax(0,1fr));margin:0 0 14px}
+#plan-stats .stat{text-align:left}
+#plan-stats .stat span{display:block;margin-bottom:6px;color:var(--muted);font-size:12px;font-weight:750}
+#plan-stats .stat strong{font-size:18px;color:var(--ink)}
+.download-button.secondary{color:#334155;background:#e8eef7}
+@media(max-width:650px){#plan-stats{grid-template-columns:1fr}}
+.stats-stack{grid-template-columns:1fr}
+.stat-left{text-align:left}
+.stat-left strong,.stats-wide .stat-left strong{font-size:22px}
+.actions-flush{margin-top:0}
+.btn-follow{margin-top:8px}
+.select-inline{width:auto;min-width:180px}
+.note-short{min-height:80px}
+.rate-custom{max-width:160px;margin-top:10px}
 .quote-title-row{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:8px}
 .quote-title-row .hint{margin-bottom:12px}
 .pro-tag{display:inline-block;margin-left:6px;padding:2px 7px;border-radius:999px;color:#6d28d9;background:#f5f3ff;font-size:11px;font-weight:800;vertical-align:middle}

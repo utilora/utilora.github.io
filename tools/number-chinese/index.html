@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'none'; object-src 'none'; script-src 'self' 'sha256-Qh+9xkTNhTOw2jXvTpp0GWe0474h6HJvhkkrM/ZlwhE=' https://challenges.cloudflare.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://challenges.cloudflare.com; font-src 'self'; connect-src 'self' https://nkxgnqzdswugbjjquxfj.supabase.co wss://nkxgnqzdswugbjjquxfj.supabase.co https://challenges.cloudflare.com; frame-src https://challenges.cloudflare.com; form-action 'self'; manifest-src 'self'; worker-src 'self' blob:; upgrade-insecure-requests">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'none'; object-src 'none'; script-src 'self' 'sha256-Qh+9xkTNhTOw2jXvTpp0GWe0474h6HJvhkkrM/ZlwhE=' https://challenges.cloudflare.com; style-src 'self'; img-src 'self' data: blob: https://challenges.cloudflare.com; font-src 'self'; connect-src 'self' https://nkxgnqzdswugbjjquxfj.supabase.co wss://nkxgnqzdswugbjjquxfj.supabase.co https://challenges.cloudflare.com; frame-src https://challenges.cloudflare.com; form-action 'self'; manifest-src 'self'; worker-src 'self' blob:; upgrade-insecure-requests">
   <meta name="referrer" content="strict-origin-when-cross-origin">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>数字转中文大写 - Utilora</title>
@@ -32,12 +32,12 @@
         <button id="copySpoken" class="secondary" type="button">复制读法</button>
         <button id="clear" class="secondary" type="button">清空</button>
       </div>
-      <div class="stats stats-wide" style="grid-template-columns:1fr">
-        <div class="stat" style="text-align:left">
-          <strong id="moneyOut" style="font-size:22px">—</strong>人民币大写
+      <div class="stats stats-wide stats-stack">
+        <div class="stat stat-left">
+          <strong id="moneyOut">—</strong>人民币大写
         </div>
-        <div class="stat" style="text-align:left">
-          <strong id="spokenOut" style="font-size:22px">—</strong>中文读法
+        <div class="stat stat-left">
+          <strong id="spokenOut">—</strong>中文读法
         </div>
       </div>
       <div id="message" class="message"></div>

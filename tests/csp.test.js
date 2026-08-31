@@ -1,5 +1,5 @@
 /**
- * S-10：公开页必须带 CSP meta；禁止可执行内联脚本（JSON-LD 除外，须带哈希）。
+ * S-10 / S-11：公开页必须带 CSP meta；禁止可执行内联脚本（JSON-LD 除外，须带哈希）；禁止内联样式。
  * 运行：node tests/csp.test.js
  * 构建产物：CHECK_DIST=1 node tests/csp.test.js
  */
@@ -12,7 +12,7 @@ function assert(cond, msg) {
 }
 
 const POLICY =
-  "default-src 'self'; base-uri 'none'; object-src 'none'; script-src 'self' 'sha256-Qh+9xkTNhTOw2jXvTpp0GWe0474h6HJvhkkrM/ZlwhE=' https://challenges.cloudflare.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://challenges.cloudflare.com; font-src 'self'; connect-src 'self' https://nkxgnqzdswugbjjquxfj.supabase.co wss://nkxgnqzdswugbjjquxfj.supabase.co https://challenges.cloudflare.com; frame-src https://challenges.cloudflare.com; form-action 'self'; manifest-src 'self'; worker-src 'self' blob:; upgrade-insecure-requests";
+  "default-src 'self'; base-uri 'none'; object-src 'none'; script-src 'self' 'sha256-Qh+9xkTNhTOw2jXvTpp0GWe0474h6HJvhkkrM/ZlwhE=' https://challenges.cloudflare.com; style-src 'self'; img-src 'self' data: blob: https://challenges.cloudflare.com; font-src 'self'; connect-src 'self' https://nkxgnqzdswugbjjquxfj.supabase.co wss://nkxgnqzdswugbjjquxfj.supabase.co https://challenges.cloudflare.com; frame-src https://challenges.cloudflare.com; form-action 'self'; manifest-src 'self'; worker-src 'self' blob:; upgrade-insecure-requests";
 
 const JSON_LD =
   '{"@context":"https://schema.org","@type":"WebSite","name":"Utilora 财务工具","url":"https://utilora.github.io/","description":"免费财务工具 + 专业财务工作台。免费工具永久免费、匿名、无需登录。"}';
@@ -38,6 +38,9 @@ function checkPage(path, html) {
   assert(/object-src 'none'/.test(html), `${path} missing object-src none`);
   assert(/base-uri 'none'/.test(html), `${path} missing base-uri none`);
   assert(!/script-src[^;]*'unsafe-inline'/.test(html), `${path} must not allow unsafe-inline scripts`);
+  assert(!/style-src[^;]*'unsafe-inline'/.test(html), `${path} must not allow unsafe-inline styles`);
+  assert(!/<style\b/i.test(html), `${path} has style tag`);
+  assert(!/\sstyle\s*=/i.test(html), `${path} has style attribute`);
   const scriptTag = /<script\b([^>]*)>([\s\S]*?)<\/script>/gi;
   let match;
   while ((match = scriptTag.exec(html))) {

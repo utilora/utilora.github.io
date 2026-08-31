@@ -243,6 +243,10 @@ describe("product architecture", () => {
     expect(home).toContain("object-src 'none'");
     expect(home).toContain("base-uri 'none'");
     expect(home).not.toMatch(/script-src[^;]*'unsafe-inline'/);
+    expect(home).not.toMatch(/style-src[^;]*'unsafe-inline'/);
+    expect(home).toContain("style-src 'self'");
+    expect(read("account/index.html")).not.toContain("<style>");
+    expect(read("pro/app.js")).not.toMatch(/\sstyle="/);
     expect(home).toContain("assets/js/home-hero.js");
     expect(read("login/index.html")).toContain("assets/js/turnstile-boot.js");
     expect(read("feedback/index.html")).toContain("assets/js/turnstile-boot.js");

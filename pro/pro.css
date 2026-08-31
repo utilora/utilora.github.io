@@ -150,7 +150,14 @@ a{color:inherit;text-decoration:none}button,input,select,textarea{font:inherit}
 .stat-card.warn{border:1px solid #f3c9cf;box-shadow:0 8px 24px #d35d6e12}
 .stat-card small{display:block;margin-top:5px;color:#8a94a5;font-size:12px;font-weight:600}
 .month-progress{height:8px;margin:4px 0 16px;border-radius:999px;background:#e8eef3;overflow:hidden}
-.month-progress i{display:block;height:100%;border-radius:inherit;background:#0f8a70}
+.month-progress i{display:block;height:100%;border-radius:inherit;background:#0f8a70;width:0}
+.stack{margin-top:14px}
+.stack-sm{margin-top:12px}
+.sub{color:#9ca3af;font-size:12px}
+.inv-note{color:#6b7280;margin-top:18px}
+.inv-pay{color:#6b7280}
+.note-box{min-height:70px}
+.print-sheet .inv-paper{width:100%}
 .dash-todo{margin:0 0 16px}
 @media(max-width:980px){.workflow-strip{grid-template-columns:1fr 1fr}}
 @media(max-width:560px){.workflow-strip{grid-template-columns:1fr}.today-work-lead h2{font-size:20px}}

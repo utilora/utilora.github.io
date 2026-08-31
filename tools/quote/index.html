@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'none'; object-src 'none'; script-src 'self' 'sha256-Qh+9xkTNhTOw2jXvTpp0GWe0474h6HJvhkkrM/ZlwhE=' https://challenges.cloudflare.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://challenges.cloudflare.com; font-src 'self'; connect-src 'self' https://nkxgnqzdswugbjjquxfj.supabase.co wss://nkxgnqzdswugbjjquxfj.supabase.co https://challenges.cloudflare.com; frame-src https://challenges.cloudflare.com; form-action 'self'; manifest-src 'self'; worker-src 'self' blob:; upgrade-insecure-requests">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'none'; object-src 'none'; script-src 'self' 'sha256-Qh+9xkTNhTOw2jXvTpp0GWe0474h6HJvhkkrM/ZlwhE=' https://challenges.cloudflare.com; style-src 'self'; img-src 'self' data: blob: https://challenges.cloudflare.com; font-src 'self'; connect-src 'self' https://nkxgnqzdswugbjjquxfj.supabase.co wss://nkxgnqzdswugbjjquxfj.supabase.co https://challenges.cloudflare.com; frame-src https://challenges.cloudflare.com; form-action 'self'; manifest-src 'self'; worker-src 'self' blob:; upgrade-insecure-requests">
   <meta name="referrer" content="strict-origin-when-cross-origin">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>报价单 - Utilora</title>
@@ -55,7 +55,7 @@
         </div>
         <div class="field"><label for="validUntil">报价有效期</label><input id="validUntil" type="date"></div>
       </div>
-      <div class="actions" style="margin-top:0">
+      <div class="actions actions-flush">
         <button id="nextNumber" class="secondary" type="button">下一单号</button>
         <button id="saveDoc" class="secondary" type="button">存入历史</button>
         <button id="newDoc" class="secondary" type="button">新建空白单</button>
@@ -99,7 +99,7 @@
         <div class="field">
           <label for="seal">公章图片</label>
           <input id="seal" type="file" accept="image/*">
-          <button id="makeSeal" class="secondary" type="button" style="margin-top:8px">按卖方名称生成公章</button>
+          <button id="makeSeal" class="secondary btn-follow" type="button">按卖方名称生成公章</button>
         </div>
         <div class="field">
           <label for="qr">收款码</label>
@@ -122,7 +122,7 @@
       <div class="actions">
         <button id="addLine" class="secondary" type="button">加一行</button>
         <button id="saveItem" class="secondary" type="button">把当前第一行存进项目库</button>
-        <select id="itemPick" style="width:auto;min-width:180px"><option value="">从项目库插入</option></select>
+        <select id="itemPick" class="select-inline"><option value="">从项目库插入</option></select>
       </div>
       <div class="grid three">
         <div class="field"><label for="discountPct">优惠 %</label><input id="discountPct" inputmode="decimal" value="0"></div>
@@ -138,7 +138,7 @@
           </select>
         </div>
       </div>
-      <div class="field"><label for="note">备注</label><textarea id="note" style="min-height:80px">本文件仅作报价/对账，不是税务机关监制的增值税发票。</textarea></div>
+      <div class="field"><label for="note">备注</label><textarea id="note" class="note-short">本文件仅作报价/对账，不是税务机关监制的增值税发票。</textarea></div>
       <div class="field">
         <label for="historyPick">本机历史单据</label>
         <select id="historyPick"><option value="">打开已存单据</option></select>
