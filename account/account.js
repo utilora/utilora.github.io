@@ -65,6 +65,10 @@
   (async () => {
     const captured = await auth.captureRedirect();
     if (captured?.error) setMsg(captured.error, true);
+    if (captured?.type === "recovery") {
+      location.replace("../login/?reset=1");
+      return;
+    }
     const session = await auth.refreshIfNeeded();
     if (!session) {
       location.href = "../login/";

@@ -16,6 +16,7 @@ export default defineConfig({
         { src: "policies", dest: "." },
         { src: "pro/app.js", dest: "." },
         { src: "pro/pro.css", dest: "." },
+        { src: "pro/u01.js", dest: "." },
         { src: "assets", dest: "." },
         { src: "favicon.svg", dest: "." },
         { src: "icon-192.png", dest: "." },

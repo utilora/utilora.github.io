@@ -43,28 +43,36 @@ const loadScript = (src: string): Promise<void> =>
 let workspaceLoaded = false;
 const loadWorkspace = async (): Promise<void> => {
   if (workspaceLoaded) return;
-  workspaceLoaded = true;
   window.UtiloraBank = UtiloraBank;
   window.UtiloraBankQueue = UtiloraBankQueue;
   window.UtiloraReceivables = UtiloraReceivables;
   window.UtiloraMonthEnd = UtiloraMonthEnd;
   window.UtiloraBackup = UtiloraBackup;
-  for (const src of [
-    "../assets/js/finance.js?v=11",
-    "../assets/js/csv.js?v=11",
-    "../assets/js/xlsx-lite.js?v=11",
-    "../assets/js/app.js?v=13",
-    "app.js?v=19",
-    "u01.js?v=1"
-  ]) {
-    await loadScript(src);
+  try {
+    for (const src of [
+      "../assets/js/finance.js?v=11",
+      "../assets/js/csv.js?v=11",
+      "../assets/js/xlsx-lite.js?v=11",
+      "../assets/js/app.js?v=13",
+      "app.js?v=19"
+    ]) {
+      await loadScript(src);
+    }
+    await loadScript("u01.js?v=1").catch(() => undefined);
+    workspaceLoaded = true;
+  } catch (error) {
+    workspaceLoaded = false;
+    throw error;
   }
 };
 
 const revealWorkspace = async (label: string): Promise<void> => {
   gate.hidden = true;
   shell.hidden = false;
-  if (status) status.textContent = label;
+  if (status) {
+    status.textContent = label;
+    status.classList.remove("error");
+  }
   await loadWorkspace();
 };
 
@@ -98,11 +106,24 @@ const start = async (): Promise<void> => {
 
 void start().catch(async (error) => {
   console.error("Professional workspace bootstrap failed", error);
-  shell.hidden = true;
-  gate.hidden = false;
-  if (status) {
+  if (demo) {
+    try {
+      await revealWorkspace("演示模式 · 不保存改动");
+      await bindPurchaseIntentForms();
+      return;
+    } catch {
+      if (status) {
+        status.textContent = "演示工作台加载失败，请刷新";
+        status.classList.add("error");
+      }
+    }
+  } else if (status) {
     status.textContent = "登录验证失败，请重试";
     status.classList.add("error");
+  }
+  if (!demo) {
+    shell.hidden = true;
+    gate.hidden = false;
   }
   await bindPurchaseIntentForms();
 });
