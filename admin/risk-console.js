@@ -178,7 +178,8 @@
 
   async function riskSetDisabled(user, disabled) {
     const label = disabled ? '停用' : '启用';
-    if (!confirm(`确定${label}「${user.email}」吗？`)) return;
+    const ask = window.confirmSensitive || ((text) => Promise.resolve(confirm(text)));
+    if (!(await ask(`${label}账号「${user.email}」。停用须二次确认并写入操作日志。`))) return;
     const msg = document.getElementById('risk-message');
     const isPreview = typeof window.isPreview === 'function' ? window.isPreview() : !/utilora\.github\.io$/i.test(location.hostname);
     const getSession = window.getSession || (() => null);

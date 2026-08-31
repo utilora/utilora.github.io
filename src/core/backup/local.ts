@@ -16,7 +16,8 @@ export const BACKUP_COLLECTIONS = [
   "payrollRows",
   "accounts",
   "vouchers",
-  "voucherTemplates"
+  "voucherTemplates",
+  "collectionNotes"
 ] as const;
 
 export const REQUIRED_BACKUP_COLLECTIONS = [

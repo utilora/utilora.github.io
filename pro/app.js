@@ -25,12 +25,12 @@
   const empty = (name = "我的企业") => ({
     schemaVersion: 3,
     company: { name, taxId: "", address: "", phone: "", email: "", payInfo: "", theme: "navy" },
-    customers: [], items: [], estimates: [], invoices: [], payments: [], expenses: [], reimbursements: [], assets: [], bankTransactions: [], payrollRows: [], accounts: [], vouchers: [], voucherTemplates: [], closedMonths: [],
+    customers: [], items: [], estimates: [], invoices: [], payments: [], expenses: [], reimbursements: [], assets: [], bankTransactions: [], payrollRows: [], accounts: [], vouchers: [], voucherTemplates: [], collectionNotes: [], closedMonths: [],
   });
   const normalizeData = (source) => {
     const next = { ...empty(), ...(source || {}) };
     next.company = { ...empty().company, ...(source?.company || {}) };
-    ["customers", "items", "estimates", "invoices", "payments", "expenses", "reimbursements", "assets", "bankTransactions", "payrollRows", "accounts", "vouchers", "voucherTemplates"].forEach((key) => {
+    ["customers", "items", "estimates", "invoices", "payments", "expenses", "reimbursements", "assets", "bankTransactions", "payrollRows", "accounts", "vouchers", "voucherTemplates", "collectionNotes"].forEach((key) => {
       next[key] = Array.isArray(source?.[key]) ? source[key] : [];
     });
     next.closedMonths = Array.isArray(source?.closedMonths) ? source.closedMonths : [];
@@ -79,6 +79,10 @@
     sample.reimbursements = [{ id: "r1", date: today(), claimant: "演示员工", category: "差旅", amount: 680, hasInvoice: true, status: "reviewed", note: "示例数据" }];
     sample.assets = [{ id: "a1", name: "演示办公电脑", category: "电子设备", cost: 9000, residualRate: 5, years: 3, startDate: addDays(-180), note: "示例数据" }];
     sample.bankTransactions = [{ id:"b1", date:today(), summary:"星海贸易转账", amount:3000, paymentId:"p1" }, { id:"b2", date:addDays(-2), summary:"客户回款待匹配", amount:600, paymentId:"" }];
+    sample.collectionNotes = [
+      { id: "n1", customerId: "c2", contactedOn: today(), promisedOn: today(), result: "promised", note: "下午再打" },
+      { id: "n2", customerId: "c1", contactedOn: addDays(-2), result: "missed", note: "" }
+    ];
     return sample;
   };
 
@@ -381,6 +385,9 @@
     const weekDue = Rec ? Rec.dueThisWeek(receivable, asOf) : db.invoices.filter((inv) => isCollectable(inv) && inv.dueDate && inv.dueDate >= asOf && inv.dueDate <= asOf);
     const dueTodayAmount = dueToday.reduce((s, inv) => s + (Rec ? Rec.remainingOf(inv) : invoiceBalance(inv)), 0);
     const weekAmount = weekDue.reduce((s, inv) => s + (Rec ? Rec.remainingOf(inv) : invoiceBalance(inv)), 0);
+    const notes = Array.isArray(db.collectionNotes) ? db.collectionNotes : [];
+    const promised = Rec && Rec.promisedOnDay ? Rec.promisedOnDay(notes, asOf) : notes.filter((item) => item.result === "promised" && item.promisedOn === asOf);
+    const resultLabel = Rec && Rec.COLLECTION_RESULT_LABEL ? Rec.COLLECTION_RESULT_LABEL : { missed: "未接", promised: "已答应", paid: "已付" };
     const monthPendingInvoices = db.invoices.filter((inv) => isCollectable(inv) && String(inv.dueDate || today()) <= `${month}-31`);
     const monthPendingAmount = monthPendingInvoices.reduce((s, inv) => s + invoiceBalance(inv), 0);
     const recentPayments = db.payments.slice().sort((a, b) => String(b.date).localeCompare(String(a.date))).slice(0, 6);
@@ -436,9 +443,15 @@
       </div>
       <div class="split-lists">
         <div class="list-card">
+          <h2 data-go="customers">今日承诺还款</h2>
+          ${promised.length ? promised.slice(0, 8).map((item) => `<div class="mini-row" data-go="customer/${item.customerId}"><div><b>${esc(customer(item.customerId).name)}</b><small>${esc(item.promisedOn)} · ${esc(resultLabel[item.result] || item.result)}</small></div><b>去跟进</b></div>`).join("") : `<p class="empty">今天没有承诺还款</p>`}
+        </div>
+        <div class="list-card">
           <h2 data-go="bank">待匹配流水</h2>
           ${unmatched.length ? unmatched.slice(0, 8).map((tx) => `<div class="mini-row" data-go="bank"><div><b>${esc(tx.summary || "银行流水")}</b><small>${esc(tx.date)} · 待匹配 ${money(bankRemaining(tx))}</small></div><b>${money(tx.amount)}</b></div>`).join("") : `<p class="empty">没有待匹配流水</p>`}
         </div>
+      </div>
+      <div class="split-lists">
         <div class="list-card">
           <h2 data-go="payments">最近收款</h2>
           ${recentPayments.map((p) => { const inv = db.invoices.find((i) => i.id === p.invoiceId) || {}; return `<div class="mini-row" data-go="payments"><div><b>${esc(customer(inv.customerId).name || "未关联客户")}</b><small>${esc(p.date)} · ${esc(inv.number)}</small></div><b>${money(p.amount)}</b></div>`; }).join("") || `<p class="empty">还没有收款记录</p>`}
@@ -486,9 +499,13 @@
   function renderPeople(kind) {
     const isCust = kind === "customers";
     const list = db[kind];
-    view.innerHTML = `<div class="panel">${list.length ? `<table class="sheet-table"><thead><tr>${isCust ? "<th>客户</th><th>未收金额</th><th>电话 / 邮箱</th><th></th>" : "<th>项目</th><th>单价</th><th>税率</th><th></th>"}</tr></thead><tbody>${list.map((row) => `<tr>
+    const Rec = window.UtiloraReceivables;
+    const resultLabel = Rec && Rec.COLLECTION_RESULT_LABEL ? Rec.COLLECTION_RESULT_LABEL : { missed: "未接", promised: "已答应", paid: "已付" };
+    const latest = (id) => Rec && Rec.latestNote ? Rec.latestNote(db.collectionNotes || [], id) : (db.collectionNotes || []).filter((item) => item.customerId === id)[0];
+    view.innerHTML = `<div class="panel">${list.length ? `<table class="sheet-table"><thead><tr>${isCust ? "<th>客户</th><th>未收金额</th><th>最近催收</th><th>电话 / 邮箱</th><th></th>" : "<th>项目</th><th>单价</th><th>税率</th><th></th>"}</tr></thead><tbody>${list.map((row) => `<tr>
       <td><b>${esc(row.name)}</b><div style="color:#9ca3af;font-size:12px">${esc(isCust ? row.address : row.spec)}</div></td>
       <td>${isCust ? money(db.invoices.filter((inv) => inv.customerId === row.id).reduce((sum, inv) => sum + Math.max(0, compute(inv).inclusive - paidOf(inv.id)), 0)) : money(row.price)}</td>
+      ${isCust ? `<td>${(() => { const note = latest(row.id); return note ? `${esc(resultLabel[note.result] || note.result)}<div style="color:#9ca3af;font-size:12px">${esc(note.contactedOn)}${note.promisedOn ? ` · 承诺 ${esc(note.promisedOn)}` : ""}</div>` : "尚无备忘"; })()}</td>` : ""}
       <td>${isCust ? `${esc(row.phone)}<div style="color:#9ca3af;font-size:12px">${esc(row.email)}</div>` : `${row.rate}%`}</td>
       <td class="actions">${isCust ? `<button class="secondary" data-customer-detail="${row.id}">往来</button>` : ""}<button class="secondary" data-edit="${row.id}">编辑</button><button class="secondary" data-del="${row.id}">删除</button></td>
     </tr>`).join("")}</tbody></table>` : `<p class="empty">${isCust ? "还没有客户" : "还没有项目"}</p>`}</div>
@@ -528,10 +545,51 @@
     const progress = Rec ? Rec.collectionProgress(rows, today()) : null;
     const billed = invoices.reduce((sum, inv) => sum + compute(inv).inclusive, 0);
     const received = payments.reduce((sum, p) => sum + Number(p.amount || 0), 0);
-    view.innerHTML = `<div class="panel"><div class="preview-actions"><button class="secondary" id="customer-back">返回客户</button><button id="customer-new-invoice">新建应收单</button></div><h2>${esc(c.name)}</h2><p class="data-note">${esc(c.taxId || "未填税号")} · ${esc(c.phone || "未填电话")} · ${esc(c.email || "未填邮箱")}</p><div class="data-health"><span><b>未收</b>${money(progress ? progress.openTotal : Math.max(0, billed - received))}</span><span><b>逾期</b>${money(progress ? progress.overdueTotal : 0)}</span><span><b>回款进度</b>${progress ? `${progress.collectedRate}%` : money(received)}</span></div><p class="data-note">未收和逾期不含草稿、作废和已结清单据。</p></div><div class="panel" style="margin-top:14px"><h2>应收与收款明细</h2><table class="sheet-table"><thead><tr><th>日期</th><th>类型</th><th>单号</th><th>金额</th></tr></thead><tbody>${[...invoices.map((inv) => ({ date: inv.date, type: "应收", number: inv.number, amount: compute(inv).inclusive })), ...payments.map((p) => ({ date: p.date, type: "收款", number: db.invoices.find((inv) => inv.id === p.invoiceId)?.number || "", amount: -Number(p.amount) }))].sort((a,b) => String(b.date).localeCompare(String(a.date))).map((row) => `<tr><td>${esc(row.date)}</td><td>${row.type}</td><td>${esc(row.number)}</td><td>${money(row.amount)}</td></tr>`).join("") || `<tr><td colspan="4">暂无往来</td></tr>`}</tbody></table></div>`;
+    const notes = Rec && Rec.notesForCustomer ? Rec.notesForCustomer(db.collectionNotes || [], id) : (db.collectionNotes || []).filter((item) => item.customerId === id);
+    const resultLabel = Rec && Rec.COLLECTION_RESULT_LABEL ? Rec.COLLECTION_RESULT_LABEL : { missed: "未接", promised: "已答应", paid: "已付" };
+    view.innerHTML = `<div class="panel"><div class="preview-actions"><button class="secondary" id="customer-back">返回客户</button><button id="customer-new-invoice">新建应收单</button></div><h2>${esc(c.name)}</h2><p class="data-note">${esc(c.taxId || "未填税号")} · ${esc(c.phone || "未填电话")} · ${esc(c.email || "未填邮箱")}</p><div class="data-health"><span><b>未收</b>${money(progress ? progress.openTotal : Math.max(0, billed - received))}</span><span><b>逾期</b>${money(progress ? progress.overdueTotal : 0)}</span><span><b>回款进度</b>${progress ? `${progress.collectedRate}%` : money(received)}</span></div><p class="data-note">未收和逾期不含草稿、作废和已结清单据。</p></div>
+      <div class="panel" style="margin-top:14px">
+        <h2>催收备忘</h2>
+        <div class="form-grid" id="collection-form">
+          <div class="field"><label>联系日</label><input id="note-contacted" type="date" value="${esc(today())}"></div>
+          <div class="field"><label>承诺还款日</label><input id="note-promised" type="date"></div>
+          <div class="field"><label>结果</label><select id="note-result"><option value="missed">未接</option><option value="promised">已答应</option><option value="paid">已付</option></select></div>
+          <div class="field"><label>备注</label><input id="note-text" maxlength="120" placeholder="可选"></div>
+        </div>
+        <div class="actions"><button id="note-save" type="button">记下这次催收</button></div>
+        <p id="note-message" class="data-note"></p>
+        <div class="table-wrap" style="margin-top:12px"><table class="sheet-table"><thead><tr><th>联系日</th><th>承诺还款日</th><th>结果</th><th>备注</th><th></th></tr></thead><tbody>${notes.length ? notes.map((item) => `<tr><td>${esc(item.contactedOn)}</td><td>${esc(item.promisedOn || "—")}</td><td>${esc(resultLabel[item.result] || item.result)}</td><td>${esc(item.note || "")}</td><td class="actions"><button class="secondary" data-del-note="${esc(item.id)}">删除</button></td></tr>`).join("") : `<tr><td colspan="5">还没有催收备忘</td></tr>`}</tbody></table></div>
+      </div>
+      <div class="panel" style="margin-top:14px"><h2>应收与收款明细</h2><table class="sheet-table"><thead><tr><th>日期</th><th>类型</th><th>单号</th><th>金额</th></tr></thead><tbody>${[...invoices.map((inv) => ({ date: inv.date, type: "应收", number: inv.number, amount: compute(inv).inclusive })), ...payments.map((p) => ({ date: p.date, type: "收款", number: db.invoices.find((inv) => inv.id === p.invoiceId)?.number || "", amount: -Number(p.amount) }))].sort((a,b) => String(b.date).localeCompare(String(a.date))).map((row) => `<tr><td>${esc(row.date)}</td><td>${row.type}</td><td>${esc(row.number)}</td><td>${money(row.amount)}</td></tr>`).join("") || `<tr><td colspan="4">暂无往来</td></tr>`}</tbody></table></div>`;
     primary.hidden = true;
     document.getElementById("customer-back").onclick = () => go("customers");
     document.getElementById("customer-new-invoice").onclick = () => go("invoice", "new");
+    document.getElementById("note-save").onclick = () => {
+      const payload = {
+        id: uid("n"),
+        customerId: id,
+        contactedOn: document.getElementById("note-contacted").value,
+        promisedOn: document.getElementById("note-promised").value,
+        result: document.getElementById("note-result").value,
+        note: document.getElementById("note-text").value
+      };
+      const checked = Rec && Rec.validateCollectionNote ? Rec.validateCollectionNote(payload) : { ok: Boolean(payload.contactedOn && payload.result), note: payload, error: "请填写联系日和结果" };
+      const msg = document.getElementById("note-message");
+      if (!checked.ok) {
+        if (msg) msg.textContent = checked.error || "备忘未保存";
+        return;
+      }
+      db.collectionNotes = [checked.note, ...(db.collectionNotes || [])];
+      save();
+      draw();
+    };
+    view.querySelectorAll("[data-del-note]").forEach((btn) => {
+      btn.onclick = () => {
+        db.collectionNotes = (db.collectionNotes || []).filter((item) => item.id !== btn.dataset.delNote);
+        save();
+        draw();
+      };
+    });
   }
 
   function convertEstimate(id) {

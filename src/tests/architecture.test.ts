@@ -100,6 +100,10 @@ describe("product architecture", () => {
     expect(read("pro/app.js")).toContain("customerDebts");
     expect(read("pro/app.js")).toContain("应收回款概览");
     expect(read("pro/app.js")).toContain("collectionProgress");
+    expect(read("pro/app.js")).toContain("催收备忘");
+    expect(read("pro/app.js")).toContain("validateCollectionNote");
+    expect(read("src/core/receivables/local.ts")).toContain("promisedOnDay");
+    expect(read("src/core/backup/local.ts")).toContain("collectionNotes");
   });
 
   it("builds a month-end pack with a score and exportable result", () => {
@@ -212,6 +216,12 @@ describe("product architecture", () => {
     expect(read("admin/admin-ops.js")).toContain("abnormal_registrations_today");
     expect(read("supabase/migrations/202608310011_admin_ops_todos.sql")).toContain("abnormal_registrations_today");
     expect(read("supabase/admin-ops.sql")).toContain("abnormal_registrations_today");
+    expect(read("admin/admin.js")).toContain("confirmSensitive");
+    expect(read("admin/admin.js")).toContain("confirmLimitChange");
+    expect(read("admin/index.html")).toContain("sensitive-confirm");
+    expect(read("admin/index.html")).toContain("请输入「确认」");
+    expect(read("admin/admin-ops.js")).toContain("askConfirm");
+    expect(read("admin/risk-console.js")).toContain("confirmSensitive");
     expect(read("assets/js/auth.js")).toContain("record_user_activity");
     expect(read("assets/js/analytics.js")).toContain("record_user_activity");
     expect(read("src/core/auth/session.ts")).toContain("record_user_activity");

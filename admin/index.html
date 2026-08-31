@@ -824,6 +824,21 @@
         </div>
       </div>
     </aside>
+  <div id="sensitive-confirm" class="confirm-modal" hidden>
+    <div id="sensitive-mask" class="confirm-mask"></div>
+    <div class="confirm-card" role="dialog" aria-modal="true" aria-labelledby="sensitive-title">
+      <h2 id="sensitive-title">确认敏感操作</h2>
+      <p id="sensitive-summary"></p>
+      <p class="hint">提权、停用、改促销、改限额配置须二次确认并写入操作日志。</p>
+      <label for="sensitive-typed">请输入「确认」</label>
+      <input id="sensitive-typed" type="text" autocomplete="off" maxlength="8">
+      <p id="sensitive-hint" class="hint" role="status"></p>
+      <div class="row-actions">
+        <button id="sensitive-ok" type="button">确认执行</button>
+        <button id="sensitive-cancel" class="secondary" type="button">取消</button>
+      </div>
+    </div>
+  </div>
   <script src="../feedback/config.js"></script>
   <script src="admin.js"></script>
   <script src="admin-ops.js"></script>

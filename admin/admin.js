@@ -25,6 +25,51 @@ function currentAdminEmail() {
   try { return getSession()?.user?.email || ''; }
   catch { return ''; }
 }
+
+function confirmSensitive(summary) {
+  return new Promise((resolve) => {
+    const box = document.getElementById('sensitive-confirm');
+    const text = document.getElementById('sensitive-summary');
+    const typed = document.getElementById('sensitive-typed');
+    const hint = document.getElementById('sensitive-hint');
+    const ok = document.getElementById('sensitive-ok');
+    const cancel = document.getElementById('sensitive-cancel');
+    const mask = document.getElementById('sensitive-mask');
+    if (!box || !typed || !ok) {
+      resolve(window.confirm(`${summary}\n\n请再次确认。输入「确认」的弹窗不可用时使用浏览器确认。`));
+      return;
+    }
+    const finish = (value) => {
+      box.hidden = true;
+      typed.value = '';
+      if (hint) hint.textContent = '';
+      ok.onclick = null;
+      cancel.onclick = null;
+      if (mask) mask.onclick = null;
+      resolve(value);
+    };
+    if (text) text.textContent = summary;
+    if (hint) hint.textContent = '';
+    typed.value = '';
+    box.hidden = false;
+    typed.focus();
+    ok.onclick = () => {
+      if (typed.value.trim() !== '确认') {
+        if (hint) hint.textContent = '请输入「确认」后再执行。';
+        return;
+      }
+      finish(true);
+    };
+    cancel.onclick = () => finish(false);
+    if (mask) mask.onclick = () => finish(false);
+  });
+}
+window.confirmSensitive = confirmSensitive;
+
+function confirmLimitChange(summary) {
+  return confirmSensitive(`改限额配置：${summary}。须二次确认并写入操作日志。`);
+}
+window.confirmLimitChange = confirmLimitChange;
 const tip = document.getElementById('chart-tip');
 
 const FINANCE_TOOLS = new Set(['vat-split', 'income-tax', 'payroll', 'quote', 'number-chinese']);
@@ -1125,6 +1170,8 @@ async function loadUsers() {
 }
 
 async function setUserAdmin(user, isAdmin) {
+  const label = isAdmin ? '设为管理员' : '取消管理员';
+  if (!(await confirmSensitive(`${label}「${user.email}」。提权须二次确认并写入操作日志。`))) return;
   if (isPreview() && !getSession()) {
     user.is_admin = isAdmin;
     renderUsers();
@@ -1143,7 +1190,7 @@ async function setUserAdmin(user, isAdmin) {
 
 async function setUserDisabled(user, disabled) {
   const label = disabled ? '停用' : '启用';
-  if (!confirm(`确定${label}「${user.email}」吗？`)) return;
+  if (!(await confirmSensitive(`${label}账号「${user.email}」。停用须二次确认并写入操作日志。`))) return;
   if (isPreview() && !getSession()) {
     user.is_disabled = disabled;
     renderUsers();

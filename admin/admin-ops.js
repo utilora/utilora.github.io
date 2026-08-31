@@ -14,7 +14,7 @@
   let grantsState = 'ok';
   let logsState = 'ok';
 
-  const yuan = (cents) => `¥${(Number(cents || 0) / 100).toFixed(2)}`;
+  const askConfirm = (summary) => (window.confirmSensitive || ((text) => Promise.resolve(window.confirm(text))))(summary);
 
   const mockPromos = [{
     id: 'p1',
@@ -156,8 +156,8 @@
     const msg = document.getElementById('promotions-message');
     const row = launchPromoRow();
     const cfg = row?.config || {};
-    if (active && !window.confirm('开启后，所有已登录用户可免费使用专业工作台。仍不接入支付。确定开启？')) return;
-    if (!active && !window.confirm('关闭后，未单独发放权益的登录用户将不能进入专业工作台。仍不接入支付。确定关闭全员限免？')) return;
+    if (active && !(await askConfirm(`开启全员限免：所有已登录用户可免费使用专业工作台。仍不接入支付。`))) return;
+    if (!active && !(await askConfirm(`关闭全员限免：未单独发放权益的登录用户将不能进入专业工作台。仍不接入支付。`))) return;
     const payload = {
       p_code: 'pro-launch-free',
       p_name: row?.name || '财务专业版内测限免',
@@ -215,7 +215,7 @@
     const msg = document.getElementById('promotions-message');
     const code = document.getElementById('promo-code').value.trim();
     const active = document.getElementById('promo-active').checked;
-    if (!active && code === 'pro-launch-free' && !window.confirm('关闭后，未单独发放权益的登录用户将不能进入专业工作台。确定关闭全员限免？')) {
+    if (!(await askConfirm(`保存促销「${code || '未命名'}」${active ? '（生效）' : '（关闭）'}。改促销须二次确认并写入操作日志。`))) {
       return;
     }
     const payload = {
@@ -680,7 +680,7 @@
     const what = plan === 'pro_trial'
       ? `专业版试用 ${days} 天`
       : (days ? `财务专业版 ${days} 天` : '财务专业版（长期）');
-    if (!confirm(`确定给「${dossierUser.email}」发放${what}吗？`)) return;
+    if (!(await askConfirm(`给「${dossierUser.email}」发放${what}。提权须二次确认并写入操作日志。`))) return;
     if (isPreview() && !getSession()) {
       grantsCache = [{
         id: `g${Date.now()}`,
@@ -719,7 +719,7 @@
       setMessage(msg, '未匹配到注册用户，不能收回。', true);
       return;
     }
-    if (!confirm(`确定收回「${dossierUser.email}」当前生效的专业版权益吗？`)) return;
+    if (!(await askConfirm(`收回「${dossierUser.email}」当前生效的专业版权益。提权变更须二次确认并写入操作日志。`))) return;
     const note = (document.getElementById('dossier-grant-note')?.value || '').trim();
     if (isPreview() && !getSession()) {
       const now = new Date().toISOString();

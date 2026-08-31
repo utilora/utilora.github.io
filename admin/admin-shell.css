@@ -169,6 +169,18 @@ html,body.admin-body{height:100%;min-height:100vh;background:#f1f5f9}
 .admin-todo-grid strong{font-size:28px;color:#0f172a}
 .admin-todo-grid em{font-style:normal;color:#94a3b8;font-size:12px}
 @media(max-width:900px){.admin-todo-grid{grid-template-columns:1fr}}
+.confirm-modal{position:fixed;inset:0;z-index:80;display:grid;place-items:center}
+.confirm-modal[hidden]{display:none}
+.confirm-mask{position:absolute;inset:0;background:#0f172acc}
+.confirm-card{
+  position:relative;z-index:1;width:min(440px,calc(100vw - 32px));
+  padding:22px 22px 18px;border-radius:16px;background:#fff;box-shadow:0 24px 60px #0f172a33
+}
+.confirm-card h2{margin:0 0 8px;font-size:18px}
+.confirm-card p{margin:0 0 12px;color:#334155;line-height:1.5}
+.confirm-card label{display:block;margin:0 0 6px;color:#475569;font-size:13px;font-weight:700}
+.confirm-card input{width:100%;padding:10px 12px;border:1px solid #cbd5e1;border-radius:10px}
+#sensitive-hint{min-height:1.4em;color:#b42318}
 .filter-actions{flex-wrap:wrap}
 .check{display:flex;align-items:center;gap:8px;font-size:13px}
 #intents-list input[type=text]{min-width:140px;margin-right:8px}

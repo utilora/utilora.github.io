@@ -120,6 +120,73 @@ export const dueThisWeek = (invoices: ReceivableInvoice[], asOf: string): Receiv
 export const amountOf = (invoices: ReceivableInvoice[]): number =>
   fromFen(invoices.reduce((sum, invoice) => sum + toFen(remainingOf(invoice)), 0));
 
+export const COLLECTION_RESULTS = ["missed", "promised", "paid"] as const;
+export type CollectionResult = (typeof COLLECTION_RESULTS)[number];
+
+export const COLLECTION_RESULT_LABEL: Record<CollectionResult, string> = {
+  missed: "未接",
+  promised: "已答应",
+  paid: "已付"
+};
+
+export interface CollectionNote {
+  id: string;
+  customerId: string;
+  contactedOn: string;
+  promisedOn?: string;
+  result: CollectionResult;
+  note?: string;
+}
+
+const ISO_DAY = /^\d{4}-\d{2}-\d{2}$/;
+
+export const isCollectionResult = (value: string): value is CollectionResult =>
+  (COLLECTION_RESULTS as readonly string[]).includes(value);
+
+export const validateCollectionNote = (
+  input: {
+    id?: string;
+    customerId?: string;
+    contactedOn?: string;
+    promisedOn?: string;
+    result?: string;
+    note?: string;
+  }
+): { ok: true; note: CollectionNote } | { ok: false; error: string } => {
+  const customerId = String(input.customerId || "").trim();
+  if (!customerId) return { ok: false, error: "请选择客户" };
+  const contactedOn = String(input.contactedOn || "").trim();
+  if (!ISO_DAY.test(contactedOn)) return { ok: false, error: "请填写联系日" };
+  const result = String(input.result || "").trim();
+  if (!isCollectionResult(result)) return { ok: false, error: "结果须为未接、已答应或已付" };
+  const promisedOn = String(input.promisedOn || "").trim();
+  if (promisedOn && !ISO_DAY.test(promisedOn)) return { ok: false, error: "承诺还款日格式不正确" };
+  if (result === "promised" && !promisedOn) return { ok: false, error: "已答应必须填写承诺还款日" };
+  return {
+    ok: true,
+    note: {
+      id: String(input.id || "").trim(),
+      customerId,
+      contactedOn,
+      promisedOn: promisedOn || undefined,
+      result,
+      note: String(input.note || "").trim() || undefined
+    }
+  };
+};
+
+export const notesForCustomer = (notes: CollectionNote[], customerId: string): CollectionNote[] =>
+  notes
+    .filter((item) => item.customerId === customerId)
+    .sort((a, b) => String(b.contactedOn).localeCompare(String(a.contactedOn)) || String(b.id).localeCompare(String(a.id)));
+
+export const latestNote = (notes: CollectionNote[], customerId: string): CollectionNote | null =>
+  notesForCustomer(notes, customerId)[0] || null;
+
+export const promisedOnDay = (notes: CollectionNote[], asOf: string): CollectionNote[] =>
+  notes.filter((item) => item.result === "promised" && item.promisedOn === asOf);
+
+
 
 export const summarizeAging = (invoices: ReceivableInvoice[], asOf: string): AgingTotals => {
   const totals = emptyAging();
