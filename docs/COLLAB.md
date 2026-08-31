@@ -52,7 +52,7 @@
 
 | 线 | 分支 | 当前项 | 状态 |
 |----|------|--------|------|
-| 用户端 | feat/user-workspace | 账户页权益展示 | 待合并 |
+| 用户端 | feat/user-workspace | 登录注册走通 | 待开始 |
 | 管理端 | feat/admin-ops | 账龄分桶边界配置 | 待开始 |
 | 安全 | fix/security-hardening | — | 空闲 |
 | 安全 | fix/security-hardening | — | 空闲 |
@@ -99,7 +99,7 @@ U-18 流水忽略须填原因：未匹配队列中「忽略」必须选择预设
 | U-04 | 已合入 main | feat/user-workspace | 380d260 | 客户催收备忘；63 tests；build PASS |
 | U-05 | 已合入 main | feat/user-workspace | 56157a5 | 月结纪律；67 tests；build PASS |
 | U-06 | 已合入 main | feat/user-workspace | 5132217 | 备份预览；70 tests；build PASS |
-| U-07 | 待合并 | feat/user-workspace | cad6f3b | 账户页权益；76 tests；build PASS |
+| U-07 | 已合入 main | feat/user-workspace | cad6f3b | 账户页权益；76 tests；build PASS |
 | U-08 | 待开始 | feat/user-workspace | — | — |
 | U-09 | 待开始 | feat/user-workspace | — | — |
 | U-10 | 待开始 | feat/user-workspace | — | — |
@@ -170,6 +170,7 @@ S-09 留言与购买意向提交限流：功能建议必须登录后走 submit-f
 
 ## 变更记录
 
+- 2026-08-31：合入 main：账户页权益展示（cad6f3b）。占用改为登录注册走通 / 账龄分桶边界配置 / 安全空闲。
 - 2026-08-31：部署 submit-feedback（留言提交限流）。未登录返回需登录；生产 SQL 已执行。占用仍为账户页权益展示 / 账龄分桶边界配置 / 安全空闲。
 - 2026-08-31：合入 main：公告一键停止弹出（a164cf9）。生产已执行 202608310014_admin_expire_announcement.sql。占用不变（账户页权益展示 / 账龄分桶边界配置 / 安全空闲）。
 - 2026-08-31：合入 main：运营策略配置（0e80a78）。生产已执行 202608310012_admin_platform_limits.sql、202608310013_feedback_intent_submit_limit.sql。占用改为账户页权益展示 / 账龄分桶边界配置 / 安全空闲。
