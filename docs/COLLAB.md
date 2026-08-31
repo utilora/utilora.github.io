@@ -48,7 +48,7 @@
 
 | 线 | 分支 | 当前项 | 状态 |
 |----|------|--------|------|
-| 用户端 | feat/user-workspace | 备份预览 | 待开始 |
+| 用户端 | feat/user-workspace | 账户页权益展示 | 待开始 |
 | 管理端 | feat/admin-ops | 审计日志查询与导出 | 待开始 |
 | 安全 | fix/security-hardening | — | 空闲 |
 
@@ -93,8 +93,8 @@ U-18 流水忽略须填原因：未匹配队列中「忽略」必须选择预设
 | U-03 | 已合入 main | feat/user-workspace | bde9cab | 待匹配 / 今日该催 / 本周到期 / 备份过期；60 tests；build PASS |
 | U-04 | 已合入 main | feat/user-workspace | 380d260 | 客户催收备忘；63 tests；build PASS |
 | U-05 | 已合入 main | feat/user-workspace | 56157a5 | 月结纪律；67 tests；build PASS |
-| U-06 | 待开始 | feat/user-workspace | — | 备份预览 |
-| U-07 | 待开始 | feat/user-workspace | — | — |
+| U-06 | 已合入 main | feat/user-workspace | 5132217 | 备份预览；70 tests；build PASS |
+| U-07 | 待开始 | feat/user-workspace | — | 账户页权益展示 |
 | U-08 | 待开始 | feat/user-workspace | — | — |
 | U-09 | 待开始 | feat/user-workspace | — | — |
 | U-10 | 待开始 | feat/user-workspace | — | — |
@@ -127,11 +127,11 @@ A-11 账龄分桶边界配置：在限额/运营策略配置中增加「账龄�
 |------|------|------|----------|------|
 | A-01 | 已合入 main | feat/admin-ops | 95af88e | 用户详情发放/收回；生产 SQL 已执行 |
 | A-02 | 已合入 main | feat/admin-ops | 40dd341 | 风控台已接线；生产 SQL 已执行 |
-| A-03 | 已合入 main | feat/admin-ops | 74ad518 | 下次跟进日 / 结果 / 已发试用；需执行 migrations/202608310003_admin_intent_followup.sql |
+| A-03 | 已合入 main | feat/admin-ops | 74ad518 | 下次跟进日 / 结果 / 已发试用；生产 SQL 已执行 |
 | A-04 | 已合入 main | feat/admin-ops | — | 关闭/开启全员限免；payment_required 仍为 false |
 | A-05 | 已合入 main | feat/admin-ops | bde9cab | 新留言 / 待跟进意向 / 今日异常注册；生产 SQL 已执行 |
 | A-06 | 已合入 main | feat/admin-ops | 380d260 | 提权/停用/改促销二次确认；限额页复用同一确认 |
-| A-07 | 已合入 main | feat/admin-ops | 56157a5 | 限额配置页；67 tests；build PASS；需执行 202608310012_admin_platform_limits.sql |
+| A-07 | 已合入 main | feat/admin-ops | 56157a5 | 限额配置页；67 tests；build PASS；生产仍缺 202608310012_admin_platform_limits.sql |
 | A-08 | 预埋 / 待支付 | feat/admin-ops | — | 邀请预埋 |
 | A-09 | 待开始 | feat/admin-ops | — | 审计日志查询与导出 |
 | A-10 | 待开始 | feat/admin-ops | — | — |
@@ -159,10 +159,11 @@ S-08 找回密码限流：发送重置邮件与提交新密码接口均读配置
 | S-05 | 已合入 main | fix/security-hardening | cafc028 | 生产 SQL 已执行 |
 | S-06 | 已合入 main | fix/security-hardening | 2cb4ae0 | 生产 SQL 已执行；Edge Function 待部署 |
 | S-07 | 已合入 main | fix/security-hardening | f01f0ee | 生产 SQL 已执行 |
-| S-08 | 已合入 main | fix/security-hardening | — | 找回密码限流；需执行 202608310007 并部署 password-reset-limit |
+| S-08 | 已合入 main | fix/security-hardening | — | 找回密码限流；生产 SQL 已执行；Edge Function password-reset-limit 待部署 |
 
 ## 变更记录
 
+- 2026-08-31：合入 main：备份预览（5132217）。占用改为账户页权益展示 / 审计日志查询与导出 / 安全空闲。
 - 2026-08-31：合入 main：月结纪律、限额配置页（56157a5）。占用改为备份预览 / 审计日志查询与导出 / 安全空闲。
 - 2026-08-31：合入 main：客户催收备忘、敏感操作二次确认。占用改为月结纪律 / 限额配置页 / 安全空闲。
 - 2026-08-31：合入 main：U-02 部分匹配（05facb9）；占用更新为 U-03 / A-03 / S-08。
