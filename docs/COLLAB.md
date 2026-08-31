@@ -167,11 +167,11 @@ S-10 内容安全策略：所有公开页用 meta CSP（GitHub Pages 设不了�
 | S-07 | 已合入 main | fix/security-hardening | f01f0ee | 生产 SQL 已执行 |
 | S-08 | 已合入 main | fix/security-hardening | — | 找回密码限流；生产 SQL 已执行；Edge Function 已部署 |
 | S-09 | 已合入 main | fix/security-hardening | 9facb2b | 留言与购买意向提交限流；购买意向改走云函数并记账；直连 RPC 已收回；留言表收掉改删清空 |
-| S-10 | 已合入 main | fix/security-hardening | — | 内容安全策略；公开页 meta CSP；禁止未哈希的可执行内联脚本；构建关闭 modulepreload 内联垫片 |
+| S-10 | 已合入 main | fix/security-hardening | ee0f49a | 内容安全策略；公开页 meta CSP；禁止未哈希的可执行内联脚本；构建关闭 modulepreload 内联垫片 |
 
 ## 变更记录
 
-- 2026-08-31：合入 main：内容安全策略（S-10）。12 个公开页加 CSP 与 referrer；首页 JSON-LD 用哈希放行；菜单与人机验证启动脚本外置；Vite 关闭会注入内联脚本的 modulepreload 垫片。GitHub Pages 设不了响应头，frame-ancestors 不在本项。占用改为五个财税工具打磨 / 空闲 / 安全空闲。
+- 2026-08-31：合入 main：内容安全策略（ee0f49a）。12 个公开页加 CSP 与 referrer；首页 JSON-LD 用哈希放行；菜单与人机验证启动脚本外置；Vite 关闭会注入内联脚本的 modulepreload 垫片。GitHub Pages 设不了响应头，frame-ancestors 不在本项。占用改为五个财税工具打磨 / 空闲 / 安全空闲。
 - 2026-08-31：合入 main：提交限流收口（e272b14）。购买意向只走带人机验证和次数上限的云函数；直连 RPC 已拒绝；留言表访客无法改删清空；人机验证密钥缺失时拒绝；已下线无鉴权遗留函数。生产已执行 202608310016_submit_path_lockdown.sql。增加 SECURITY.md、Dependabot，并打开密钥扫描与私下漏洞报告。占用改为五个财税工具打磨 / 空闲 / 安全空闲。
 - 2026-08-31：合入 main：账龄分桶边界配置（48e4294）。限额页独立账龄组与五桶预览；非法序拒绝保存并写审计；get_aging_bucket_bounds 供新打开的账龄视图读取。生产已执行 202608310015_aging_bucket_bounds.sql。占用改为五个财税工具打磨 / 空闲 / 安全空闲。
 - 2026-08-31：合入 main：登录注册走通（17aaa9e）。验证码失败可重发、找回密码、next 只允许站内相对路径、停用账号提示、超限文案读服务端限额。占用改为五个财税工具打磨 / 账龄分桶边界配置 / 安全空闲。
