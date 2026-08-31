@@ -64,15 +64,6 @@
       badge.className = "verify-off";
       badge.textContent = "邮箱待验证";
     }
-    const planBadge = document.getElementById("plan-badge");
-    const planCopy = document.getElementById("plan-copy");
-    if (planBadge) {
-      planBadge.textContent = window.UtiloraPro ? UtiloraPro.label() : "目前免费使用";
-      planBadge.className = "plan-pill on";
-    }
-    if (planCopy) {
-      planCopy.textContent = "专业财务目前免费使用。报价单可加 logo、换模板、填收款和有效期。以后再接收费。";
-    }
     const meta = user.user_metadata || {};
     const localFav = window.Utilora ? Utilora.favorites() : [];
     const localRecent = window.Utilora ? Utilora.recent() : [];

@@ -10,7 +10,7 @@ export default defineConfig({
       targets: [
         { src: "tools", dest: "." },
         { src: "admin", dest: "." },
-        { src: "account", dest: "." },
+        { src: "account/account.js", dest: "." },
         { src: "login", dest: "." },
         { src: "feedback", dest: "." },
         { src: "policies", dest: "." },
@@ -36,7 +36,8 @@ export default defineConfig({
     rollupOptions: {
       input: {
         main: resolve(import.meta.dirname, "index.html"),
-        pro: resolve(import.meta.dirname, "pro/index.html")
+        pro: resolve(import.meta.dirname, "pro/index.html"),
+        account: resolve(import.meta.dirname, "account/index.html")
       }
     }
   },

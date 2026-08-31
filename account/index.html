@@ -5,9 +5,17 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="robots" content="noindex,nofollow">
   <title>账号 - Utilora</title>
-  <meta name="description" content="管理 Utilora 账号、收藏与最近使用的工具。">
+  <meta name="description" content="查看 Utilora 方案、到期日，并进入本地财务备份。">
   <link rel="icon" type="image/svg+xml" href="../favicon.svg">
   <link rel="stylesheet" href="../assets/css/site.css">
+  <style>
+    #plan-stats{grid-template-columns:repeat(3,minmax(0,1fr));margin:0 0 14px}
+    #plan-stats .stat{text-align:left}
+    #plan-stats .stat span{display:block;margin-bottom:6px;color:var(--muted);font-size:12px;font-weight:750}
+    #plan-stats .stat strong{font-size:18px;color:var(--ink)}
+    #plan-backup.secondary{color:#334155;background:#e8eef7}
+    @media(max-width:650px){#plan-stats{grid-template-columns:1fr}}
+  </style>
 </head>
 <body>
   <header class="tool-head">
@@ -24,7 +32,7 @@
           <h1 id="hello">账号</h1>
           <p class="hint" id="email-line"></p>
           <p id="verify-badge"></p>
-          <p id="plan-badge" class="plan-pill on">目前免费使用</p>
+          <p id="plan-badge" class="plan-pill">读取中</p>
         </div>
       </div>
       <form id="profile-form">
@@ -41,11 +49,17 @@
       <p id="profile-msg" class="message" role="status"></p>
     </section>
     <section class="panel" id="plan-panel">
-      <h2>旧账号页面已暂停</h2>
-      <p class="hint" id="plan-copy">本地财务台的数据不上传、不跟随账号。当前账号功能不参与财务数据保存。</p>
+      <h2>当前权益</h2>
+      <div class="stats" id="plan-stats">
+        <div class="stat"><span>方案</span><strong id="plan-name">读取中</strong></div>
+        <div class="stat"><span>到期日</span><strong id="plan-expiry">读取中</strong></div>
+        <div class="stat"><span>工作台</span><strong id="plan-access">读取中</strong></div>
+      </div>
+      <p class="hint" id="plan-copy">正在读取你的方案与到期日。</p>
+      <p class="hint tight">财务数据只保存在当前浏览器，不跟随账号。到期后仍可查看和完整导出。</p>
       <div class="actions">
-        <a class="download-button" href="../pro/">打开本地财务台 Beta</a>
-        <a class="download-button secondary" href="../tools/quote/" style="background:#e8eef7;color:#334155">打开报价单</a>
+        <a class="download-button" id="plan-workspace" href="../pro/">打开财务工作台</a>
+        <a class="download-button secondary" id="plan-backup" href="../pro/#/settings">导出完整备份</a>
       </div>
     </section>
     <section class="panel">
@@ -66,7 +80,8 @@
   <script src="../assets/js/auth.js?v=19"></script>
   <script src="../assets/js/announcement.js"></script>
   <script src="../assets/js/app.js?v=14"></script>
-  <script src="../assets/js/pro.js"></script>
-  <script src="account.js?v=3"></script>
+  <script src="../assets/js/pro.js?v=2"></script>
+  <script src="account.js?v=4"></script>
+  <script type="module" src="/src/account.ts"></script>
 </body>
 </html>

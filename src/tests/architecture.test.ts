@@ -32,7 +32,33 @@ describe("product architecture", () => {
     expect(vite).toContain('{ src: "pro/app.js", dest: "." }');
     expect(vite).toContain('{ src: "pro/pro.css", dest: "." }');
     expect(vite).toContain('{ src: "pro/u01.js", dest: "." }');
+    expect(vite).toContain('{ src: "account/account.js", dest: "." }');
+    expect(vite).toContain("account/index.html");
+    expect(vite).not.toContain('{ src: "account", dest: "." }');
     expect(read("src/pro.ts")).toContain('loadScript("u01.js?v=1").catch');
+  });
+
+  it("shows account plan, expiry and a backup entry without dead free copy", () => {
+    const page = read("account/index.html");
+    expect(page).toContain("当前权益");
+    expect(page).toContain('id="plan-name"');
+    expect(page).toContain('id="plan-expiry"');
+    expect(page).toContain('id="plan-backup"');
+    expect(page).toContain("导出完整备份");
+    expect(page).toContain('src="/src/account.ts"');
+    expect(page).not.toContain("目前免费使用");
+    expect(page).not.toContain("一律免费");
+    expect(page).not.toContain("旧账号页面已暂停");
+    expect(page).not.toContain("邀请");
+    expect(read("account/account.js")).not.toContain("目前免费使用");
+    expect(read("account/account.js")).not.toContain("邀请");
+    expect(read("src/account.ts")).toContain("describeEntitlement");
+    expect(read("src/account.ts")).toContain("paintEntitlement");
+    expect(read("src/account.ts")).toContain("get_my_effective_entitlement");
+    expect(read("src/core/entitlements/service.ts")).toContain("describeEntitlement");
+    expect(read("src/core/entitlements/service.ts")).toContain("ACCOUNT_BACKUP_HREF");
+    expect(read("assets/js/pro.js")).toContain("专业版（限时免费）");
+    expect(read("assets/js/pro.js")).not.toContain("目前免费使用");
   });
 
   it("requires an email OTP before registration completes", () => {

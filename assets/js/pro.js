@@ -27,7 +27,7 @@
   const plan = () => fromUser(currentUser());
   const isPro = () => plan() === "pro";
   const canAccess = () => Boolean(currentUser()) && isPro();
-  const label = () => (!currentUser() ? "登录后使用专业版" : OPEN_PREVIEW ? "专业版限时免费" : isPro() ? "专业财务" : "免费版");
+  const label = () => (!currentUser() ? "登录后使用专业版" : OPEN_PREVIEW ? "专业版（限时免费）" : isPro() ? "专业版" : "免费账户");
 
   const refreshLaunchPromo = async () => {
     const auth = window.UtiloraAuth;

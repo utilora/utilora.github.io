@@ -52,7 +52,7 @@
 
 | 线 | 分支 | 当前项 | 状态 |
 |----|------|--------|------|
-| 用户端 | feat/user-workspace | 账户页权益展示 | 待开始 |
+| 用户端 | feat/user-workspace | 账户页权益展示 | 待合并 |
 | 管理端 | feat/admin-ops | 账龄分桶边界配置 | 待开始 |
 | 安全 | fix/security-hardening | — | 空闲 |
 | 安全 | fix/security-hardening | — | 空闲 |
@@ -99,7 +99,7 @@ U-18 流水忽略须填原因：未匹配队列中「忽略」必须选择预设
 | U-04 | 已合入 main | feat/user-workspace | 380d260 | 客户催收备忘；63 tests；build PASS |
 | U-05 | 已合入 main | feat/user-workspace | 56157a5 | 月结纪律；67 tests；build PASS |
 | U-06 | 已合入 main | feat/user-workspace | 5132217 | 备份预览；70 tests；build PASS |
-| U-07 | 待开始 | feat/user-workspace | — | 账户页权益展示 |
+| U-07 | 待合并 | feat/user-workspace | — | 账户页权益；76 tests；build PASS |
 | U-08 | 待开始 | feat/user-workspace | — | — |
 | U-09 | 待开始 | feat/user-workspace | — | — |
 | U-10 | 待开始 | feat/user-workspace | — | — |
