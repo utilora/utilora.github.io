@@ -1,6 +1,10 @@
 (() => {
   const LIMITS_SQL = 'supabase/migrations/202608310012_admin_platform_limits.sql';
-  const GROUP_LABEL = { security: '注册与登录', ops: '试用、对账与账龄' };
+  const GROUP_LABEL = {
+    security: '注册与登录',
+    strategy: '运营策略',
+    ops: '试用、邀请与账龄',
+  };
   const LIMIT_FIELDS = [
     { key: 'registration_success_per_ip_per_day', label: '每 IP 每天成功注册次数', hint: 'Asia/Shanghai 自然日；验证成功才计数', min: 1, max: 100, default: 3, group: 'security' },
     { key: 'otp_per_email_per_hour', label: '每邮箱每小时验证码', hint: '点发送即计', min: 1, max: 50, default: 3, group: 'security' },
@@ -10,11 +14,11 @@
     { key: 'password_reset_per_email_per_hour', label: '每邮箱每小时找回密码', hint: '点发送重置邮件即计', min: 1, max: 50, default: 3, group: 'security' },
     { key: 'password_reset_per_ip_per_hour', label: '每 IP 每小时找回密码', hint: '点发送重置邮件即计', min: 1, max: 200, default: 10, group: 'security' },
     { key: 'edge_function_daily_call_limit', label: 'Edge Function 每日调用上限', hint: '按 function 计', min: 1, max: 1000000, default: 10000, group: 'security' },
+    { key: 'match_date_near_days', label: '匹配日期接近天数', hint: '流水与应收建议匹配时，日期差不超过此值（天）', min: 0, max: 30, default: 3, group: 'strategy' },
+    { key: 'match_amount_tolerance_cents', label: '匹配金额容差（分）', hint: '0 表示必须分毫不差才可作高/中置信建议', min: 0, max: 100, default: 0, group: 'strategy' },
+    { key: 'backup_stale_days', label: '备份过期天数', hint: '超过此天数未成功导出则在工作台提醒', min: 1, max: 90, default: 7, group: 'strategy' },
     { key: 'trial_days', label: '试用天数', hint: '发放试用的默认天数，单次仍可手填', min: 1, max: 365, default: 14, group: 'ops' },
     { key: 'invite_reward_months', label: '邀请成功奖励月数', hint: '被邀请人首次实际付费后才入账；支付接通前不展示邀请', min: 1, max: 24, default: 3, group: 'ops' },
-    { key: 'match_date_near_days', label: '匹配日期接近天数', hint: '流水与应收建议匹配时，日期差不超过此值', min: 0, max: 30, default: 3, group: 'ops' },
-    { key: 'match_amount_tolerance_cents', label: '匹配金额容差（分）', hint: '0 表示必须分毫不差', min: 0, max: 100, default: 0, group: 'ops' },
-    { key: 'backup_stale_days', label: '备份过期天数', hint: '超过此天数未成功导出则提醒', min: 1, max: 90, default: 7, group: 'ops' },
     { key: 'aging_bucket_1_days', label: '账龄桶1上限天', hint: '须满足 0 < 桶1 < 桶2 < 桶3 ≤ 365', min: 1, max: 365, default: 30, group: 'ops' },
     { key: 'aging_bucket_2_days', label: '账龄桶2上限天', hint: '须满足 0 < 桶1 < 桶2 < 桶3 ≤ 365', min: 1, max: 365, default: 60, group: 'ops' },
     { key: 'aging_bucket_3_days', label: '账龄桶3上限天', hint: '须满足 0 < 桶1 < 桶2 < 桶3 ≤ 365', min: 1, max: 365, default: 90, group: 'ops' },
@@ -59,7 +63,6 @@
         label: row.label || field.label,
         min: Number.isInteger(Number(row.min)) ? Number(row.min) : field.min,
         max: Number.isInteger(Number(row.max)) ? Number(row.max) : field.max,
-        group: row.group || field.group,
         value,
       };
     });
@@ -80,7 +83,7 @@
       group.fields.push(field);
     });
     form.innerHTML = groups.map((group) => `
-      <div class="limits-group">
+      <div class="limits-group" data-group="${group.group}">
         <h2>${GROUP_LABEL[group.group] || group.group}</h2>
         <div class="limits-grid">
           ${group.fields.map((field) => `
@@ -170,7 +173,7 @@
         body: JSON.stringify({ p_items: parsed.values }),
       });
       const data = await response.json();
-      const changed = Array.isArray(data?.changes) ? data.changes.length : changes.length;
+      const changed = Array.isArray(data?.changed) ? data.changed.length : (Array.isArray(data?.changes) ? data.changes.length : changes.length);
       await loadLimits();
       setMessage(msg, changed ? `已保存 ${changed} 项，立即生效。` : '没有改动。');
     } catch (error) {
