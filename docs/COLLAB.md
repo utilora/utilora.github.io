@@ -42,15 +42,15 @@
 
 ## 已完成
 
-- [ ] 第一步 `chore/remove-side-tools`：删除全部非财税小工具，删除 `docs/PRODUCT_OPTIMIZATION.md`（合入 main 后勾选）
+- [x] 第一步 `chore/remove-side-tools`：删除全部非财税小工具，删除 `docs/PRODUCT_OPTIMIZATION.md`（已合入 main）
 
 ## 当前占用
 
 | 线 | 分支 | 当前项 | 状态 |
 |----|------|--------|------|
-| 用户端 | feat/user-workspace | U-01 | 待开始 |
+| 用户端 | feat/user-workspace | U-02 | 待开始 |
 | 管理端 | feat/admin-ops | A-03 | 待开始 |
-| 安全 | fix/security-hardening | S-01 | 待开始 |
+| 安全 | fix/security-hardening | S-08 | 待开始 |
 
 ## AI 开工前必读
 
@@ -88,7 +88,7 @@ U-18 流水忽略须填原因：未匹配队列中「忽略」必须选择预设
 
 | 编号 | 状态 | 分支 | 最近提交 | 测试 |
 |------|------|------|----------|------|
-| U-01 | 待开始 | feat/user-workspace | — | — |
+| U-01 | 已合入 main | feat/user-workspace | 5d8e032 | 未匹配流水队列 |
 | U-02 | 待开始 | feat/user-workspace | — | — |
 | U-03 | 待开始 | feat/user-workspace | — | — |
 | U-04 | 待开始 | feat/user-workspace | — | — |
@@ -125,8 +125,8 @@ A-11 账龄分桶边界配置：在限额/运营策略配置中增加「账龄�
 
 | 编号 | 状态 | 分支 | 最近提交 | 测试 |
 |------|------|------|----------|------|
-| A-01 | 待合并 | feat/admin-ops | 95af88e | npm test 通过；用户详情已接线发放/收回。需执行 migrations/202608310001_admin_grant_entitlement.sql 后联调 |
-| A-02 | 待合并 | feat/admin-ops | 40dd341 | npm test 通过；UI 已接线 `admin/index.html` / `admin.js` / `risk-console.js`。需执行 migrations/202608310002_admin_risk_console.sql 后联调。IP/OTP 明细依赖安全线表 registration_ip_log / otp_send_log，表未就绪时 RPC 返回空数组。 |
+| A-01 | 已合入 main | feat/admin-ops | 95af88e | 用户详情发放/收回；生产 SQL 已执行 |
+| A-02 | 已合入 main | feat/admin-ops | 40dd341 | 风控台已接线；生产 SQL 已执行 |
 | A-03 | 待开始 | feat/admin-ops | — | — |
 | A-04 | 待开始 | feat/admin-ops | — | — |
 | A-05 | 待开始 | feat/admin-ops | — | — |
@@ -152,17 +152,18 @@ S-08 找回密码限流：发送重置邮件与提交新密码接口均读配置
 
 | 编号 | 状态 | 分支 | 最近提交 | 测试 |
 |------|------|------|----------|------|
-| S-01 | 待开始 | fix/security-hardening | — | — |
-| S-02 | 待开始 | fix/security-hardening | — | — |
-| S-03 | 待开始 | fix/security-hardening | — | — |
-| S-04 | 待开始 | fix/security-hardening | — | — |
-| S-05 | 待开始 | fix/security-hardening | — | — |
-| S-06 | 待开始 | fix/security-hardening | — | — |
-| S-07 | 待开始 | fix/security-hardening | — | — |
+| S-01 | 已合入 main | fix/security-hardening | a68c453 | 生产 SQL 已执行；Edge Function 待部署 |
+| S-02 | 已合入 main | fix/security-hardening | 76c6c87 | 生产 SQL 已执行；Edge Function 待部署 |
+| S-03 | 已合入 main | fix/security-hardening | 1c65686 | 生产 SQL 已执行；Edge Function 待部署 |
+| S-04 | 已合入 main | fix/security-hardening | 0d9dd2b | 代码已合；Turnstile 密钥与 Edge Function 待部署 |
+| S-05 | 已合入 main | fix/security-hardening | cafc028 | 生产 SQL 已执行 |
+| S-06 | 已合入 main | fix/security-hardening | 2cb4ae0 | 生产 SQL 已执行；Edge Function 待部署 |
+| S-07 | 已合入 main | fix/security-hardening | f01f0ee | 生产 SQL 已执行 |
 | S-08 | 待开始 | fix/security-hardening | — | — |
 
 ## 变更记录
 
+- 2026-08-31：合入 main：chore/remove-side-tools、A-01、A-02、U-01、S-01–S-07。占用改为 U-02 / A-03 / S-08。
 - 2026-08-31：追加 U-17、U-18、A-11。借鉴来源：Xero / QuickBooks Online（credit note / credit memo 冲减应收）、Xero bank reconciliation（忽略/匹配须可解释且可恢复）、商业 AR 账龄报告可配置分桶边界。
 - 2026-08-31：追加 U-15、U-16。借鉴来源：Xero（lock dates / period lock）、Xero / QuickBooks Online（bad debt write-off）。
 - 2026-08-31：追加 U-14、A-10。借鉴来源：Xero（bank match date/amount tolerance 与可配置规则）、Afternoon / Xenett（backup freshness 与 close discipline）。

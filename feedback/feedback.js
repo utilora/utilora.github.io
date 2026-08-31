@@ -1,6 +1,15 @@
 const form=document.getElementById('form');
 const submitButton=document.getElementById('submit');
 const formMessage=document.getElementById('form-message');
+const CAPTCHA_FN=(typeof SUPABASE_CONFIG!=='undefined'&&SUPABASE_CONFIG.url?SUPABASE_CONFIG.url:'https://nkxgnqzdswugbjjquxfj.supabase.co')+'/functions/v1/verify-captcha';
+const PUBLISHABLE_KEY=(typeof SUPABASE_CONFIG!=='undefined'&&SUPABASE_CONFIG.publishableKey)?SUPABASE_CONFIG.publishableKey:'sb_publishable_IUK0swkEhqmaWKjUGv_IIQ_Y7LjtayF';
+
+function readCaptchaToken(){
+  const input=document.querySelector('[name="cf-turnstile-response"]');
+  if(input&&input.value)return input.value.trim();
+  if(window.__turnstileToken)return String(window.__turnstileToken).trim();
+  return '';
+}
 
 form.addEventListener('submit',async event=>{
   event.preventDefault();
@@ -18,6 +27,23 @@ form.addEventListener('submit',async event=>{
   };
 
   try{
+    const captchaToken=readCaptchaToken();
+    const captchaRes=await fetch(CAPTCHA_FN,{
+      method:'POST',
+      credentials:'omit',
+      cache:'no-store',
+      headers:{
+        apikey:PUBLISHABLE_KEY,
+        Authorization:'Bearer '+PUBLISHABLE_KEY,
+        'Content-Type':'application/json'
+      },
+      body:JSON.stringify({action:'verify',token:captchaToken,purpose:'feedback'})
+    });
+    const captchaData=await captchaRes.json().catch(()=>({}));
+    if(!captchaData.skipped&&(!captchaRes.ok||captchaData.allowed===false)){
+      throw new Error(captchaData.message||'请完成人机验证后再提交。');
+    }
+
     const response=await fetch(`${SUPABASE_CONFIG.url}/rest/v1/feedback`,{
       method:'POST',
       headers:{
