@@ -1076,10 +1076,15 @@
   function renderChecks() {
     const Close = window.UtiloraMonthEnd;
     let month = today().slice(0, 7);
-    const paint = () => {
+    const paint = async () => {
       const { input, result } = monthEndPack(month);
       const ready = Close ? Close.canCloseMonth(result) : false;
       const latestClose = Close ? Close.latestCloseForMonth(db.monthEndCloses, month) : null;
+      const backupItem = await getSetting(backupKey());
+      const backupInfo = window.UtiloraBackup
+        ? window.UtiloraBackup.backupStatus(backupItem?.value || null)
+        : { stale: !backupItem?.value, reminder: backupItem?.value ? `最近备份：${new Date(backupItem.value).toLocaleString("zh-CN")}` : "尚未导出备份 · 建议立即备份", lastBackupAt: backupItem?.value || null };
+      const backupWarning = window.UtiloraBackup?.closeBackupWarning?.(backupInfo) || (backupInfo.stale ? "关账前建议先导出备份。" : null);
       const closeNote = result.closed
         ? (latestClose?.forced ? `本月为强制关账。原因：${latestClose.reason}` : "本月已月结。可随时重开。")
         : (ready ? "检查项已完成，可以关账。关账后该月应收、收款、费用和报销不可改。" : "未完成项未处理完，不能直接关账。如需强制关账，请填写原因。");
@@ -1087,6 +1092,7 @@
         <div class="panel">
           <h2>月结检查</h2>
           <p class="data-note">关账底稿给老板或会计：未收应收、未匹配流水、异常、当月费用。底稿数字与本页完成度、未收、未匹配、费用一致。月结后该月单据不可改。</p>
+          ${backupWarning ? `<div class="backup-banner warn" data-go="settings" id="close-backup-reminder">${esc(backupWarning)} 可先到设置页导出完整备份。</div>` : ""}
           <div class="form-grid">
             <div class="field"><label>月份</label><input id="close-month" type="month" value="${month}"></div>
           </div>
@@ -1112,6 +1118,7 @@
         <div class="panel" style="margin-top:14px"><h2>数据校验</h2><p class="data-note">检查时间：${new Date().toLocaleString("zh-CN")}</p><div class="validation-list">${input.anomalies.length ? input.anomalies.map((x) => `<div class="validation-item"><b>${esc(x.where)}：${esc(x.issue)}</b><small>修复建议：${esc(x.fix)}</small></div>`).join("") : `<p class="empty">未发现明显异常。请仍按原始凭证复核。</p>`}</div></div>`;
       primary.hidden = true;
       document.getElementById("close-toggle").textContent = result.closed ? "重开该月" : (ready ? "完成该月月结" : "强制关账");
+      view.querySelectorAll("[data-go]").forEach((el) => { el.onclick = () => { location.hash = `#/${el.dataset.go}`; }; });
       document.getElementById("close-month").onchange = (event) => {
         month = event.target.value || month;
         paint();
@@ -1120,7 +1127,9 @@
         if (!month) return;
         if (db.closedMonths.includes(month)) {
           db.closedMonths = db.closedMonths.filter((value) => value !== month);
-        } else if (Close && Close.applyMonthClose) {
+        } else {
+          if (backupWarning && !window.confirm(`${backupWarning}\n\n仍要关账吗？`)) return;
+          if (Close && Close.applyMonthClose) {
           const decision = Close.applyMonthClose({
             input,
             result,
@@ -1134,12 +1143,13 @@
           }
           db.closedMonths.push(month);
           db.monthEndCloses = [...(db.monthEndCloses || []), decision.record];
-        } else {
+          } else {
           if (!ready) {
             window.alert("未完成项未处理完，不能关账");
             return;
           }
           db.closedMonths.push(month);
+          }
         }
         await save();
         draw();
@@ -1324,6 +1334,7 @@
         <button id="data-clear" class="danger" type="button">清空当前公司数据</button>
       </div>
       <input id="data-file" type="file" accept="application/json,.json" hidden>
+      <div id="backup-preview" class="backup-preview" hidden></div>
       <p id="data-msg" class="empty"></p>
       <p class="data-note">${recovery ? `最近自动恢复点：${new Date(recovery.createdAt).toLocaleString("zh-CN")}（${esc(recovery.reason)}）` : "当前公司还没有自动恢复点。导入、载入演示或清空前会自动创建。"}</p>
     </div>
@@ -1388,14 +1399,54 @@
     };
     document.getElementById("business-export").onclick = exportOperations;
     document.getElementById("aging-csv").onclick = exportAgingCsv;
-    document.getElementById("data-export").onclick = () => {
+    document.getElementById("data-export").onclick = async () => {
       const Backup = window.UtiloraBackup;
       const safeName = (db.company.name || "公司").replace(/[\\/:*?"<>|]/g, "-");
       const exportedAt = new Date().toISOString();
       const payload = Backup ? Backup.buildBackup(db, exportedAt) : { type: "utilora-finance-backup", version: 3, exportedAt, data: db };
       downloadJson(`utilora-backup-${safeName}-${today()}.json`, payload);
-      if (!demoMode) setSetting(backupKey(), exportedAt);
-      document.getElementById("data-msg").textContent = demoMode ? "演示数据已下载，不会记入真实公司的备份时间。" : "完整备份已下载。请妥善保管，文件中包含客户和财务信息。";
+      const confirmed = demoMode ? false : window.confirm("备份文件已开始下载。请确认文件已保存到电脑后，再记备份时间。\n\n文件已保存好了吗？");
+      const record = Backup?.shouldRecordBackupTime ? Backup.shouldRecordBackupTime(confirmed, demoMode) : (confirmed && !demoMode);
+      if (record) await setSetting(backupKey(), exportedAt);
+      const msg = document.getElementById("data-msg");
+      msg.classList.remove("error");
+      if (demoMode) msg.textContent = "演示数据已下载，不会记入真实公司的备份时间。";
+      else if (record) msg.textContent = "完整备份已下载，已记录备份时间。请妥善保管，文件中包含客户和财务信息。";
+      else msg.textContent = "备份已下载，但未记录备份时间。确认文件保存后可再点一次导出。";
+    };
+    const previewBox = document.getElementById("backup-preview");
+    const showBackupPreview = ({ title, preview, note, confirmLabel, requireName, onConfirm }) => {
+      previewBox.hidden = false;
+      previewBox.innerHTML = `<h3>${esc(title)}</h3>
+        <div class="data-health">
+          <span><b>公司</b>${esc(preview.company)}</span>
+          <span><b>客户</b>${preview.customers}</span>
+          <span><b>应收单</b>${preview.invoices}</span>
+          <span><b>收款</b>${preview.payments}</span>
+          <span><b>银行流水</b>${preview.bankTransactions}</span>
+          <span><b>费用</b>${preview.expenses}</span>
+          <span><b>科目</b>${preview.accounts}</span>
+          <span><b>已月结</b>${preview.closedMonths}</span>
+        </div>
+        <p class="data-note">${esc(note)}${preview.exportedAt ? ` 导出时间：${esc(preview.exportedAt)}` : ""}</p>
+        ${requireName ? `<div class="field"><label for="backup-preview-name">请输入当前公司名称以确认覆盖</label><input id="backup-preview-name" placeholder="${esc(db.company.name)}"></div>` : ""}
+        <div class="actions">
+          <button id="backup-preview-commit" type="button">${esc(confirmLabel)}</button>
+          <button id="backup-preview-cancel" class="secondary" type="button">取消</button>
+        </div>`;
+      document.getElementById("backup-preview-cancel").onclick = () => { previewBox.hidden = true; previewBox.innerHTML = ""; };
+      document.getElementById("backup-preview-commit").onclick = async () => {
+        if (requireName) {
+          const typed = document.getElementById("backup-preview-name")?.value.trim();
+          if (typed !== db.company.name) {
+            const msg = document.getElementById("data-msg");
+            msg.classList.add("error");
+            msg.textContent = "公司名称不一致，未覆盖当前公司";
+            return;
+          }
+        }
+        await onConfirm();
+      };
     };
     document.getElementById("data-import").onclick = () => {
       if (demoMode) return window.alert("演示模式不会导入到真实公司。请退出演示后再导入备份。");
@@ -1403,28 +1454,55 @@
     };
     document.getElementById("data-recover").onclick = async () => {
       if (demoMode) return window.alert("演示模式不会写入真实公司。");
-      if (!recovery || !window.confirm(`恢复到 ${new Date(recovery.createdAt).toLocaleString("zh-CN")} 的公司数据？当前状态会先生成新的恢复点。`)) return;
-      await recoveryPoint("手动恢复前");
-      db = normalizeData(recovery.data);
-      await save(); draw();
+      if (!recovery) return;
+      const Backup = window.UtiloraBackup;
+      const preview = Backup?.previewWorkspace ? Backup.previewWorkspace(recovery.data, recovery.createdAt) : { company: recovery.data?.company?.name || "未命名公司", customers: recovery.data?.customers?.length || 0, invoices: recovery.data?.invoices?.length || 0, payments: recovery.data?.payments?.length || 0, bankTransactions: recovery.data?.bankTransactions?.length || 0, expenses: recovery.data?.expenses?.length || 0, accounts: recovery.data?.accounts?.length || 0, closedMonths: recovery.data?.closedMonths?.length || 0, exportedAt: recovery.createdAt };
+      const mismatch = Backup?.companyMismatch ? Backup.companyMismatch(db.company.name, preview.company) : (db.company.name && preview.company && db.company.name !== preview.company);
+      showBackupPreview({
+        title: "恢复预览",
+        preview,
+        note: mismatch
+          ? `将把当前公司「${db.company.name}」覆盖为「${preview.company}」。公司名不一致，须输入当前公司名称后才能写入。`
+          : `将覆盖当前公司「${db.company.name}」为该恢复点。请先核对数量。`,
+        confirmLabel: "确认覆盖当前公司",
+        requireName: Boolean(mismatch),
+        onConfirm: async () => {
+          await recoveryPoint("手动恢复前");
+          db = normalizeData(recovery.data);
+          await save();
+          draw();
+        }
+      });
     };
     document.getElementById("data-undo").onclick = async () => { if (demoMode) return window.alert("演示模式不会写入真实公司。"); if (!undo?.value) return; db = normalizeData(undo.value); await save(false); await setSetting(`undo:${workspaceId}`, null); draw(); };
     document.getElementById("data-file").onchange = async (event) => {
       const file = event.target.files?.[0];
       if (!file) return;
       const msg = document.getElementById("data-msg");
+      msg.classList.remove("error");
       try {
         if (demoMode) throw new Error("演示模式不会导入到真实公司");
         const payload = JSON.parse(await file.text());
         const parsed = window.UtiloraBackup ? window.UtiloraBackup.parseBackup(payload) : { ok: payload.type === "utilora-finance-backup" && [2, 3].includes(payload.version), backup: payload, error: "备份格式、版本或必要数据不完整" };
         if (!parsed.ok || !parsed.backup) throw new Error(parsed.error || "备份格式、版本或必要数据不完整");
-        const summary = parsed.backup.summary;
-        const lines = `公司：${summary.company}\n客户：${summary.customers}\n应收单：${summary.invoices}\n收款：${summary.payments}\n银行流水：${summary.bankTransactions}\n费用：${summary.expenses}\n科目：${summary.accounts}\n导出时间：${parsed.backup.exportedAt || "未知"}`;
-        if (!window.confirm(`导入预览\n\n${lines}\n\n确认创建为独立公司吗？`)) return;
-        await recoveryPoint("导入前自动恢复点");
-        await createWorkspace(`${parsed.backup.data.company.name || "导入公司"}（导入）`, parsed.backup.data);
-        msg.textContent = "导入成功，已创建独立公司；原公司已保留恢复点";
-        draw();
+        const Backup = window.UtiloraBackup;
+        const preview = Backup?.previewBackup ? Backup.previewBackup(parsed.backup) : parsed.backup.summary;
+        const mismatch = Backup?.companyMismatch ? Backup.companyMismatch(db.company.name, preview.company) : (db.company.name && preview.company && db.company.name !== preview.company);
+        showBackupPreview({
+          title: "导入预览",
+          preview,
+          note: mismatch
+            ? `不会覆盖当前公司「${db.company.name}」，将新建独立公司「${preview.company}（导入）」。`
+            : `将创建为独立公司「${preview.company}（导入）」，当前公司保留。`,
+          confirmLabel: "创建为独立公司",
+          requireName: false,
+          onConfirm: async () => {
+            await recoveryPoint("导入前自动恢复点");
+            await createWorkspace(`${parsed.backup.data.company.name || "导入公司"}（导入）`, parsed.backup.data);
+            msg.textContent = "导入成功，已创建独立公司；原公司已保留恢复点";
+            draw();
+          }
+        });
       } catch (error) {
         msg.textContent = error.message || "导入失败";
         msg.classList.add("error");

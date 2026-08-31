@@ -83,7 +83,8 @@ describe("product architecture", () => {
     expect(workbench).toContain('get("demo") === "1"');
     expect(workbench).toContain("if (demoMode) { setSaveState(\"演示模式 · 改动不保存\"); return; }");
     expect(workbench).toContain("if (demoMode || !db || !workspaceId) return");
-    expect(workbench).toContain("if (!demoMode) setSetting(backupKey(), exportedAt)");
+    expect(workbench).toContain("shouldRecordBackupTime");
+    expect(workbench).toContain("文件已保存好了吗");
   });
 
   it("previews bank imports and blocks duplicate commits", () => {
@@ -132,6 +133,12 @@ describe("product architecture", () => {
     expect(read("src/core/receivables/local.ts")).toContain("collectToday");
     expect(read("src/core/receivables/local.ts")).toContain("dueThisWeek");
     expect(read("pro/app.js")).toContain("完整备份包含客户、应收、收款、银行流水、费用和科目");
+    expect(read("pro/app.js")).toContain("closeBackupWarning");
+    expect(read("pro/app.js")).toContain("previewBackup");
+    expect(read("pro/app.js")).toContain("id=\"backup-preview\"");
+    expect(read("pro/app.js")).toContain("关账前");
+    expect(read("src/core/backup/local.ts")).toContain("shouldRecordBackupTime");
+    expect(read("src/core/backup/local.ts")).toContain("companyMismatch");
   });
 
   it("captures purchase intent without payment or service-role keys", () => {

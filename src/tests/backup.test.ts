@@ -3,7 +3,12 @@ import {
   BACKUP_TYPE,
   backupStatus,
   buildBackup,
-  parseBackup
+  closeBackupWarning,
+  companyMismatch,
+  parseBackup,
+  previewBackup,
+  previewWorkspace,
+  shouldRecordBackupTime
 } from "../core/backup/local";
 
 const workspace = {
@@ -63,6 +68,28 @@ describe("finance backup restore", () => {
     expect(parseBackup({ type: BACKUP_TYPE, version: 1, data: { company: {} } }).ok).toBe(false);
     expect(parseBackup({ type: BACKUP_TYPE, version: 3, data: { company: { name: "x" }, invoices: {} } }).ok).toBe(false);
   });
+
+  it("previews company name and key counts before restore", () => {
+    const backup = buildBackup(workspace, "2026-08-30T00:00:00.000Z");
+    const preview = previewBackup(backup);
+    expect(preview.company).toBe("星海贸易");
+    expect(preview).toMatchObject({
+      customers: 1,
+      invoices: 1,
+      payments: 1,
+      bankTransactions: 1,
+      expenses: 1,
+      accounts: 1
+    });
+    expect(preview.label).toContain("星海贸易");
+    expect(preview.label).toContain("客户 1");
+    expect(companyMismatch("星海贸易", preview.company)).toBe(false);
+    expect(companyMismatch("另一家公司", preview.company)).toBe(true);
+    const recovery = previewWorkspace({ company: { name: "北岸工作室" }, customers: [{ id: "c2" }] }, "2026-08-31T00:00:00.000Z");
+    expect(recovery.company).toBe("北岸工作室");
+    expect(recovery.customers).toBe(1);
+    expect(recovery.invoices).toBe(0);
+  });
 });
 
 describe("backup reminders", () => {
@@ -81,5 +108,17 @@ describe("backup reminders", () => {
     const fresh = backupStatus("2026-08-28T00:00:00.000Z", now);
     expect(fresh.stale).toBe(false);
     expect(fresh.label).toContain("最近备份");
+  });
+
+  it("warns before month close when backup is missing or stale", () => {
+    expect(closeBackupWarning(backupStatus("2026-08-28T00:00:00.000Z", now))).toBeNull();
+    expect(closeBackupWarning(backupStatus(null, now))).toContain("关账前尚未导出备份");
+    expect(closeBackupWarning(backupStatus("2026-08-01T00:00:00.000Z", now))).toContain("关账前建议先导出备份");
+  });
+
+  it("records backup time only after a confirmed non-demo export", () => {
+    expect(shouldRecordBackupTime(true, false)).toBe(true);
+    expect(shouldRecordBackupTime(false, false)).toBe(false);
+    expect(shouldRecordBackupTime(true, true)).toBe(false);
   });
 });
