@@ -2,7 +2,8 @@ const form=document.getElementById('form');
 const submitButton=document.getElementById('submit');
 const formMessage=document.getElementById('form-message');
 const loginNeeded=document.getElementById('login-needed');
-const CAPTCHA_FN=(typeof SUPABASE_CONFIG!=='undefined'&&SUPABASE_CONFIG.url?SUPABASE_CONFIG.url:'https://nkxgnqzdswugbjjquxfj.supabase.co')+'/functions/v1/verify-captcha';
+const API=(typeof SUPABASE_CONFIG!=='undefined'&&SUPABASE_CONFIG.url)?SUPABASE_CONFIG.url:'https://nkxgnqzdswugbjjquxfj.supabase.co';
+const SUBMIT_FN=API+'/functions/v1/submit-feedback';
 const PUBLISHABLE_KEY=(typeof SUPABASE_CONFIG!=='undefined'&&SUPABASE_CONFIG.publishableKey)?SUPABASE_CONFIG.publishableKey:'sb_publishable_IUK0swkEhqmaWKjUGv_IIQ_Y7LjtayF';
 
 function readCaptchaToken(){
@@ -39,50 +40,37 @@ function readCaptchaToken(){
     formMessage.textContent='正在提交……';
     submitButton.disabled=true;
 
-    const payload={
-      name:document.getElementById('name').value.trim(),
-      title:document.getElementById('title').value.trim(),
-      message:document.getElementById('detail').value.trim(),
-      contact:document.getElementById('contact').value.trim()||null
-    };
-
     try{
       const live=await auth.refreshIfNeeded();
       if(!live||!live.access_token){
         location.href='../login/?next='+encodeURIComponent('../feedback/');
         return;
       }
-      const captchaToken=readCaptchaToken();
-      const captchaRes=await fetch(CAPTCHA_FN,{
+      const response=await fetch(SUBMIT_FN,{
         method:'POST',
         credentials:'omit',
         cache:'no-store',
         headers:{
           apikey:PUBLISHABLE_KEY,
-          Authorization:'Bearer '+PUBLISHABLE_KEY,
+          Authorization:'Bearer '+live.access_token,
           'Content-Type':'application/json'
         },
-        body:JSON.stringify({action:'verify',token:captchaToken,purpose:'feedback'})
+        body:JSON.stringify({
+          captcha_token:readCaptchaToken(),
+          name:document.getElementById('name').value.trim(),
+          title:document.getElementById('title').value.trim(),
+          message:document.getElementById('detail').value.trim(),
+          contact:document.getElementById('contact').value.trim()||null
+        })
       });
-      const captchaData=await captchaRes.json().catch(()=>({}));
-      if(!captchaData.skipped&&(!captchaRes.ok||captchaData.allowed===false)){
-        throw new Error(captchaData.message||'请完成人机验证后再提交。');
+      const data=await response.json().catch(()=>({}));
+      if(response.status===401){
+        location.href='../login/?next='+encodeURIComponent('../feedback/');
+        return;
       }
-
-      const response=await fetch(`${SUPABASE_CONFIG.url}/rest/v1/feedback`,{
-        method:'POST',
-        headers:{
-          apikey:SUPABASE_CONFIG.publishableKey,
-          Authorization:`Bearer ${live.access_token}`,
-          'Content-Type':'application/json',
-          Prefer:'return=minimal'
-        },
-        body:JSON.stringify(payload)
-      });
-
       if(!response.ok){
-        const error=await response.json().catch(()=>({}));
-        throw new Error(error.message||`HTTP ${response.status}`);
+        const raw=data.message||data.error||('HTTP '+response.status);
+        throw new Error(auth.friendlyError({message:raw,code:data.error},raw));
       }
 
       form.reset();
