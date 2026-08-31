@@ -1,32 +1,11 @@
 (() => {
   const auth = window.UtiloraAuth;
   const names = {
-    "json-formatter": "JSON 格式化",
-    timestamp: "时间戳转换",
-    base64: "Base64 编解码",
-    "qr-code": "二维码",
-    "password-generator": "密码生成器",
-    "text-counter": "文本统计",
-    "url-codec": "URL 编解码",
-    "hash-generator": "Hash 生成器",
-    "uuid-generator": "UUID 生成器",
-    "regex-tester": "正则测试",
-    "color-converter": "颜色转换",
-    "case-converter": "大小写转换",
-    "text-diff": "文本对比",
-    "jwt-decoder": "JWT 解码",
-    "cron-explainer": "Cron 表达式解释",
-    "url-parser": "URL 解析器",
-    "number-base": "进制转换",
-    "unit-converter": "单位换算",
-    "html-entities": "HTML 实体编解码",
-    "random-number": "随机数生成器",
-    "douyin-downloader": "抖音视频下载",
-    "image-compress": "图片压缩",
-    "number-chinese": "数字转中文大写",
-    "id-card": "身份证校验",
-    "zh-convert": "简繁拼音",
-    "markdown-preview": "Markdown 预览",
+    "vat-split": "增值税价税分离",
+    "income-tax": "个人所得税测算",
+    payroll: "工资与用工成本",
+    quote: "报价单",
+    "number-chinese": "人民币大写",
   };
 
   const setMsg = (text, error = false) => {
@@ -39,7 +18,8 @@
     const box = document.getElementById(id);
     const empty = document.getElementById(emptyId);
     box.replaceChildren();
-    const list = (slugs || []).filter(Boolean);
+    const allowed = Object.keys(names);
+    const list = (slugs || []).filter((slug) => allowed.includes(slug));
     empty.hidden = list.length > 0;
     list.forEach((slug) => {
       const a = document.createElement("a");
@@ -93,8 +73,9 @@
     paint(session.user);
     const meta = session.user.user_metadata || {};
     if (window.Utilora) {
-      const mergedFav = Array.from(new Set([...(meta.favorites || []), ...Utilora.favorites()]));
-      const mergedRecent = Array.from(new Set([...Utilora.recent(), ...(meta.recents || [])])).slice(0, 8);
+      const allowed = Object.keys(names);
+      const mergedFav = Array.from(new Set([...(meta.favorites || []), ...Utilora.favorites()])).filter((slug) => allowed.includes(slug));
+      const mergedRecent = Array.from(new Set([...Utilora.recent(), ...(meta.recents || [])])).filter((slug) => allowed.includes(slug)).slice(0, 8);
       localStorage.setItem("utilora_favorites", JSON.stringify(mergedFav));
       localStorage.setItem("utilora_recent", JSON.stringify(mergedRecent));
       await auth.updateUser({ data: { name: meta.name || auth.displayName(session.user), favorites: mergedFav, recents: mergedRecent } }).catch(() => {});

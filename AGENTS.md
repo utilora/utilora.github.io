@@ -66,24 +66,23 @@ Do not provide long explanations of routine exploration or unchanged files unles
 
 ## Priority
 Correctness comes first. These efficiency rules are intended to eliminate unnecessary work, not necessary reasoning, validation, or safety checks.
-## Commercialization Workflow
+
+## Collaboration Workflow
 
 Before product, entitlement, analytics, billing, storage, or Pro workspace changes, read:
 
-1. docs/PRODUCT_OPTIMIZATION.md
+1. docs/COLLAB.md
 
 The current code and applied Supabase migrations are the source of truth.
 
-- Default branch workflow: fetch and synchronize `main`, read from `main`, and make authorized changes directly on `main` unless the user explicitly requests another branch.
-- Work only on the single current item in PRODUCT_OPTIMIZATION.md.
-- After P1, follow the 3-month optimization plan before P2 trial or cloud work.
+- Do not commit feature work directly to `main`.
+- Work on one track branch: `feat/user-workspace`, `feat/admin-ops`, or `fix/security-hardening`.
+- Work only on the single current item for that track in COLLAB.md.
 - Revalidate the documented state against the current branch before editing.
-- Keep every existing tool under tools/ anonymous, login-free, and permanently free.
-- Do not connect payment, start a later phase, force cloud sync, or upload local financial data without explicit approval.
-- Do not expand into AP, tax e-filing, collection tickets, or ERP-wide refactors.
+- Keep the five finance tools under tools/ anonymous, login-free, and permanently free.
+- Do not connect payment, force cloud sync, or upload local financial data without explicit approval.
+- Do not expand into AP, tax e-filing, collection tickets, ERP-wide refactors, or extra utility tools.
 - Never expose Supabase service-role keys, payment secrets, or privileged credentials in frontend code.
 - Trial or subscription expiry must never block viewing or complete export of user data.
-- After an authorized item, update PRODUCT_OPTIMIZATION.md progress (checkbox, commit SHA, tests) and keep exactly one current item.
+- After an authorized item, update COLLAB.md progress (status, commit SHA, tests) and keep exactly one current item per track.
 - Do not mark work complete until its acceptance criteria and relevant tests pass.
-
-

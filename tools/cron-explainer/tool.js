@@ -1,4 +1,0 @@
-const input=document.getElementById('input'),output=document.getElementById('output'),message=document.getElementById('message'),names=['分钟','小时','日期','月份','星期'];
-function part(v,n){if(v==='*')return`每${n}`;if(/^\*\/\d+$/.test(v))return`每 ${v.slice(2)} 个${n}`;if(/^\d+-\d+$/.test(v))return`${n} ${v.replace('-',' 至 ')}`;if(/^\d+(,\d+)+$/.test(v))return`${n} ${v.split(',').join('、')}`;if(/^\d+$/.test(v))return`${n} ${v}`;return`${n}规则 ${v}`}
-function run(){const p=input.value.trim().split(/\s+/);if(p.length!==5){message.className='message error';message.textContent='请输入 5 段 Cron 表达式';return}output.textContent=p.map((v,i)=>part(v,names[i])).join('；')+'。';message.className='message';message.textContent='解释完成'}
-document.getElementById('explain').onclick=run;document.getElementById('copy').onclick=async()=>{if(output.textContent==='—')return;await navigator.clipboard.writeText(output.textContent);message.textContent='已复制'};run();
