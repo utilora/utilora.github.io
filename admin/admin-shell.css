@@ -174,3 +174,7 @@ button.linkish:hover{text-decoration:underline}
 .dossier-card ul{margin:0;padding-left:18px}
 .dossier-card .row-actions{margin-top:16px}
 
+#risk-section h3{margin:22px 0 8px;font-size:15px}
+#risk-section .table-wrap table{min-width:520px}
+#risk-section .row-actions,#risk-section td button{margin-top:0}
+

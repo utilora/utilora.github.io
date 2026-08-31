@@ -209,4 +209,5 @@
   };
   bridge();
   document.addEventListener('DOMContentLoaded', bridge);
+  if (!document.getElementById('manager-panel')?.hidden) loadRiskConsole();
 })();

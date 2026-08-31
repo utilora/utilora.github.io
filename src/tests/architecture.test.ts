@@ -188,8 +188,25 @@ describe("product architecture", () => {
     expect(read("assets/js/analytics.js")).toContain("record_user_activity");
     expect(read("src/core/auth/session.ts")).toContain("record_user_activity");
     expect(read("src/core/analytics/track.ts")).toContain("record_user_activity");
-    for (const path of ["admin/admin.js", "admin/admin-ops.js", "assets/js/auth.js", "assets/js/analytics.js"]) {
+    for (const path of ["admin/admin.js", "admin/admin-ops.js", "admin/risk-console.js", "assets/js/auth.js", "assets/js/analytics.js"]) {
       expect(read(path)).not.toMatch(/service[_-]?role|sb_secret/i);
     }
+  });
+
+  it("wires the admin risk console behind an admin-only RPC", () => {
+    const sql = read("supabase/migrations/202608310002_admin_risk_console.sql");
+    expect(sql).toContain("admin_risk_console");
+    expect(sql).toContain("is_admin()");
+    expect(sql).toContain("admin_set_user_disabled");
+    expect(sql).toContain("registration_ip_log");
+    expect(sql).toContain("otp_send_log");
+    expect(read("admin/index.html")).toContain('data-page="risk"');
+    expect(read("admin/index.html")).toContain('id="risk-section"');
+    expect(read("admin/index.html")).toContain('src="risk-console.js"');
+    expect(read("admin/admin.js")).toContain("risk: '风控台'");
+    expect(read("admin/admin.js")).toContain("AdminRisk?.loadRiskConsole");
+    expect(read("admin/risk-console.js")).toContain("rpc/admin_risk_console");
+    expect(read("admin/risk-console.js")).toContain("rpc/admin_set_user_disabled");
+    expect(read("admin/risk-console.js")).not.toMatch(/service[_-]?role|sb_secret/i);
   });
 });
