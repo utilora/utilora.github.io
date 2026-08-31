@@ -91,7 +91,7 @@ U-18 流水忽略须填原因：未匹配队列中「忽略」必须选择预设
 | U-01 | 已合入 main | feat/user-workspace | 5d8e032 | 未匹配流水队列 |
 | U-02 | 已合入 main | feat/user-workspace | 05facb9 | 部分匹配；46 tests；build PASS |
 | U-03 | 已合入 main | feat/user-workspace | bde9cab | 待匹配 / 今日该催 / 本周到期 / 备份过期；60 tests；build PASS |
-| U-04 | 已合入 main | feat/user-workspace | — | 联系日 / 承诺还款日 / 未接·已答应·已付 |
+| U-04 | 已合入 main | feat/user-workspace | 380d260 | 联系日 / 承诺还款日 / 未接·已答应·已付；63 tests；build PASS |
 | U-05 | 待开始 | feat/user-workspace | — | — |
 | U-06 | 待开始 | feat/user-workspace | — | — |
 | U-07 | 待开始 | feat/user-workspace | — | — |
@@ -130,7 +130,7 @@ A-11 账龄分桶边界配置：在限额/运营策略配置中增加「账龄�
 | A-03 | 已合入 main | feat/admin-ops | 74ad518 | 下次跟进日 / 结果 / 已发试用；需执行 migrations/202608310003_admin_intent_followup.sql |
 | A-04 | 已合入 main | feat/admin-ops | — | 关闭/开启全员限免；payment_required 仍为 false |
 | A-05 | 已合入 main | feat/admin-ops | bde9cab | 新留言 / 待跟进意向 / 今日异常注册；生产 SQL 已执行 |
-| A-06 | 已合入 main | feat/admin-ops | — | 提权/停用/改促销二次确认；限额页复用同一确认 |
+| A-06 | 已合入 main | feat/admin-ops | 380d260 | 提权/停用/改促销二次确认；限额页复用同一确认 |
 | A-07 | 待开始 | feat/admin-ops | — | — |
 | A-08 | 预埋 / 待支付 | feat/admin-ops | — | — |
 | A-09 | 待开始 | feat/admin-ops | — | — |
