@@ -155,6 +155,7 @@ html,body.admin-body{height:100%;min-height:100vh;background:#f1f5f9}
 }
 .launch-promo-box strong{display:block;margin-bottom:4px}
 .launch-promo-box .row-actions{margin:0}
+#announcement-form textarea{width:100%;min-height:120px;resize:vertical}
 .filter-actions{flex-wrap:wrap}
 .check{display:flex;align-items:center;gap:8px;font-size:13px}
 #intents-list input[type=text]{min-width:140px;margin-right:8px}

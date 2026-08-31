@@ -268,6 +268,7 @@
     const calc=()=>{const gross=Math.max(0,Number(amount.value)||0),r=(Number(rate.value)||0)/100,net=Math.round(gross/(1+r)*100)/100;document.getElementById("home-vat-net").textContent=fmt.format(net);document.getElementById("home-vat-tax").textContent=fmt.format(Math.round((gross-net)*100)/100);};amount?.addEventListener("input",calc);rate?.addEventListener("change",calc);calc();
   </script>
   <script src="assets/js/app.js?v=14"></script>
+  <script src="assets/js/announcement.js"></script>
   <script type="module" src="/src/main.ts"></script>
   <script src="assets/js/analytics.js?v=14"></script>
 

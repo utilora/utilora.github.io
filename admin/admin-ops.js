@@ -2,9 +2,11 @@
   const OPS_SQL = 'supabase/admin-ops.sql';
   const GRANT_SQL = 'supabase/migrations/202608310001_admin_grant_entitlement.sql';
   const FOLLOW_SQL = 'supabase/migrations/202608310003_admin_intent_followup.sql';
+  const ANNOUNCE_SQL = 'supabase/migrations/202608310010_announcements.sql';
   const TRIAL_DAYS_DEFAULT = 14;
   const LOG_PAGE = 50;
   let promotionsCache = [];
+  let announcementsCache = [];
   let grantsCache = [];
   let logsOffset = 0;
   let logsTotal = 0;
@@ -239,6 +241,120 @@
       await loadPromotions();
     } catch (error) {
       setMessage(msg, setupHint(classifyError(error), OPS_SQL) || error.message, true);
+    }
+  }
+
+  let announcementsState = 'ok';
+  const mockAnnouncements = [{
+    id: 'a1',
+    title: '专业版内测说明',
+    body: '当前内测免费，数据保存在你的浏览器。正式收费前会再通知。',
+    is_active: true,
+    created_at: '2026-08-31T02:00:00Z',
+  }];
+
+  async function loadAnnouncements() {
+    const msg = document.getElementById('announcements-message');
+    if (isPreview() && !getSession()) {
+      announcementsState = 'ok';
+      announcementsCache = mockAnnouncements;
+      renderAnnouncements();
+      setMessage(msg, '当前为界面预览数据。');
+      return;
+    }
+    setMessage(msg, '正在加载公告……');
+    try {
+      const response = await request('rpc/admin_list_announcements', { method: 'POST', body: '{}' });
+      announcementsState = 'ok';
+      announcementsCache = asArray(await response.json());
+      renderAnnouncements();
+      setMessage(msg, `共 ${announcementsCache.length} 条`);
+      setPageSummary(`公告 ${announcementsCache.length} 条`);
+    } catch (error) {
+      announcementsState = classifyError(error);
+      announcementsCache = [];
+      setMessage(msg, setupHint(announcementsState, ANNOUNCE_SQL) || error.message, true);
+      renderAnnouncements();
+    }
+  }
+
+  function renderAnnouncements() {
+    const list = document.getElementById('announcements-list');
+    const emptyBox = document.getElementById('announcements-empty');
+    if (!list) return;
+    list.replaceChildren();
+    if (announcementsState !== 'ok') {
+      setEmptyState(emptyBox, announcementsState === 'missing' ? '尚未启用公告' : '公告加载失败', setupHint(announcementsState, ANNOUNCE_SQL));
+      return;
+    }
+    if (!announcementsCache.length) {
+      setEmptyState(emptyBox, '还没有公告。', '保存后用户端会弹窗。');
+      return;
+    }
+    hideEmpty(emptyBox);
+    announcementsCache.forEach((row) => {
+      const tr = document.createElement('tr');
+      const title = document.createElement('td');
+      title.textContent = row.title || '—';
+      const body = document.createElement('td');
+      body.textContent = (row.body || '').slice(0, 80);
+      const status = document.createElement('td');
+      status.innerHTML = `<span class="status-pill ${row.is_active ? 'ok' : 'off'}"></span>`;
+      status.querySelector('span').textContent = row.is_active ? '发布中' : '未发布';
+      const time = document.createElement('td');
+      time.textContent = row.created_at ? new Date(row.created_at).toLocaleString() : '—';
+      const actions = document.createElement('td');
+      const use = document.createElement('button');
+      use.type = 'button';
+      use.className = 'secondary';
+      use.textContent = '填入表单';
+      use.addEventListener('click', () => fillAnnouncementForm(row));
+      actions.append(use);
+      tr.append(title, body, status, time, actions);
+      list.append(tr);
+    });
+  }
+
+  function fillAnnouncementForm(row) {
+    document.getElementById('announcement-id').value = row.id || '';
+    document.getElementById('announcement-title').value = row.title || '';
+    document.getElementById('announcement-body').value = row.body || '';
+    document.getElementById('announcement-active').checked = Boolean(row.is_active);
+    document.getElementById('announcement-end').value = toLocalInput(row.ends_at);
+  }
+
+  function resetAnnouncementForm() {
+    document.getElementById('announcement-form')?.reset();
+    document.getElementById('announcement-id').value = '';
+    document.getElementById('announcement-active').checked = true;
+  }
+
+  async function saveAnnouncement(event) {
+    event.preventDefault();
+    const msg = document.getElementById('announcements-message');
+    const id = document.getElementById('announcement-id').value || null;
+    const payload = {
+      p_id: id,
+      p_title: document.getElementById('announcement-title').value.trim(),
+      p_body: document.getElementById('announcement-body').value.trim(),
+      p_is_active: document.getElementById('announcement-active').checked,
+      p_starts_at: id ? null : new Date().toISOString(),
+      p_ends_at: document.getElementById('announcement-end').value
+        ? new Date(document.getElementById('announcement-end').value).toISOString()
+        : null,
+    };
+    if (isPreview() && !getSession()) {
+      setMessage(msg, '预览模式不写入生产。');
+      return;
+    }
+    setMessage(msg, '正在保存……');
+    try {
+      await request('rpc/admin_upsert_announcement', { method: 'POST', body: JSON.stringify(payload) });
+      setMessage(msg, '公告已保存');
+      resetAnnouncementForm();
+      await loadAnnouncements();
+    } catch (error) {
+      setMessage(msg, setupHint(classifyError(error), ANNOUNCE_SQL) || error.message, true);
     }
   }
 
@@ -776,6 +892,8 @@
   }
 
   document.getElementById('promo-form')?.addEventListener('submit', savePromotion);
+  document.getElementById('announcement-form')?.addEventListener('submit', saveAnnouncement);
+  document.getElementById('announcement-reset')?.addEventListener('click', resetAnnouncementForm);
   document.getElementById('launch-promo-off')?.addEventListener('click', () => setLaunchPromo(false));
   document.getElementById('launch-promo-on')?.addEventListener('click', () => setLaunchPromo(true));
   document.getElementById('grant-search')?.addEventListener('input', renderEntitlements);
@@ -834,6 +952,7 @@
 
   window.AdminOps = {
     loadPromotions,
+    loadAnnouncements,
     loadEntitlements,
     loadFunnel,
     loadLogs,

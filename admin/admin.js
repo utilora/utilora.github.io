@@ -365,10 +365,10 @@ function logout() {
   recordAdminAuth('logout').then(finish, finish);
 }
 
-const pageTitles = { overview: '工作台', analytics: '访问统计', users: '用户管理', risk: '风控台', feedback: '用户留言', intents: '购买意向', promotions: '生产折扣', entitlements: '权益一览', logs: '操作日志' };
+const pageTitles = { overview: '工作台', analytics: '访问统计', users: '用户管理', risk: '风控台', feedback: '用户留言', intents: '购买意向', promotions: '生产折扣', announcements: '站点公告', entitlements: '权益一览', logs: '操作日志' };
 
 function switchPage(name) {
-  ['overview', 'analytics', 'users', 'risk', 'feedback', 'intents', 'promotions', 'entitlements', 'logs'].forEach((id) => {
+  ['overview', 'analytics', 'users', 'risk', 'feedback', 'intents', 'promotions', 'announcements', 'entitlements', 'logs'].forEach((id) => {
     const section = document.getElementById(`${id}-section`);
     if (section) section.hidden = id !== name;
   });
@@ -387,6 +387,7 @@ function switchPage(name) {
     window.AdminOps?.loadFunnel?.();
   }
   if (name === 'promotions') window.AdminOps?.loadPromotions?.();
+  if (name === 'announcements') window.AdminOps?.loadAnnouncements?.();
   if (name === 'entitlements') window.AdminOps?.loadEntitlements?.();
   if (name === 'logs') window.AdminOps?.loadLogs?.();
   if (name === 'risk') window.AdminRisk?.loadRiskConsole?.();
@@ -1346,6 +1347,7 @@ async function refreshAll() {
       loadUsers(),
       loadIntents(),
       window.AdminOps?.loadPromotions?.(),
+      window.AdminOps?.loadAnnouncements?.(),
       window.AdminOps?.loadEntitlements?.(),
       window.AdminOps?.loadFunnel?.(),
       window.AdminOps?.loadLogs?.(true),

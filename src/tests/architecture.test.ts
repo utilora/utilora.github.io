@@ -282,4 +282,20 @@ describe("product architecture", () => {
     expect(read("supabase/functions/password-reset-limit/index.ts")).toContain("withEdgeGuard");
     expect(read("supabase/functions/password-reset-limit/index.ts")).not.toMatch(/sb_secret/i);
   });
+
+  it("lets admins publish announcements that logged-in users can dismiss", () => {
+    const sql = read("supabase/migrations/202608310010_announcements.sql");
+    expect(sql).toContain("create table if not exists public.announcements");
+    expect(sql).toContain("announcement_dismissals");
+    expect(sql).toContain("get_active_announcement");
+    expect(sql).toContain("dismiss_announcement");
+    expect(sql).toContain("admin_upsert_announcement");
+    expect(sql).not.toMatch(/grant\s+(select|insert|update|delete)\s+on\s+public\.announcements/i);
+    expect(read("admin/index.html")).toContain('data-page="announcements"');
+    expect(read("admin/admin-ops.js")).toContain("rpc/admin_list_announcements");
+    expect(read("assets/js/announcement.js")).toContain("不再弹出");
+    expect(read("index.html")).toContain("assets/js/announcement.js");
+    expect(read("admin/index.html")).not.toContain("assets/js/announcement.js");
+    expect(read("assets/js/announcement.js")).not.toMatch(/sb_secret/i);
+  });
 });

@@ -42,6 +42,7 @@
           <button class="side-link" data-page="feedback" type="button" id="tab-feedback" title="用户留言"><i aria-hidden="true">言</i><span>用户留言</span> <b id="feedback-count" hidden></b></button>
           <button class="side-link" data-page="intents" type="button" id="tab-intents" title="购买意向"><i aria-hidden="true">购</i><span>购买意向</span> <b id="intents-count" hidden></b></button>
           <button class="side-link" data-page="promotions" type="button" title="生产折扣"><i aria-hidden="true">折</i><span>生产折扣</span></button>
+          <button class="side-link" data-page="announcements" type="button" title="站点公告"><i aria-hidden="true">告</i><span>站点公告</span></button>
           <button class="side-link" data-page="logs" type="button" title="操作日志"><i aria-hidden="true">志</i><span>操作日志</span></button>
           <p>账号</p>
           <button class="side-link" data-page="users" type="button" title="用户管理"><i aria-hidden="true">户</i><span>用户管理</span></button>
@@ -513,6 +514,49 @@
         <div id="promotions-empty" class="empty-state" hidden>
           <strong>还没有折扣配置。</strong>
           <p class="hint"></p>
+        </div>
+      </section>
+
+      <section id="announcements-section" hidden>
+        <p class="hint">发布后，用户首次进入网站会看到弹窗。已登录用户点「不再弹出」后，这条不再出现；发布新公告仍会弹出。</p>
+        <form id="announcement-form" class="filters promo-form">
+          <input id="announcement-id" type="hidden">
+          <div>
+            <label for="announcement-title">标题</label>
+            <input id="announcement-title" required maxlength="80" placeholder="例如：专业版内测说明">
+          </div>
+          <div style="grid-column:1/-1">
+            <label for="announcement-body">正文</label>
+            <textarea id="announcement-body" required maxlength="2000" rows="5" placeholder="公告内容，不要写 HTML"></textarea>
+          </div>
+          <div>
+            <label for="announcement-end">结束（可空）</label>
+            <input id="announcement-end" type="datetime-local">
+          </div>
+          <div class="filter-actions">
+            <label class="check"><input id="announcement-active" type="checkbox" checked> 立即发布</label>
+            <button type="submit">保存公告</button>
+            <button id="announcement-reset" type="button" class="secondary">清空表单</button>
+          </div>
+        </form>
+        <div id="announcements-message" class="message" role="status"></div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>标题</th>
+                <th>正文</th>
+                <th>状态</th>
+                <th>时间</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="announcements-list"></tbody>
+          </table>
+        </div>
+        <div id="announcements-empty" class="empty-state" hidden>
+          <strong>还没有公告。</strong>
+          <p class="hint">保存后用户端会弹窗提示。</p>
         </div>
       </section>
 
