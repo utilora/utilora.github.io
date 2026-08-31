@@ -1,47 +1,11 @@
 /**
- * S-04: 购买意向提交前先做人机验证，再调用 submit_purchase_intent RPC
- * 前端应改调本函数，而不是直接 RPC（直接 RPC 仍可用，但无验票）
- * S-06: 经 withEdgeGuard（拒绝 service-role、超时、日调用上限）
+ * S-04 / S-09: 购买意向只走本函数。
+ * 人机验证（密钥缺失拒绝）→ 邮箱/IP 小时限额 → 仅服务端调用 submit_purchase_intent。
  */
 
 import { withEdgeGuard, jsonResponse as json } from "../_shared/edge_guard.ts";
-
-function clientIp(req: Request): string {
-  const xf = req.headers.get("x-forwarded-for") || "";
-  const first = xf.split(",")[0]?.trim();
-  if (first) return first;
-  const real = req.headers.get("x-real-ip")?.trim();
-  if (real) return real;
-  const cf = req.headers.get("cf-connecting-ip")?.trim();
-  if (cf) return cf;
-  return "0.0.0.0";
-}
-
-async function verifyTurnstile(
-  token: string,
-  ip: string,
-  secret: string,
-): Promise<{ ok: boolean; skipped?: boolean; error?: string; message?: string; status?: number }> {
-  const t = String(token || "").trim();
-  if (!t || t.length < 10 || t.length > 2048) {
-    return { ok: false, error: "captcha_required", message: "请完成人机验证后再提交。", status: 400 };
-  }
-  if (!secret) return { ok: true, skipped: true };
-  const form = new URLSearchParams();
-  form.set("secret", secret);
-  form.set("response", t);
-  if (ip && ip !== "0.0.0.0") form.set("remoteip", ip);
-  const verifyRes = await fetch("https://challenges.cloudflare.com/turnstile/v0/siteverify", {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: form.toString(),
-  });
-  const data = await verifyRes.json().catch(() => ({}));
-  if (!data || data.success !== true) {
-    return { ok: false, error: "captcha_failed", message: "人机验证未通过，请刷新后重试。", status: 403 };
-  }
-  return { ok: true };
-}
+import { clientIp, hashIp, rpc } from "../_shared/request.ts";
+import { verifyTurnstile } from "../_shared/turnstile.ts";
 
 async function handler(req: Request): Promise<Response> {
   if (req.method !== "POST") return json({ error: "Method not allowed" }, 405);
@@ -49,7 +13,7 @@ async function handler(req: Request): Promise<Response> {
   const apiUrl = Deno.env.get("SUPABASE_URL") || "";
   const anonKey = Deno.env.get("SUPABASE_ANON_KEY") || "";
   const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
-  if (!apiUrl || !anonKey) return json({ error: "server misconfigured" }, 500);
+  if (!apiUrl || !anonKey || !serviceKey) return json({ error: "server misconfigured" }, 500);
 
   let body: {
     captcha_token?: string;
@@ -64,8 +28,13 @@ async function handler(req: Request): Promise<Response> {
     return json({ error: "invalid json" }, 400);
   }
 
-  const secret = Deno.env.get("TURNSTILE_SECRET_KEY") || "";
-  const captcha = await verifyTurnstile(String(body.captcha_token || ""), clientIp(req), secret);
+  const email = String(body.email || "").trim().toLowerCase();
+  if (!email || email.length < 3 || email.length > 254 || !email.includes("@")) {
+    return json({ error: "invalid_payload", message: "请填写有效邮箱。" }, 400);
+  }
+
+  const ip = clientIp(req);
+  const captcha = await verifyTurnstile(String(body.captcha_token || ""), ip);
   if (!captcha.ok) {
     return json(
       { error: captcha.error, allowed: false, message: captcha.message },
@@ -73,36 +42,42 @@ async function handler(req: Request): Promise<Response> {
     );
   }
 
-  const authHeader = req.headers.get("authorization") || "";
-  const userToken = authHeader.replace(/^Bearer\s+/i, "").trim();
-  const bearer = userToken && userToken !== anonKey && userToken !== serviceKey ? userToken : anonKey;
+  const recorded = await rpc("record_public_submit", {
+    p_kind: "purchase_intent",
+    p_subject: email,
+    p_ip_hash: await hashIp(ip),
+  }, serviceKey, apiUrl);
+  if (!recorded.ok && /public_submit_limit_exceeded/i.test(JSON.stringify(recorded.data || ""))) {
+    return json(
+      { error: "purchase_intent_submit_limit_exceeded", message: "提交次数已达上限，请稍后再试。" },
+      429,
+    );
+  }
+  if (!recorded.ok) {
+    return json({ error: "submit_failed", detail: recorded.data }, recorded.status >= 400 ? recorded.status : 500);
+  }
 
-  const rpcRes = await fetch(`${apiUrl}/rest/v1/rpc/submit_purchase_intent`, {
-    method: "POST",
-    headers: {
-      apikey: anonKey,
-      Authorization: `Bearer ${bearer}`,
-      "Content-Type": "application/json",
-      Prefer: "return=representation",
-    },
-    body: JSON.stringify({
-      p_email: body.email,
-      p_use_case: body.use_case ?? null,
-      p_company_size: body.company_size ?? null,
-      p_intended_plan: body.intended_plan ?? "pro",
-    }),
-  });
-  const text = await rpcRes.text();
-  let data: unknown = null;
-  try {
-    data = text ? JSON.parse(text) : null;
-  } catch {
-    data = { message: text };
+  let userId: string | null = null;
+  const userToken = (req.headers.get("authorization") || "").replace(/^Bearer\s+/i, "").trim();
+  if (userToken && userToken !== anonKey && userToken !== serviceKey) {
+    const userRes = await fetch(`${apiUrl}/auth/v1/user`, {
+      headers: { apikey: anonKey, Authorization: `Bearer ${userToken}` },
+    });
+    const user = userRes.ok ? await userRes.json().catch(() => null) : null;
+    if (user?.id) userId = String(user.id);
   }
+
+  const rpcRes = await rpc("submit_purchase_intent", {
+    p_email: email,
+    p_use_case: body.use_case ?? null,
+    p_company_size: body.company_size ?? null,
+    p_intended_plan: body.intended_plan ?? "pro",
+    p_user_id: userId,
+  }, serviceKey, apiUrl);
   if (!rpcRes.ok) {
-    return json({ error: "submit_failed", detail: data }, rpcRes.status >= 400 ? rpcRes.status : 500);
+    return json({ error: "submit_failed", detail: rpcRes.data }, rpcRes.status >= 400 ? rpcRes.status : 500);
   }
-  return json({ id: data, captcha_skipped: Boolean(captcha.skipped) });
+  return json({ id: rpcRes.data });
 }
 
 Deno.serve(withEdgeGuard("submit-purchase-intent", handler));

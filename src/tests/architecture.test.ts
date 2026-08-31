@@ -195,6 +195,15 @@ describe("product architecture", () => {
     expect(migration).not.toMatch(/grant\s+(select|insert|update|delete)\s+on\s+public\.purchase_intents/i);
 
 
+    const service = read("src/core/purchase-intent/service.ts");
+    expect(service).toContain("functions/v1/submit-purchase-intent");
+    expect(service).not.toContain('rpc("submit_purchase_intent"');
+    expect(read("supabase/migrations/202608310016_submit_path_lockdown.sql")).toContain(
+      "grant execute on function public.submit_purchase_intent(text, text, text, text, uuid) to service_role",
+    );
+    expect(read("supabase/functions/_shared/request.ts")).not.toMatch(/SUPABASE_SERVICE_ROLE_KEY/);
+    expect(read("supabase/functions/_shared/turnstile.ts")).toContain("captcha_unavailable");
+
     const home = read("index.html");
     expect(home).toContain("我愿意购买");
     expect(home).toContain("正式版上线通知我");

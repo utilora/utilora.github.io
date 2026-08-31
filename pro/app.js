@@ -1301,6 +1301,7 @@
         </div>
         <input type="hidden" name="intended_plan" value="pro">
         <div hidden aria-hidden="true"><label>网站<input name="website" tabindex="-1" autocomplete="off"></label></div>
+        <div data-turnstile-slot class="field" hidden></div>
         <div class="intent-actions">
           <button type="submit">我愿意购买</button>
           <button type="submit" class="secondary">正式版上线通知我</button>

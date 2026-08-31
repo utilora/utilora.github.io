@@ -54,8 +54,7 @@
 |----|------|--------|------|
 | 用户端 | feat/user-workspace | 五个财税工具打磨 | 待开始 |
 | 管理端 | feat/admin-ops | — | 空闲 |
-| 安全 | fix/security-hardening | — | 空闲 |
-| 安全 | fix/security-hardening | — | 空闲 |
+| 安全 | fix/security-hardening | 提交限流收口 | 进行中 |
 
 ## AI 开工前必读
 
@@ -158,18 +157,19 @@ S-09 留言与购买意向提交限流：功能建议必须登录后走 submit-f
 
 | 编号 | 状态 | 分支 | 最近提交 | 测试 |
 |------|------|------|----------|------|
-| S-01 | 已合入 main | fix/security-hardening | a68c453 | 生产 SQL 已执行；Edge Function 待部署 |
-| S-02 | 已合入 main | fix/security-hardening | 76c6c87 | 生产 SQL 已执行；Edge Function 待部署 |
-| S-03 | 已合入 main | fix/security-hardening | 1c65686 | 生产 SQL 已执行；Edge Function 待部署 |
-| S-04 | 已合入 main | fix/security-hardening | 0d9dd2b | 代码已合；Turnstile 密钥与 Edge Function 待部署 |
+| S-01 | 已合入 main | fix/security-hardening | a68c453 | 生产 SQL 已执行；Edge Function 已部署 |
+| S-02 | 已合入 main | fix/security-hardening | 76c6c87 | 生产 SQL 已执行；Edge Function 已部署 |
+| S-03 | 已合入 main | fix/security-hardening | 1c65686 | 生产 SQL 已执行；Edge Function 已部署 |
+| S-04 | 已合入 main | fix/security-hardening | 0d9dd2b | 人机验证密钥缺失时拒绝；Edge Function 已部署 |
 | S-05 | 已合入 main | fix/security-hardening | cafc028 | 生产 SQL 已执行 |
-| S-06 | 已合入 main | fix/security-hardening | 2cb4ae0 | 生产 SQL 已执行；Edge Function 待部署 |
+| S-06 | 已合入 main | fix/security-hardening | 2cb4ae0 | 生产 SQL 已执行；Edge Function 已部署 |
 | S-07 | 已合入 main | fix/security-hardening | f01f0ee | 生产 SQL 已执行 |
-| S-08 | 已合入 main | fix/security-hardening | — | 找回密码限流；生产 SQL 已执行；Edge Function password-reset-limit 待部署 |
-| S-09 | 已合入 main | fix/security-hardening | 9facb2b | 留言与购买意向提交限流；生产 SQL 已执行；Edge Function submit-feedback 已部署 |
+| S-08 | 已合入 main | fix/security-hardening | — | 找回密码限流；生产 SQL 已执行；Edge Function 已部署 |
+| S-09 | 已合入 main | fix/security-hardening | 9facb2b | 留言与购买意向提交限流；购买意向改走云函数并记账；直连 RPC 已收回；留言表收掉改删清空 |
 
 ## 变更记录
 
+- 2026-08-31：安全线开工「提交限流收口」。购买意向只走 submit-purchase-intent 并记账；收回访客/登录用户对 submit_purchase_intent 的直接调用；留言表收掉改删清空；人机验证密钥缺失时拒绝；IP 哈希不再使用管理密钥当盐。增加 SECURITY.md 与 Dependabot。
 - 2026-08-31：合入 main：账龄分桶边界配置（48e4294）。限额页独立账龄组与五桶预览；非法序拒绝保存并写审计；get_aging_bucket_bounds 供新打开的账龄视图读取。生产已执行 202608310015_aging_bucket_bounds.sql。占用改为五个财税工具打磨 / 空闲 / 安全空闲。
 - 2026-08-31：合入 main：登录注册走通（17aaa9e）。验证码失败可重发、找回密码、next 只允许站内相对路径、停用账号提示、超限文案读服务端限额。占用改为五个财税工具打磨 / 账龄分桶边界配置 / 安全空闲。
 - 2026-08-31：合入 main：账户页权益展示（cad6f3b）。占用改为登录注册走通 / 账龄分桶边界配置 / 安全空闲。

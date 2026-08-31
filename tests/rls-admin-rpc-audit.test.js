@@ -64,9 +64,10 @@ const RPC_DENY_ANON = [
   "record_password_reset",
   "check_public_submit_allowed",
   "record_public_submit",
+  "submit_purchase_intent",
 ];
 
-const RPC_ALLOW_ANON = ["track_analytics_event", "submit_purchase_intent", "get_aging_bucket_bounds"];
+const RPC_ALLOW_ANON = ["track_analytics_event", "get_aging_bucket_bounds"];
 const TABLES_ALLOW_ANON_SELECT = ["plans"];
 
 function roleMaySelectTable(role, table) {
@@ -96,7 +97,7 @@ for (const fn of RPC_DENY_ANON) {
   assert(roleMayExecuteRpc("anon", fn) === false, `anon must not execute ${fn}`);
 }
 assert(roleMayExecuteRpc("anon", "track_analytics_event") === true, "anon may track analytics");
-assert(roleMayExecuteRpc("anon", "submit_purchase_intent") === true, "anon may submit intent");
+assert(roleMayExecuteRpc("anon", "submit_purchase_intent") === false, "anon must not submit intent via rpc");
 assert(roleMayExecuteRpc("anon", "get_aging_bucket_bounds") === true, "anon may read aging bounds");
 assert(roleMayExecuteRpc("authenticated", "admin_list_users") === true, "authenticated may call admin rpc (is_admin gated)");
 assert(TABLES_DENY_ANON.length >= 10, "deny table list coverage");

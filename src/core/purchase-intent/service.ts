@@ -1,3 +1,4 @@
+import { environment } from "../../app/config/env";
 import { getSupabase } from "../supabase/client";
 
 export const PURCHASE_INTENT_USE_CASES = ["银行流水", "应收回款", "月结检查", "经营报表", "其他"] as const;
@@ -8,6 +9,7 @@ export interface PurchaseIntentInput {
   use_case: string | null;
   company_size: string | null;
   intended_plan: "pro";
+  captcha_token?: string;
 }
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -17,7 +19,7 @@ export const validatePurchaseIntent = (input: {
   use_case?: string | null;
   company_size?: string | null;
   intended_plan?: string | null;
-}): PurchaseIntentInput => {
+}): Omit<PurchaseIntentInput, "captcha_token"> => {
   const email = input.email.trim().toLowerCase();
   if (!EMAIL_RE.test(email) || email.length > 254) throw new Error("请填写有效邮箱");
 
@@ -37,14 +39,35 @@ export const validatePurchaseIntent = (input: {
 };
 
 export const submitPurchaseIntent = async (input: PurchaseIntentInput): Promise<void> => {
+  if (!environment.supabaseUrl || !environment.supabaseAnonKey) {
+    throw new Error("服务暂不可用，请稍后重试");
+  }
   const client = getSupabase();
-  if (!client) throw new Error("服务暂不可用，请稍后重试");
-  const { error } = await client.rpc("submit_purchase_intent", {
-    p_email: input.email,
-    p_use_case: input.use_case,
-    p_company_size: input.company_size,
-    p_intended_plan: input.intended_plan
+  const accessToken = client
+    ? (await client.auth.getSession()).data.session?.access_token
+    : null;
+  const response = await fetch(`${environment.supabaseUrl}/functions/v1/submit-purchase-intent`, {
+    method: "POST",
+    credentials: "omit",
+    cache: "no-store",
+    headers: {
+      apikey: environment.supabaseAnonKey,
+      Authorization: `Bearer ${accessToken || environment.supabaseAnonKey}`,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      captcha_token: input.captcha_token || "",
+      email: input.email,
+      use_case: input.use_case,
+      company_size: input.company_size,
+      intended_plan: input.intended_plan
+    })
   });
-  if (error) throw new Error("提交失败，请稍后重试");
-
+  const data = await response.json().catch(() => ({})) as { message?: string; error?: string };
+  if (response.status === 429) {
+    throw new Error(data.message || "提交次数已达上限，请稍后再试。");
+  }
+  if (!response.ok) {
+    throw new Error(data.message || "提交失败，请稍后重试");
+  }
 };

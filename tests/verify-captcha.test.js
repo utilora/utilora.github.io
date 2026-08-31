@@ -35,7 +35,13 @@ function decideVerify({ token, purpose, secretConfigured, providerSuccess }) {
     };
   }
   if (!secretConfigured) {
-    return { allowed: true, skipped: true, status: 200 };
+    return {
+      allowed: false,
+      skipped: false,
+      status: 503,
+      error: "captcha_unavailable",
+      message: "人机验证暂不可用，请稍后再试。",
+    };
   }
   if (!providerSuccess) {
     return {
@@ -68,7 +74,7 @@ r = decideVerify({
   secretConfigured: false,
   providerSuccess: false,
 });
-assert(r.allowed === true && r.skipped === true, "no secret skips");
+assert(r.allowed === false && r.error === "captcha_unavailable", "no secret fails closed");
 
 r = decideVerify({
   token: "a".repeat(20),

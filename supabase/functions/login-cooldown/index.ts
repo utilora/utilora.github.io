@@ -27,7 +27,7 @@ function normalizeEmail(email: unknown): string | null {
 }
 
 async function sha256Hex(value: string): Promise<string> {
-  const salt = Deno.env.get("REGISTRATION_IP_SALT") || Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "utilora";
+  const salt = Deno.env.get("REGISTRATION_IP_SALT") || "utilora";
   const data = new TextEncoder().encode(salt + "|" + value);
   const digest = await crypto.subtle.digest("SHA-256", data);
   return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, "0")).join("");

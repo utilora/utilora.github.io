@@ -4,7 +4,7 @@ Cloudflare Turnstile 服务端验票。注册发码、留言、购买意向在�
 
 ## 环境变量
 
-- `TURNSTILE_SECRET_KEY`：Turnstile 密钥（仅服务端）。未配置时返回 `skipped: true`，便于本地；生产必须配置。
+- `TURNSTILE_SECRET_KEY`：Turnstile 密钥（仅服务端）。**未配置时拒绝请求**，不跳过。
 - 前端使用公开 Site Key（页面 meta `turnstile-site-key` 或 `window.__TURNSTILE_SITE_KEY`），禁止写入 secret。
 
 ## 调用
@@ -18,4 +18,4 @@ POST /functions/v1/verify-captcha
 }
 ```
 
-成功：`{ "allowed": true }`。失败：`400/403` 与 `captcha_required` / `captcha_failed`。
+成功：`{ "allowed": true }`。失败：`400/403/503` 与 `captcha_required` / `captcha_failed` / `captcha_unavailable`。
