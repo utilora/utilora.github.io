@@ -220,6 +220,10 @@
       if (mode === "reset") {
         const issue = passwordIssue(password, confirm);
         if (issue) throw new Error(issue);
+        const resetEmail = (emailInput.value || pendingEmail || "").trim().toLowerCase();
+        if (resetEmail && auth.consumePasswordResetLimit) {
+          await auth.consumePasswordResetLimit(resetEmail, "submit");
+        }
         await auth.setPassword(password);
         trackLoginSuccess();
         goLoggedInHome();

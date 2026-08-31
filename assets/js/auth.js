@@ -7,6 +7,7 @@
   const OTP_LIMIT_FN = API + "/functions/v1/otp-rate-limit";
   const LOGIN_COOLDOWN_FN = API + "/functions/v1/login-cooldown";
   const CAPTCHA_FN = API + "/functions/v1/verify-captcha";
+  const PASSWORD_RESET_FN = API + "/functions/v1/password-reset-limit";
 
   const headers = (token) => ({
     apikey: KEY,
@@ -29,6 +30,9 @@
     }
     if (/captcha_required|captcha_failed|人机验证/i.test(code + raw)) {
       return raw || "请完成人机验证后再提交。";
+    }
+    if (/password_reset_limit/i.test(code + raw)) {
+      return "重置次数已达上限，请稍后再试。";
     }
     if (/account_disabled|账号已停用/i.test(code + raw)) {
       return raw || "该账号已停用，请联系管理员。";
@@ -289,6 +293,33 @@
     }
   };
 
+  const consumePasswordResetLimit = async (email, kind) => {
+    try {
+      const response = await fetch(PASSWORD_RESET_FN, {
+        method: "POST",
+        credentials: "omit",
+        cache: "no-store",
+        headers: headers(),
+        body: JSON.stringify({
+          action: "record",
+          email: String(email || "").trim().toLowerCase(),
+          kind: kind === "submit" ? "submit" : "send",
+        }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (response.status === 429 || data.error === "password_reset_limit_exceeded") {
+        const err = new Error(data.message || "重置次数已达上限，请稍后再试。");
+        err.code = "password_reset_limit_exceeded";
+        err.status = 429;
+        throw err;
+      }
+      return data;
+    } catch (error) {
+      if (error && error.code === "password_reset_limit_exceeded") throw error;
+      return { skipped: true };
+    }
+  };
+
   const fetchUser = (token) => request("/auth/v1/user", { headers: headers(token) });
 
   const saveTokens = async (payload) => {
@@ -484,6 +515,7 @@
 
   const recover = async (email) => {
     try {
+      await consumePasswordResetLimit(email, "send");
       return await request("/auth/v1/recover?redirect_to=" + encodeURIComponent(REDIRECT), {
         method: "POST",
         headers: headers(),
@@ -590,5 +622,6 @@
     friendlyError,
     checkRegistrationLimit,
     verifyCaptcha,
+    consumePasswordResetLimit,
   };
 })();

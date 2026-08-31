@@ -34,7 +34,7 @@ export const getEffectiveEntitlement = async (user: User | null): Promise<Effect
   if (!client) return resolveLocalEntitlement(user);
 
   const { data, error } = await client.rpc("get_my_effective_entitlement");
-  if (error || !data) return resolveLocalEntitlement(user);
+  if (error || !data) return resolveLocalEntitlement(user, false);
   const row = Array.isArray(data) ? data[0] : data;
   return {
     authenticated: true,

@@ -62,6 +62,7 @@
       promotionsState = 'ok';
       promotionsCache = mockPromos;
       renderPromotions();
+      paintLaunchPromo();
       setMessage(msg, '当前为界面预览数据。');
       return;
     }
@@ -72,6 +73,7 @@
       promotionsState = 'ok';
       promotionsCache = asArray(data);
       renderPromotions();
+      paintLaunchPromo();
       setMessage(msg, `共 ${promotionsCache.length} 条，支付未接通`);
       setPageSummary(`折扣 ${promotionsCache.length} 条`);
     } catch (error) {
@@ -128,6 +130,62 @@
     });
   }
 
+  function launchPromoRow() {
+    return promotionsCache.find((row) => row.code === 'pro-launch-free') || null;
+  }
+
+  function paintLaunchPromo() {
+    const state = document.getElementById('launch-promo-state');
+    const off = document.getElementById('launch-promo-off');
+    const on = document.getElementById('launch-promo-on');
+    if (!state) return;
+    const row = launchPromoRow();
+    const active = Boolean(row?.is_active);
+    state.textContent = active
+      ? '当前开启：已登录用户可免费使用专业工作台。'
+      : '当前关闭：只有单独发放过权益的用户能进专业工作台。';
+    if (off) off.disabled = !active && Boolean(row);
+    if (on) on.disabled = active;
+    const em = document.querySelector('[data-page="promotions"] em');
+    if (em) em.textContent = active ? '全员限免开启' : '全员限免已关';
+  }
+
+  async function setLaunchPromo(active) {
+    const msg = document.getElementById('promotions-message');
+    const row = launchPromoRow();
+    const cfg = row?.config || {};
+    if (active && !window.confirm('开启后，所有已登录用户可免费使用专业工作台。仍不接入支付。确定开启？')) return;
+    if (!active && !window.confirm('关闭后，未单独发放权益的登录用户将不能进入专业工作台。仍不接入支付。确定关闭全员限免？')) return;
+    const payload = {
+      p_code: 'pro-launch-free',
+      p_name: row?.name || '财务专业版内测限免',
+      p_plan_code: row?.plan_code || 'pro_trial',
+      p_audience: 'authenticated',
+      p_starts_at: row?.starts_at || new Date().toISOString(),
+      p_ends_at: active ? null : (row?.ends_at || new Date().toISOString()),
+      p_is_active: Boolean(active),
+      p_list_price_cents: Number(cfg.list_price_cents ?? 1900),
+      p_promo_price_cents: Number(cfg.promo_price_cents ?? 0),
+      p_discount_percent: Number(cfg.discount_percent ?? 100),
+    };
+    if (isPreview() && !getSession()) {
+      if (row) row.is_active = Boolean(active);
+      else promotionsCache.push({ ...payload, code: 'pro-launch-free', is_active: Boolean(active), config: cfg });
+      renderPromotions();
+      paintLaunchPromo();
+      setMessage(msg, '预览已更新，未写入生产。');
+      return;
+    }
+    setMessage(msg, '正在保存……');
+    try {
+      await request('rpc/admin_upsert_promotion', { method: 'POST', body: JSON.stringify(payload) });
+      setMessage(msg, active ? '全员限免已开启（未接支付）' : '全员限免已关闭（未接支付）');
+      await loadPromotions();
+    } catch (error) {
+      setMessage(msg, setupHint(classifyError(error), OPS_SQL) || error.message, true);
+    }
+  }
+
   function toLocalInput(value) {
     if (!value) return '';
     const date = new Date(value);
@@ -153,8 +211,13 @@
   async function savePromotion(event) {
     event.preventDefault();
     const msg = document.getElementById('promotions-message');
+    const code = document.getElementById('promo-code').value.trim();
+    const active = document.getElementById('promo-active').checked;
+    if (!active && code === 'pro-launch-free' && !window.confirm('关闭后，未单独发放权益的登录用户将不能进入专业工作台。确定关闭全员限免？')) {
+      return;
+    }
     const payload = {
-      p_code: document.getElementById('promo-code').value.trim(),
+      p_code: code,
       p_name: document.getElementById('promo-name').value.trim(),
       p_plan_code: document.getElementById('promo-plan').value,
       p_audience: document.getElementById('promo-audience').value,
@@ -713,6 +776,8 @@
   }
 
   document.getElementById('promo-form')?.addEventListener('submit', savePromotion);
+  document.getElementById('launch-promo-off')?.addEventListener('click', () => setLaunchPromo(false));
+  document.getElementById('launch-promo-on')?.addEventListener('click', () => setLaunchPromo(true));
   document.getElementById('grant-search')?.addEventListener('input', renderEntitlements);
   document.getElementById('logs-filter-form')?.addEventListener('submit', (event) => {
     event.preventDefault();

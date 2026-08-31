@@ -431,7 +431,17 @@
       </section>
 
       <section id="promotions-section" hidden>
-        <p class="hint">生产控制型折扣：只改 promotions 配置，强制不收款。</p>
+        <div class="launch-promo-box">
+          <div>
+            <strong>全员限免</strong>
+            <p id="launch-promo-state" class="hint">正在读取促销状态……</p>
+          </div>
+          <div class="row-actions">
+            <button id="launch-promo-off" type="button" class="delete">关闭全员限免</button>
+            <button id="launch-promo-on" type="button">重新开启</button>
+          </div>
+        </div>
+        <p class="hint">关闭后，未单独发放权益的登录用户不能进专业工作台。支付仍不接入，payment_required 保持 false。</p>
         <form id="promo-form" class="filters promo-form">
           <div>
             <label for="promo-code">代码</label>

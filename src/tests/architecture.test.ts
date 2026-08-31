@@ -249,4 +249,37 @@ describe("product architecture", () => {
     expect(read("admin/admin-ops.js")).toContain("p_trial_granted");
     expect(read("admin/admin-ops.js")).not.toMatch(/service[_-]?role|sb_secret/i);
   });
+
+  it("lets admins close the all-user launch promotion without enabling payment", () => {
+    expect(read("admin/index.html")).toContain('id="launch-promo-off"');
+    expect(read("admin/index.html")).toContain('id="launch-promo-on"');
+    expect(read("admin/admin-ops.js")).toContain("setLaunchPromo");
+    expect(read("admin/admin-ops.js")).toContain("pro-launch-free");
+    expect(read("supabase/admin-ops.sql")).toContain("'payment_required', false");
+    expect(read("src/core/entitlements/service.ts")).toContain("resolveLocalEntitlement(user, false)");
+    expect(read("assets/js/pro.js")).toContain("refreshLaunchPromo");
+  });
+
+  it("rate-limits password recovery without leaking whether the email exists", () => {
+    const sql = read("supabase/migrations/202608310007_password_reset_limit.sql");
+    expect(sql).toContain("password_reset_per_email_per_hour");
+    expect(sql).toContain("password_reset_per_ip_per_hour");
+    expect(sql).toContain("record_password_reset");
+    expect(read("assets/js/auth.js")).toContain("password-reset-limit");
+    expect(read("assets/js/auth.js")).toContain("consumePasswordResetLimit");
+    expect(read("assets/js/auth.js")).toContain("重置次数已达上限，请稍后再试。");
+    expect(read("login/login.js")).toContain('consumePasswordResetLimit');
+    expect(read("supabase/functions/password-reset-limit/index.ts")).toContain("withEdgeGuard");
+    expect(read("supabase/functions/password-reset-limit/index.ts")).not.toMatch(/sb_secret/i);
+  });
+
+  it("keeps user-facing navigation on the site root URL", () => {
+    expect(read("assets/js/root-url.js")).toContain("utilora_view");
+    expect(read("assets/js/root-url.js")).toContain('history.replaceState(null, "", "/")');
+    expect(read("index.html")).toContain("assets/js/root-url.js");
+    expect(read("pro/index.html")).toContain("assets/js/root-url.js");
+    expect(read("login/index.html")).toContain("assets/js/root-url.js");
+    expect(read("account/index.html")).toContain("assets/js/root-url.js");
+    expect(read("admin/index.html")).not.toContain("root-url.js");
+  });
 });

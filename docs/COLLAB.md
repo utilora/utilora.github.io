@@ -49,8 +49,8 @@
 | 线 | 分支 | 当前项 | 状态 |
 |----|------|--------|------|
 | 用户端 | feat/user-workspace | U-03 | 待开始 |
-| 管理端 | feat/admin-ops | A-04 | 待开始 |
-| 安全 | fix/security-hardening | S-08 | 待开始 |
+| 管理端 | feat/admin-ops | A-05 | 待开始 |
+| 安全 | fix/security-hardening | — | 空闲 |
 
 ## AI 开工前必读
 
@@ -128,7 +128,7 @@ A-11 账龄分桶边界配置：在限额/运营策略配置中增加「账龄�
 | A-01 | 已合入 main | feat/admin-ops | 95af88e | 用户详情发放/收回；生产 SQL 已执行 |
 | A-02 | 已合入 main | feat/admin-ops | 40dd341 | 风控台已接线；生产 SQL 已执行 |
 | A-03 | 已合入 main | feat/admin-ops | 74ad518 | 下次跟进日 / 结果 / 已发试用；需执行 migrations/202608310003_admin_intent_followup.sql |
-| A-04 | 待开始 | feat/admin-ops | — | — |
+| A-04 | 已合入 main | feat/admin-ops | — | 关闭/开启全员限免；payment_required 仍为 false |
 | A-05 | 待开始 | feat/admin-ops | — | — |
 | A-06 | 待开始 | feat/admin-ops | — | — |
 | A-07 | 待开始 | feat/admin-ops | — | — |
@@ -159,11 +159,11 @@ S-08 找回密码限流：发送重置邮件与提交新密码接口均读配置
 | S-05 | 已合入 main | fix/security-hardening | cafc028 | 生产 SQL 已执行 |
 | S-06 | 已合入 main | fix/security-hardening | 2cb4ae0 | 生产 SQL 已执行；Edge Function 待部署 |
 | S-07 | 已合入 main | fix/security-hardening | f01f0ee | 生产 SQL 已执行 |
-| S-08 | 待开始 | fix/security-hardening | — | — |
+| S-08 | 已合入 main | fix/security-hardening | — | 找回密码限流；需执行 202608310007 并部署 password-reset-limit |
 
 ## 变更记录
 
-- 2026-08-31：合入 main：A-03 意向跟进（下次跟进日、结果、已发试用）。占用改为 U-03 / A-04 / S-08。
+- 2026-08-31：合入 main：关闭全员限免、找回密码限流；用户端地址栏保持 https://utilora.github.io/。占用改为今日待办 Dashboard / 后台待办 / 安全空闲。
 - 2026-08-31：合入 main：U-02 部分匹配（05facb9）；占用更新为 U-03 / A-03 / S-08。
 - 2026-08-31：合入 main：chore/remove-side-tools、A-01、A-02、U-01、S-01–S-07。占用改为 U-02 / A-03 / S-08。
 - 2026-08-31：追加 U-17、U-18、A-11。借鉴来源：Xero / QuickBooks Online（credit note / credit memo 冲减应收）、Xero bank reconciliation（忽略/匹配须可解释且可恢复）、商业 AR 账龄报告可配置分桶边界。
