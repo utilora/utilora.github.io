@@ -209,4 +209,21 @@ describe("product architecture", () => {
     expect(read("admin/risk-console.js")).toContain("rpc/admin_set_user_disabled");
     expect(read("admin/risk-console.js")).not.toMatch(/service[_-]?role|sb_secret/i);
   });
+
+  it("lets admins grant and revoke entitlements from the user dossier", () => {
+    const sql = read("supabase/migrations/202608310001_admin_grant_entitlement.sql");
+    expect(sql).toContain("admin_grant_entitlement");
+    expect(sql).toContain("admin_revoke_entitlements");
+    expect(sql).toContain("is_admin()");
+    expect(sql).toContain("entitlement_grants");
+    expect(sql).toContain("grant_entitlement");
+    expect(sql).toContain("revoke_entitlement");
+    expect(read("admin/index.html")).toContain('id="dossier-grant-form"');
+    expect(read("admin/index.html")).toContain('id="dossier-grant-days"');
+    expect(read("admin/index.html")).toContain('id="dossier-revoke"');
+    expect(read("admin/admin-ops.js")).toContain("rpc/admin_grant_entitlement");
+    expect(read("admin/admin-ops.js")).toContain("rpc/admin_revoke_entitlements");
+    expect(read("admin/admin-ops.js")).toContain("TRIAL_DAYS_DEFAULT");
+    expect(read("admin/admin-ops.js")).not.toMatch(/service[_-]?role|sb_secret/i);
+  });
 });

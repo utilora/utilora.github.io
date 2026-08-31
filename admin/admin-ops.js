@@ -1,5 +1,7 @@
 (() => {
   const OPS_SQL = 'supabase/admin-ops.sql';
+  const GRANT_SQL = 'supabase/migrations/202608310001_admin_grant_entitlement.sql';
+  const TRIAL_DAYS_DEFAULT = 14;
   const LOG_PAGE = 50;
   let promotionsCache = [];
   let grantsCache = [];
@@ -393,11 +395,13 @@
   }
 
   let dossierEmail = '';
+  let dossierUser = null;
 
   function closeDossier() {
     const panel = document.getElementById('dossier');
     if (panel) panel.hidden = true;
     dossierEmail = '';
+    dossierUser = null;
   }
 
   function fillDl(el, pairs) {
@@ -412,13 +416,151 @@
     });
   }
 
+  function planLabel(code) {
+    if (code === 'pro_trial') return '专业版试用';
+    if (code === 'pro') return '财务专业版';
+    return code || '—';
+  }
+
+  function paintDossierGrants(email) {
+    const grantsBox = document.getElementById('dossier-grants');
+    if (!grantsBox) return;
+    grantsBox.replaceChildren();
+    const grants = (grantsCache || []).filter((row) => (row.email || '') === email);
+    if (!grants.length) {
+      const li = document.createElement('li');
+      li.textContent = '没有单独授予记录（可能走生产折扣）。';
+      grantsBox.append(li);
+      return;
+    }
+    grants.forEach((row) => {
+      const li = document.createElement('li');
+      const active = !row.ends_at || new Date(row.ends_at) > new Date();
+      li.textContent = `${planLabel(row.plan_code)} · ${row.source || 'grant'} · ${row.ends_at ? formatTime(row.ends_at) : '长期'}${active ? '' : ' · 已结束'}`;
+      grantsBox.append(li);
+    });
+  }
+
+  function setGrantFormVisible(canGrant) {
+    const form = document.getElementById('dossier-grant-form');
+    const missing = document.getElementById('dossier-grant-unavailable');
+    if (form) form.hidden = !canGrant;
+    if (missing) missing.hidden = canGrant;
+  }
+
+  function resetGrantForm() {
+    const plan = document.getElementById('dossier-grant-plan');
+    const days = document.getElementById('dossier-grant-days');
+    const note = document.getElementById('dossier-grant-note');
+    if (plan) plan.value = 'pro_trial';
+    if (days) days.value = String(TRIAL_DAYS_DEFAULT);
+    if (note) note.value = '';
+  }
+
+  function parseGrantDays(plan) {
+    const raw = (document.getElementById('dossier-grant-days')?.value || '').trim();
+    if (plan === 'pro' && (raw === '' || raw === '0')) return null;
+    const days = raw === '' ? TRIAL_DAYS_DEFAULT : Number(raw);
+    if (!Number.isInteger(days) || days < 1 || days > 3650) {
+      throw new Error('天数须为 1 到 3650 的整数；专业版可留空表示长期。');
+    }
+    return days;
+  }
+
+  async function grantEntitlement(event) {
+    event?.preventDefault();
+    const msg = document.getElementById('dossier-message');
+    if (!dossierUser?.id) {
+      setMessage(msg, '未匹配到注册用户，不能发放。', true);
+      return;
+    }
+    const plan = document.getElementById('dossier-grant-plan')?.value || 'pro_trial';
+    const note = (document.getElementById('dossier-grant-note')?.value || '').trim();
+    let days;
+    try {
+      days = parseGrantDays(plan);
+    } catch (error) {
+      setMessage(msg, error.message, true);
+      return;
+    }
+    const what = plan === 'pro_trial'
+      ? `专业版试用 ${days} 天`
+      : (days ? `财务专业版 ${days} 天` : '财务专业版（长期）');
+    if (!confirm(`确定给「${dossierUser.email}」发放${what}吗？`)) return;
+    if (isPreview() && !getSession()) {
+      grantsCache = [{
+        id: `g${Date.now()}`,
+        email: dossierUser.email,
+        plan_code: plan,
+        source: plan === 'pro_trial' ? 'admin_trial' : 'admin_grant',
+        starts_at: new Date().toISOString(),
+        ends_at: days ? new Date(Date.now() + days * 86400000).toISOString() : null,
+      }, ...grantsCache];
+      paintDossierGrants(dossierEmail);
+      renderEntitlements();
+      setMessage(msg, `预览已发放${what}，未写入生产。`);
+      return;
+    }
+    try {
+      await request('rpc/admin_grant_entitlement', {
+        method: 'POST',
+        body: JSON.stringify({
+          p_user_id: dossierUser.id,
+          p_plan_code: plan,
+          p_days: days,
+          p_note: note || null,
+        }),
+      });
+      await loadEntitlements();
+      paintDossierGrants(dossierEmail);
+      setMessage(msg, `已发放${what}`);
+    } catch (error) {
+      setMessage(msg, setupHint(classifyError(error), GRANT_SQL) || error.message, true);
+    }
+  }
+
+  async function revokeEntitlements() {
+    const msg = document.getElementById('dossier-message');
+    if (!dossierUser?.id) {
+      setMessage(msg, '未匹配到注册用户，不能收回。', true);
+      return;
+    }
+    if (!confirm(`确定收回「${dossierUser.email}」当前生效的专业版权益吗？`)) return;
+    const note = (document.getElementById('dossier-grant-note')?.value || '').trim();
+    if (isPreview() && !getSession()) {
+      const now = new Date().toISOString();
+      grantsCache = grantsCache.map((row) => (
+        row.email === dossierUser.email && (!row.ends_at || new Date(row.ends_at) > new Date())
+          ? { ...row, ends_at: now, source: row.source || 'admin_grant' }
+          : row
+      ));
+      paintDossierGrants(dossierEmail);
+      renderEntitlements();
+      setMessage(msg, '预览已收回当前权益，未写入生产。');
+      return;
+    }
+    try {
+      const response = await request('rpc/admin_revoke_entitlements', {
+        method: 'POST',
+        body: JSON.stringify({ p_user_id: dossierUser.id, p_note: note || null }),
+      });
+      const count = await response.json();
+      await loadEntitlements();
+      paintDossierGrants(dossierEmail);
+      setMessage(msg, `已收回 ${Number(count) || 0} 条生效权益`);
+    } catch (error) {
+      setMessage(msg, setupHint(classifyError(error), GRANT_SQL) || error.message, true);
+    }
+  }
+
   async function openDossier(email, user) {
     const panel = document.getElementById('dossier');
     if (!panel || !email) return;
     dossierEmail = email;
+    const found = user || (typeof usersCache !== 'undefined' ? usersCache.find((row) => row.email === email) : null);
+    dossierUser = found || null;
     panel.hidden = false;
     document.getElementById('dossier-title').textContent = email;
-    const found = user || (typeof usersCache !== 'undefined' ? usersCache.find((row) => row.email === email) : null);
     fillDl(document.getElementById('dossier-account'), [
       ['昵称', found?.name || '—'],
       ['角色', found?.is_admin ? '管理员' : '普通用户'],
@@ -427,20 +569,9 @@
       ['最近登录', found ? formatTime(found.last_sign_in_at) : '—'],
     ]);
     document.getElementById('dossier-meta').textContent = found ? '来自用户管理与最近日志' : '该邮箱未匹配到注册用户，仍可查看日志。';
-    const grantsBox = document.getElementById('dossier-grants');
-    grantsBox.replaceChildren();
-    const grants = (grantsCache || []).filter((row) => (row.email || '') === email);
-    if (!grants.length) {
-      const li = document.createElement('li');
-      li.textContent = '没有单独授予记录（可能走生产折扣）。';
-      grantsBox.append(li);
-    } else {
-      grants.forEach((row) => {
-        const li = document.createElement('li');
-        li.textContent = `${row.plan_code} · ${row.source || 'grant'} · ${row.ends_at ? formatTime(row.ends_at) : '长期'}`;
-        grantsBox.append(li);
-      });
-    }
+    resetGrantForm();
+    setGrantFormVisible(Boolean(found?.id));
+    paintDossierGrants(email);
     const logsBody = document.getElementById('dossier-logs');
     logsBody.replaceChildren();
     setMessage(document.getElementById('dossier-message'), '正在加载最近日志……');
@@ -586,6 +717,12 @@
     exportLogs().catch((error) => setMessage(document.getElementById('logs-message'), error.message, true));
   });
   document.getElementById('dossier-close')?.addEventListener('click', closeDossier);
+  document.getElementById('dossier-grant-form')?.addEventListener('submit', (event) => {
+    grantEntitlement(event).catch((error) => setMessage(document.getElementById('dossier-message'), error.message, true));
+  });
+  document.getElementById('dossier-revoke')?.addEventListener('click', () => {
+    revokeEntitlements().catch((error) => setMessage(document.getElementById('dossier-message'), error.message, true));
+  });
   document.getElementById('dossier')?.addEventListener('click', (event) => {
     if (event.target.id === 'dossier') closeDossier();
   });
@@ -625,6 +762,8 @@
     saveIntentFollowup,
     openDossier,
     closeDossier,
+    grantEntitlement,
+    revokeEntitlements,
   };
 
   if (getSession() || isPreview()) {
