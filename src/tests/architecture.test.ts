@@ -111,6 +111,13 @@ describe("product architecture", () => {
     expect(read("pro/app.js")).toContain("monthEndPack");
     expect(read("pro/app.js")).toContain("导出月结 Excel");
     expect(read("pro/app.js")).toContain("未匹配银行流水");
+    expect(read("pro/app.js")).toContain("applyMonthClose");
+    expect(read("pro/app.js")).toContain("强制关账");
+    expect(read("pro/app.js")).toContain("未完成项未处理完");
+    expect(read("pro/app.js")).not.toContain("仍可月结");
+    expect(read("src/core/month-end/local.ts")).toContain("applyMonthClose");
+    expect(read("src/core/month-end/local.ts")).toContain("关账记录");
+    expect(read("src/core/backup/local.ts")).toContain("monthEndCloses");
   });
 
   it("exports a complete finance backup and reminds when it is stale", () => {
@@ -318,5 +325,30 @@ describe("product architecture", () => {
     expect(read("index.html")).toContain("assets/js/announcement.js");
     expect(read("admin/index.html")).not.toContain("assets/js/announcement.js");
     expect(read("assets/js/announcement.js")).not.toMatch(/sb_secret/i);
+  });
+
+  it("lets admins change every quantity limit from a config page", () => {
+    const sql = read("supabase/migrations/202608310012_admin_platform_limits.sql");
+    expect(sql).toContain("admin_list_platform_limits");
+    expect(sql).toContain("admin_set_platform_limits");
+    expect(sql).toContain("invite_reward_months");
+    expect(sql).toContain("trial_days");
+    expect(sql).toContain("update_platform_limits");
+    expect(sql).toContain("is_admin()");
+    expect(sql).toContain("get_platform_config_int('trial_days', 14)");
+    expect(sql).not.toMatch(/grant\s+(select|insert|update|delete)\s+on\s+public\.platform_config/i);
+    expect(read("admin/index.html")).toContain('data-page="limits"');
+    expect(read("admin/index.html")).toContain('id="limits-section"');
+    expect(read("admin/index.html")).toContain('src="limits.js"');
+    expect(read("admin/admin.js")).toContain("limits: '限额配置'");
+    expect(read("admin/admin.js")).toContain("AdminLimits?.loadLimits");
+    expect(read("admin/admin.js")).toContain("confirmLimitChange");
+    expect(read("admin/limits.js")).toContain("rpc/admin_list_platform_limits");
+    expect(read("admin/limits.js")).toContain("rpc/admin_set_platform_limits");
+    expect(read("admin/limits.js")).toContain("invite_reward_months");
+    expect(read("admin/limits.js")).toContain("validateLimits");
+    expect(read("admin/limits.js")).toContain("confirmLimitChange");
+    expect(read("admin/limits.js")).not.toMatch(/service[_-]?role|sb_secret/i);
+    expect(read("supabase/admin-ops.sql")).toContain("202608310012_admin_platform_limits.sql");
   });
 });

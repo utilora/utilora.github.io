@@ -59,6 +59,32 @@ export interface MonthEndResult {
   expenseTotal: number;
 }
 
+export interface MonthEndCloseSnapshot {
+  percent: number;
+  done: number;
+  total: number;
+  openReceivableTotal: number;
+  unmatchedTotal: number;
+  expenseTotal: number;
+  anomalyCount: number;
+  unmatchedCount: number;
+  openReceivableCount: number;
+}
+
+export interface MonthEndCloseRecord {
+  month: string;
+  closedAt: string;
+  forced: boolean;
+  reason: string;
+  snapshot: MonthEndCloseSnapshot;
+}
+
+export type CloseDecision =
+  | { ok: true; record: MonthEndCloseRecord }
+  | { ok: false; error: string };
+
+export const CLOSE_REASON_MIN = 2;
+
 const sumAmount = (rows: Array<{ remaining?: number; amount?: number }>, key: "remaining" | "amount"): number =>
   fromFen(rows.reduce((sum, row) => sum + toFen(Number(row[key] || 0)), 0));
 
@@ -121,9 +147,104 @@ export const buildMonthEnd = (input: MonthEndInput): MonthEndResult => {
   };
 };
 
+export const closeBlockers = (result: MonthEndResult): CloseStep[] =>
+  result.steps.filter((step) => step.id !== "month-closed" && !step.ok);
+
+export const canCloseMonth = (result: MonthEndResult): boolean => closeBlockers(result).length === 0;
+
+export const validateForceCloseReason = (reason: string): { ok: true; reason: string } | { ok: false; error: string } => {
+  const text = String(reason || "").trim();
+  if (!text) return { ok: false, error: "强制关账必须填写原因" };
+  if (text.length < CLOSE_REASON_MIN) return { ok: false, error: "原因至少两个字" };
+  return { ok: true, reason: text };
+};
+
+export const closeSnapshot = (input: MonthEndInput, result: MonthEndResult): MonthEndCloseSnapshot => ({
+  percent: result.percent,
+  done: result.done,
+  total: result.total,
+  openReceivableTotal: result.openReceivableTotal,
+  unmatchedTotal: result.unmatchedTotal,
+  expenseTotal: result.expenseTotal,
+  anomalyCount: input.anomalies.length,
+  unmatchedCount: input.unmatchedBank.length,
+  openReceivableCount: input.openReceivables.length
+});
+
+export const buildCloseRecord = (params: {
+  month: string;
+  forced: boolean;
+  reason: string;
+  closedAt: string;
+  input: MonthEndInput;
+  result: MonthEndResult;
+}): MonthEndCloseRecord => ({
+  month: params.month,
+  closedAt: params.closedAt,
+  forced: params.forced,
+  reason: params.forced ? String(params.reason || "").trim() : "",
+  snapshot: closeSnapshot(params.input, params.result)
+});
+
+export const applyMonthClose = (params: {
+  input: MonthEndInput;
+  result: MonthEndResult;
+  forced?: boolean;
+  reason?: string;
+  closedAt: string;
+}): CloseDecision => {
+  if (params.result.closed) return { ok: false, error: "该月已月结" };
+  const blockers = closeBlockers(params.result);
+  if (blockers.length === 0) {
+    return {
+      ok: true,
+      record: buildCloseRecord({
+        month: params.result.month,
+        forced: false,
+        reason: "",
+        closedAt: params.closedAt,
+        input: params.input,
+        result: params.result
+      })
+    };
+  }
+  if (!params.forced) {
+    return { ok: false, error: "未完成项未处理完，不能关账" };
+  }
+  const check = validateForceCloseReason(params.reason || "");
+  if (!check.ok) return check;
+  return {
+    ok: true,
+    record: buildCloseRecord({
+      month: params.result.month,
+      forced: true,
+      reason: check.reason,
+      closedAt: params.closedAt,
+      input: params.input,
+      result: params.result
+    })
+  };
+};
+
+export const latestCloseForMonth = (
+  records: MonthEndCloseRecord[] | undefined,
+  month: string
+): MonthEndCloseRecord | null => {
+  const rows = Array.isArray(records) ? records.filter((row) => row.month === month) : [];
+  const last = rows[rows.length - 1];
+  return last ?? null;
+};
+
+const closeModeLabel = (result: MonthEndResult, closeRecord?: MonthEndCloseRecord | null): string => {
+  if (!result.closed) return "尚未月结";
+  if (closeRecord?.forced) return "强制关账";
+  return "正常关账";
+};
+
 export const monthEndExportSheets = (
   input: MonthEndInput,
-  result: MonthEndResult
+  result: MonthEndResult,
+  closeRecord?: MonthEndCloseRecord | null
 ): Array<{ name: string; rows: Array<Array<string | number>> }> => [
   {
     name: "月结摘要",
@@ -139,6 +260,25 @@ export const monthEndExportSheets = (
         result.unmatchedTotal,
         input.anomalies.length,
         result.expenseTotal
+      ]
+    ]
+  },
+  {
+    name: "关账记录",
+    rows: [
+      ["月份", "关账方式", "原因", "完成度%", "已完成步骤", "步骤总数", "未收金额", "未匹配金额", "当月费用", "异常数", "关账时间"],
+      [
+        result.month,
+        closeModeLabel(result, closeRecord),
+        closeRecord?.reason || "",
+        result.percent,
+        result.done,
+        result.total,
+        result.openReceivableTotal,
+        result.unmatchedTotal,
+        result.expenseTotal,
+        input.anomalies.length,
+        closeRecord?.closedAt || ""
       ]
     ]
   },

@@ -411,10 +411,10 @@ function logout() {
   recordAdminAuth('logout').then(finish, finish);
 }
 
-const pageTitles = { overview: '工作台', analytics: '访问统计', users: '用户管理', risk: '风控台', feedback: '用户留言', intents: '购买意向', promotions: '生产折扣', announcements: '站点公告', entitlements: '权益一览', logs: '操作日志' };
+const pageTitles = { overview: '工作台', analytics: '访问统计', users: '用户管理', risk: '风控台', feedback: '用户留言', intents: '购买意向', promotions: '生产折扣', announcements: '站点公告', entitlements: '权益一览', limits: '限额配置', logs: '操作日志' };
 
 function switchPage(name) {
-  ['overview', 'analytics', 'users', 'risk', 'feedback', 'intents', 'promotions', 'announcements', 'entitlements', 'logs'].forEach((id) => {
+  ['overview', 'analytics', 'users', 'risk', 'feedback', 'intents', 'promotions', 'announcements', 'entitlements', 'limits', 'logs'].forEach((id) => {
     const section = document.getElementById(`${id}-section`);
     if (section) section.hidden = id !== name;
   });
@@ -437,6 +437,7 @@ function switchPage(name) {
   if (name === 'entitlements') window.AdminOps?.loadEntitlements?.();
   if (name === 'logs') window.AdminOps?.loadLogs?.();
   if (name === 'risk') window.AdminRisk?.loadRiskConsole?.();
+  if (name === 'limits') window.AdminLimits?.loadLimits?.();
 }
 
 function switchTab(name) {
@@ -1403,6 +1404,7 @@ async function refreshAll() {
       window.AdminOps?.loadFunnel?.(),
       window.AdminOps?.loadLogs?.(true),
       window.AdminRisk?.loadRiskConsole?.(),
+      window.AdminLimits?.loadLimits?.(),
     ]);
     await window.AdminOps?.loadOverviewStats?.();
     const page = document.querySelector('.side-link.active')?.dataset.page || 'overview';

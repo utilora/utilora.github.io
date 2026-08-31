@@ -48,6 +48,7 @@
           <button class="side-link" data-page="users" type="button" title="用户管理"><i aria-hidden="true">户</i><span>用户管理</span></button>
           <button class="side-link" data-page="risk" type="button" title="风控台"><i aria-hidden="true">控</i><span>风控台</span></button>
           <button class="side-link" data-page="entitlements" type="button" title="权益一览"><i aria-hidden="true">权</i><span>权益一览</span></button>
+          <button class="side-link" data-page="limits" type="button" title="限额配置"><i aria-hidden="true">额</i><span>限额配置</span></button>
         </nav>
         <div class="side-foot">
           <strong id="admin-email">管理员</strong>
@@ -127,6 +128,11 @@
                 <span>今日新注册</span>
                 <strong id="overview-new-users">—</strong>
                 <em>进入风控台</em>
+              </button>
+              <button class="overview-card" data-page="limits" type="button">
+                <span>限额配置</span>
+                <strong>可改</strong>
+                <em>注册 / 试用 / 对账数量</em>
               </button>
               <button class="overview-card" data-page="logs" type="button">
                 <span>今日登录</span>
@@ -606,6 +612,12 @@
         </div>
       </section>
 
+      <section id="limits-section" hidden>
+        <p class="hint">数量类限额全部在这里改，保存后立即生效。服务端按当前值执行。改限额须二次确认并写入操作日志。邀请奖励月数可配，但支付接通前不对用户展示邀请。</p>
+        <div id="limits-message" class="message" role="status"></div>
+        <form id="limits-form" class="limits-form"></form>
+      </section>
+
       <section id="risk-section" hidden>
         <p id="risk-day" class="hint"></p>
         <p id="risk-tables-hint" class="hint"></p>
@@ -843,5 +855,6 @@
   <script src="admin.js"></script>
   <script src="admin-ops.js"></script>
   <script src="risk-console.js"></script>
+  <script src="limits.js"></script>
 </body>
 </html>

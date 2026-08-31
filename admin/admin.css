@@ -12,6 +12,14 @@ td select{min-width:105px;padding:7px}
 .manager-head .actions{margin-top:0}
 button:disabled{opacity:.55;cursor:not-allowed}
 
+.limits-form{display:grid;gap:16px;margin-top:12px}
+.limits-group{padding:16px;background:#f8fafc;border:1px solid var(--line);border-radius:14px}
+.limits-group h2{margin:0 0 12px;font-size:15px}
+.limits-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px 16px}
+.limits-grid .field{display:flex;flex-direction:column;gap:6px}
+.limits-grid small{color:var(--muted);font-size:12px;line-height:1.45}
+.limits-form .row-actions{display:flex;flex-wrap:wrap;gap:8px}
+
 .admin-tabs{display:flex;gap:6px;margin:18px 0 0;padding:5px;background:#f1f5f9;border-radius:12px;width:fit-content}
 .admin-tabs .tab{padding:8px 16px;color:#475569;background:transparent;border:0;border-radius:8px;font-weight:700}
 .admin-tabs .tab.active{color:#fff;background:var(--ink)}
@@ -79,6 +87,7 @@ button:disabled{opacity:.55;cursor:not-allowed}
   .analytics-grid{grid-template-columns:1fr}
   .manager-head,.analytics-head{display:block}
   .manager-head .actions,.view-switch{margin-top:14px;justify-content:flex-start}
+  .limits-grid{grid-template-columns:1fr}
   .admin-tabs{width:100%}
   .admin-tabs .tab{flex:1}
 }

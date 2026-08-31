@@ -25,12 +25,12 @@
   const empty = (name = "我的企业") => ({
     schemaVersion: 3,
     company: { name, taxId: "", address: "", phone: "", email: "", payInfo: "", theme: "navy" },
-    customers: [], items: [], estimates: [], invoices: [], payments: [], expenses: [], reimbursements: [], assets: [], bankTransactions: [], payrollRows: [], accounts: [], vouchers: [], voucherTemplates: [], collectionNotes: [], closedMonths: [],
+    customers: [], items: [], estimates: [], invoices: [], payments: [], expenses: [], reimbursements: [], assets: [], bankTransactions: [], payrollRows: [], accounts: [], vouchers: [], voucherTemplates: [], collectionNotes: [], monthEndCloses: [], closedMonths: [],
   });
   const normalizeData = (source) => {
     const next = { ...empty(), ...(source || {}) };
     next.company = { ...empty().company, ...(source?.company || {}) };
-    ["customers", "items", "estimates", "invoices", "payments", "expenses", "reimbursements", "assets", "bankTransactions", "payrollRows", "accounts", "vouchers", "voucherTemplates", "collectionNotes"].forEach((key) => {
+    ["customers", "items", "estimates", "invoices", "payments", "expenses", "reimbursements", "assets", "bankTransactions", "payrollRows", "accounts", "vouchers", "voucherTemplates", "collectionNotes", "monthEndCloses"].forEach((key) => {
       next[key] = Array.isArray(source?.[key]) ? source[key] : [];
     });
     next.closedMonths = Array.isArray(source?.closedMonths) ? source.closedMonths : [];
@@ -1078,10 +1078,15 @@
     let month = today().slice(0, 7);
     const paint = () => {
       const { input, result } = monthEndPack(month);
+      const ready = Close ? Close.canCloseMonth(result) : false;
+      const latestClose = Close ? Close.latestCloseForMonth(db.monthEndCloses, month) : null;
+      const closeNote = result.closed
+        ? (latestClose?.forced ? `本月为强制关账。原因：${latestClose.reason}` : "本月已月结。可随时重开。")
+        : (ready ? "检查项已完成，可以关账。关账后该月应收、收款、费用和报销不可改。" : "未完成项未处理完，不能直接关账。如需强制关账，请填写原因。");
       view.innerHTML = `
         <div class="panel">
           <h2>月结检查</h2>
-          <p class="data-note">关账底稿给老板或会计：未收应收、未匹配流水、异常、当月费用。完成度与下列步骤一致。月结后该月应收、收款、费用和报销不可改，可随时重开。</p>
+          <p class="data-note">关账底稿给老板或会计：未收应收、未匹配流水、异常、当月费用。底稿数字与本页完成度、未收、未匹配、费用一致。月结后该月单据不可改。</p>
           <div class="form-grid">
             <div class="field"><label>月份</label><input id="close-month" type="month" value="${month}"></div>
           </div>
@@ -1093,31 +1098,53 @@
           </div>
           <div class="month-progress" aria-label="月结完成度"><i style="width:${result.percent}%"></i></div>
           <div class="close-steps">${result.steps.map((step) => `<div class="close-step ${step.ok ? "ok" : "wait"}"><b>${esc(step.label)}</b><small>${esc(step.detail)}</small></div>`).join("")}</div>
+          ${!result.closed && !ready ? `<div class="field"><label for="close-reason">强制关账原因</label><textarea id="close-reason" rows="2" placeholder="例如：老板要求先关账，未匹配流水下周补"></textarea></div>` : ""}
           <div class="actions">
             <button id="close-toggle" type="button"></button>
             <button id="close-export-xlsx" class="secondary" type="button">导出月结 Excel</button>
             <button id="close-export-csv" class="secondary" type="button">导出月结 CSV</button>
           </div>
-          <p class="data-note">${result.percent < 100 && !result.closed ? "仍有未完成项，仍可月结，之后可以重开。" : ""}已月结：${db.closedMonths.slice().sort().join("、") || "暂无"}</p>
+          <p class="data-note">${esc(closeNote)} 已月结：${db.closedMonths.slice().sort().join("、") || "暂无"}</p>
         </div>
         <div class="panel" style="margin-top:14px"><h2>未收应收</h2><div class="table-wrap"><table class="sheet-table"><thead><tr><th>客户</th><th>单号</th><th>到期日</th><th>未收</th></tr></thead><tbody>${input.openReceivables.map((row) => `<tr><td>${esc(row.customerName)}</td><td>${esc(row.number)}</td><td>${esc(row.dueDate || "—")}</td><td>${money(row.remaining)}</td></tr>`).join("") || `<tr><td colspan="4">没有未收应收</td></tr>`}</tbody></table></div></div>
         <div class="panel" style="margin-top:14px"><h2>未匹配银行流水</h2><div class="table-wrap"><table class="sheet-table"><thead><tr><th>日期</th><th>摘要</th><th>待匹配</th></tr></thead><tbody>${input.unmatchedBank.map((row) => `<tr><td>${esc(row.date)}</td><td>${esc(row.summary)}</td><td>${money(row.remaining)}</td></tr>`).join("") || `<tr><td colspan="3">没有未匹配流水</td></tr>`}</tbody></table></div></div>
         <div class="panel" style="margin-top:14px"><h2>当月费用与报销</h2><div class="table-wrap"><table class="sheet-table"><thead><tr><th>日期</th><th>类型</th><th>对象</th><th>金额</th></tr></thead><tbody>${input.expenses.map((row) => `<tr><td>${esc(row.date)}</td><td>${esc(row.kind)}</td><td>${esc(row.party)}</td><td>${money(row.amount)}</td></tr>`).join("") || `<tr><td colspan="4">当月暂无费用或报销</td></tr>`}</tbody></table></div></div>
         <div class="panel" style="margin-top:14px"><h2>数据校验</h2><p class="data-note">检查时间：${new Date().toLocaleString("zh-CN")}</p><div class="validation-list">${input.anomalies.length ? input.anomalies.map((x) => `<div class="validation-item"><b>${esc(x.where)}：${esc(x.issue)}</b><small>修复建议：${esc(x.fix)}</small></div>`).join("") : `<p class="empty">未发现明显异常。请仍按原始凭证复核。</p>`}</div></div>`;
       primary.hidden = true;
-      document.getElementById("close-toggle").textContent = result.closed ? "重开该月" : "完成该月月结";
+      document.getElementById("close-toggle").textContent = result.closed ? "重开该月" : (ready ? "完成该月月结" : "强制关账");
       document.getElementById("close-month").onchange = (event) => {
         month = event.target.value || month;
         paint();
       };
       document.getElementById("close-toggle").onclick = async () => {
         if (!month) return;
-        if (db.closedMonths.includes(month)) db.closedMonths = db.closedMonths.filter((value) => value !== month);
-        else db.closedMonths.push(month);
+        if (db.closedMonths.includes(month)) {
+          db.closedMonths = db.closedMonths.filter((value) => value !== month);
+        } else if (Close && Close.applyMonthClose) {
+          const decision = Close.applyMonthClose({
+            input,
+            result,
+            forced: !ready,
+            reason: document.getElementById("close-reason")?.value || "",
+            closedAt: new Date().toISOString()
+          });
+          if (!decision.ok) {
+            window.alert(decision.error);
+            return;
+          }
+          db.closedMonths.push(month);
+          db.monthEndCloses = [...(db.monthEndCloses || []), decision.record];
+        } else {
+          if (!ready) {
+            window.alert("未完成项未处理完，不能关账");
+            return;
+          }
+          db.closedMonths.push(month);
+        }
         await save();
         draw();
       };
-      const exportSheets = () => Close ? Close.monthEndExportSheets(input, result) : [];
+      const exportSheets = () => Close ? Close.monthEndExportSheets(input, result, latestClose) : [];
       document.getElementById("close-export-xlsx").onclick = () => {
         const sheets = exportSheets();
         if (!sheets.length) return;
