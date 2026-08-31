@@ -48,8 +48,8 @@
 
 | 线 | 分支 | 当前项 | 状态 |
 |----|------|--------|------|
-| 用户端 | feat/user-workspace | U-05 | 待开始 |
-| 管理端 | feat/admin-ops | A-07 | 待开始 |
+| 用户端 | feat/user-workspace | 备份预览 | 待开始 |
+| 管理端 | feat/admin-ops | 审计日志查询与导出 | 待开始 |
 | 安全 | fix/security-hardening | — | 空闲 |
 
 ## AI 开工前必读
@@ -91,9 +91,9 @@ U-18 流水忽略须填原因：未匹配队列中「忽略」必须选择预设
 | U-01 | 已合入 main | feat/user-workspace | 5d8e032 | 未匹配流水队列 |
 | U-02 | 已合入 main | feat/user-workspace | 05facb9 | 部分匹配；46 tests；build PASS |
 | U-03 | 已合入 main | feat/user-workspace | bde9cab | 待匹配 / 今日该催 / 本周到期 / 备份过期；60 tests；build PASS |
-| U-04 | 已合入 main | feat/user-workspace | 380d260 | 联系日 / 承诺还款日 / 未接·已答应·已付；63 tests；build PASS |
-| U-05 | 待开始 | feat/user-workspace | — | — |
-| U-06 | 待开始 | feat/user-workspace | — | — |
+| U-04 | 已合入 main | feat/user-workspace | 380d260 | 客户催收备忘；63 tests；build PASS |
+| U-05 | 已合入 main | feat/user-workspace | 56157a5 | 月结纪律；67 tests；build PASS |
+| U-06 | 待开始 | feat/user-workspace | — | 备份预览 |
 | U-07 | 待开始 | feat/user-workspace | — | — |
 | U-08 | 待开始 | feat/user-workspace | — | — |
 | U-09 | 待开始 | feat/user-workspace | — | — |
@@ -131,9 +131,9 @@ A-11 账龄分桶边界配置：在限额/运营策略配置中增加「账龄�
 | A-04 | 已合入 main | feat/admin-ops | — | 关闭/开启全员限免；payment_required 仍为 false |
 | A-05 | 已合入 main | feat/admin-ops | bde9cab | 新留言 / 待跟进意向 / 今日异常注册；生产 SQL 已执行 |
 | A-06 | 已合入 main | feat/admin-ops | 380d260 | 提权/停用/改促销二次确认；限额页复用同一确认 |
-| A-07 | 待开始 | feat/admin-ops | — | — |
-| A-08 | 预埋 / 待支付 | feat/admin-ops | — | — |
-| A-09 | 待开始 | feat/admin-ops | — | — |
+| A-07 | 已合入 main | feat/admin-ops | 56157a5 | 限额配置页；67 tests；build PASS；需执行 202608310012_admin_platform_limits.sql |
+| A-08 | 预埋 / 待支付 | feat/admin-ops | — | 邀请预埋 |
+| A-09 | 待开始 | feat/admin-ops | — | 审计日志查询与导出 |
 | A-10 | 待开始 | feat/admin-ops | — | — |
 | A-11 | 待开始 | feat/admin-ops | — | — |
 
@@ -163,6 +163,7 @@ S-08 找回密码限流：发送重置邮件与提交新密码接口均读配置
 
 ## 变更记录
 
+- 2026-08-31：合入 main：月结纪律、限额配置页（56157a5）。占用改为备份预览 / 审计日志查询与导出 / 安全空闲。
 - 2026-08-31：合入 main：客户催收备忘、敏感操作二次确认。占用改为月结纪律 / 限额配置页 / 安全空闲。
 - 2026-08-31：合入 main：U-02 部分匹配（05facb9）；占用更新为 U-03 / A-03 / S-08。
 - 2026-08-31：合入 main：chore/remove-side-tools、A-01、A-02、U-01、S-01–S-07。占用改为 U-02 / A-03 / S-08。
