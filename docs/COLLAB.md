@@ -54,7 +54,7 @@
 |----|------|--------|------|
 | 用户端 | feat/user-workspace | 五个财税工具打磨 | 待开始 |
 | 管理端 | feat/admin-ops | — | 空闲 |
-| 安全 | fix/security-hardening | 二次验证与登录保护 | 待合并 |
+| 安全 | fix/security-hardening | — | 空闲 |
 
 ## AI 开工前必读
 
@@ -175,14 +175,15 @@ S-16 防被嵌进别人网站：脚本发现被嵌入则拒绝展示并尝试跳
 | S-09 | 已合入 main | fix/security-hardening | 9facb2b | 留言与购买意向提交限流；购买意向改走云函数并记账；直连 RPC 已收回；留言表收掉改删清空 |
 | S-10 | 已合入 main | fix/security-hardening | ee0f49a | 内容安全策略；公开页 meta CSP；禁止未哈希的可执行内联脚本；构建关闭 modulepreload 内联垫片 |
 | S-11 | 已合入 main | fix/security-hardening | f9d1bb4 | 收紧样式策略；去掉 style-src unsafe-inline；公开页与工作台模板无 style 属性 |
-| S-12 | 待合并 | fix/security-hardening | — | 二次验证 |
-| S-13 | 待合并 | fix/security-hardening | — | 登出其他设备 |
-| S-14 | 待合并 | fix/security-hardening | — | 新地点登录通知 |
-| S-15 | 待合并 | fix/security-hardening | — | 备份加口令 |
-| S-16 | 待合并 | fix/security-hardening | — | 防被嵌进别人网站 |
+| S-12 | 已合入 main | fix/security-hardening | 4dee685 | 二次验证 |
+| S-13 | 已合入 main | fix/security-hardening | 4dee685 | 登出其他设备 |
+| S-14 | 已合入 main | fix/security-hardening | 4dee685 | 新地点登录通知 |
+| S-15 | 已合入 main | fix/security-hardening | 4dee685 | 备份加口令 |
+| S-16 | 已合入 main | fix/security-hardening | 4dee685 | 防被嵌进别人网站 |
 
 ## 变更记录
 
+- 2026-08-31：合入 main：二次验证与登录保护（4dee685）。账号页可开启/关闭验证器二次验证，未完成验证不留下可用会话；可登出其他设备；登录成功后登记哈希网络，新地点写入活动，能发信时通知注册邮箱；新备份必须口令加密，明文旧备份仍可导入；留言与购买意向四项进入限额页；公开页加跳出脚本，回访的站点服务补 frame-ancestors。生产已执行 202608310017_login_security.sql，已部署 login-location。占用改为五个财税工具打磨 / 空闲 / 安全空闲。
 - 2026-08-31：合入 main：收紧样式策略（f9d1bb4）。去掉 style-src 的 unsafe-inline；账户页和工具页内联样式改到样式表；工作台模板去掉 style 属性，进度条宽度改由脚本设置。占用改为五个财税工具打磨 / 空闲 / 安全空闲。
 
 - 2026-08-31：合入 main：内容安全策略（ee0f49a）。12 个公开页加 CSP 与 referrer；首页 JSON-LD 用哈希放行；菜单与人机验证启动脚本外置；Vite 关闭会注入内联脚本的 modulepreload 垫片。GitHub Pages 设不了响应头，frame-ancestors 不在本项。占用改为五个财税工具打磨 / 空闲 / 安全空闲。
