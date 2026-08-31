@@ -169,11 +169,11 @@ S-11 收紧样式策略：去掉 style-src 的 unsafe-inline。公开页和工�
 | S-08 | 已合入 main | fix/security-hardening | — | 找回密码限流；生产 SQL 已执行；Edge Function 已部署 |
 | S-09 | 已合入 main | fix/security-hardening | 9facb2b | 留言与购买意向提交限流；购买意向改走云函数并记账；直连 RPC 已收回；留言表收掉改删清空 |
 | S-10 | 已合入 main | fix/security-hardening | ee0f49a | 内容安全策略；公开页 meta CSP；禁止未哈希的可执行内联脚本；构建关闭 modulepreload 内联垫片 |
-| S-11 | 已合入 main | fix/security-hardening | — | 收紧样式策略；去掉 style-src unsafe-inline；公开页与工作台模板无 style 属性 |
+| S-11 | 已合入 main | fix/security-hardening | f9d1bb4 | 收紧样式策略；去掉 style-src unsafe-inline；公开页与工作台模板无 style 属性 |
 
 ## 变更记录
 
-- 2026-08-31：合入 main：收紧样式策略。去掉 style-src 的 unsafe-inline；账户页和工具页内联样式改到样式表；工作台模板去掉 style 属性，进度条宽度改由脚本设置。占用改为五个财税工具打磨 / 空闲 / 安全空闲。
+- 2026-08-31：合入 main：收紧样式策略（f9d1bb4）。去掉 style-src 的 unsafe-inline；账户页和工具页内联样式改到样式表；工作台模板去掉 style 属性，进度条宽度改由脚本设置。占用改为五个财税工具打磨 / 空闲 / 安全空闲。
 
 - 2026-08-31：合入 main：内容安全策略（ee0f49a）。12 个公开页加 CSP 与 referrer；首页 JSON-LD 用哈希放行；菜单与人机验证启动脚本外置；Vite 关闭会注入内联脚本的 modulepreload 垫片。GitHub Pages 设不了响应头，frame-ancestors 不在本项。占用改为五个财税工具打磨 / 空闲 / 安全空闲。
 - 2026-08-31：合入 main：提交限流收口（e272b14）。购买意向只走带人机验证和次数上限的云函数；直连 RPC 已拒绝；留言表访客无法改删清空；人机验证密钥缺失时拒绝；已下线无鉴权遗留函数。生产已执行 202608310016_submit_path_lockdown.sql。增加 SECURITY.md、Dependabot，并打开密钥扫描与私下漏洞报告。占用改为五个财税工具打磨 / 空闲 / 安全空闲。
