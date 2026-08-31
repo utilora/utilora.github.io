@@ -27,32 +27,83 @@ function currentAdminEmail() {
 }
 const tip = document.getElementById('chart-tip');
 
+const FINANCE_TOOLS = new Set(['vat-split', 'income-tax', 'payroll', 'quote', 'number-chinese']);
 const toolNames = {
+  'vat-split': '增值税价税分离',
+  'income-tax': '个人所得税测算',
+  payroll: '工资与用工成本',
+  quote: '报价单',
+  'number-chinese': '人民币大写转换',
   'json-formatter': 'JSON 格式化',
   timestamp: '时间戳转换',
   base64: 'Base64 编解码',
   'qr-code': '二维码生成器',
   'password-generator': '密码生成器',
+  'password-strength': '密码强度',
   'text-counter': '文本统计',
   'url-codec': 'URL 编解码',
   'hash-generator': 'Hash / MD5',
   'uuid-generator': 'UUID 生成器',
+  nanoid: 'NanoID 生成器',
   'regex-tester': '正则测试',
   'color-converter': '颜色转换',
+  'color-contrast': '色彩对比度',
   'case-converter': '大小写转换',
   'text-diff': '文本对比',
   'jwt-decoder': 'JWT 解码',
-  'cron-explainer': 'Cron 表达式解释',
+  'cron-explainer': 'Cron 表达式',
+  'cron-next': 'Cron 下次运行',
   'url-parser': 'URL 解析器',
   'number-base': '进制转换',
   'unit-converter': '单位换算',
   'html-entities': 'HTML 实体编解码',
   'random-number': '随机数生成器',
+  'random-palette': '随机色板',
   'douyin-downloader': '抖音视频下载',
   'image-compress': '图片压缩',
-  'number-chinese': '数字转中文大写',
+  'image-convert': '图片格式转换',
+  'image-palette': '图片主色',
+  'image-resize': '图片尺寸',
+  'image-watermark': '图片水印',
   'zh-convert': '简繁拼音',
+  'data-convert': 'JSON / YAML / CSV',
+  'markdown-preview': 'Markdown 预览',
+  'markdown-table': 'Markdown 表格',
+  'json-to-ts': 'JSON 转 TypeScript',
+  'sql-formatter': 'SQL 格式化',
+  'cookie-parser': 'Cookie 解析',
+  'css-units': 'CSS 单位转换',
+  'email-extractor': '邮箱提取',
+  'gitignore-generator': '.gitignore 生成',
+  'http-status': 'HTTP 状态码',
+  'id-card': '身份证校验',
+  'ipv4-cidr': 'IPv4 / CIDR',
+  'list-converter': '列表格式转换',
+  'lorem-ipsum': '占位文本',
+  'lorem-text': '占位文本',
+  percentage: '百分比计算',
+  'roman-numeral': '罗马数字',
+  slugify: 'URL Slug',
+  'text-binary': '文本二进制',
+  'text-dedup': '文本去重',
+  'text-dedupe': '文本去重',
+  'unix-permission': 'Unix 权限',
+  'user-agent': 'User-Agent 解析',
+  'utm-builder': 'UTM 链接',
 };
+
+function toolLabel(slug) {
+  return toolNames[slug] || slug;
+}
+
+function splitTools(tools) {
+  const finance = [];
+  const other = [];
+  (tools || []).forEach((item) => {
+    (FINANCE_TOOLS.has(item.slug) ? finance : other).push(item);
+  });
+  return { finance, other };
+}
 
 const deviceNames = { mobile: '手机', desktop: '电脑', tablet: '平板', unknown: '未知' };
 let analyticsCache = null;
@@ -129,6 +180,15 @@ function todayISO() {
   return local.toISOString().slice(0, 10);
 }
 
+function loginErrorText(raw) {
+  const text = String(raw || '').trim();
+  if (/invalid login credentials|invalid_grant|invalid email or password/i.test(text)) return '邮箱或密码不对';
+  if (/email not confirmed/i.test(text)) return '邮箱尚未验证';
+  if (/too many requests|rate limit/i.test(text)) return '尝试次数过多，请稍后再试';
+  if (/failed to fetch|networkerror|load failed/i.test(text)) return '网络异常，请稍后重试';
+  return text || '登录失败';
+}
+
 function addDays(iso, days) {
   const date = new Date(`${iso}T00:00:00`);
   date.setDate(date.getDate() + days);
@@ -151,14 +211,14 @@ loginForm.addEventListener('submit', async (event) => {
       }),
     });
     const data = await response.json();
-    if (!response.ok) throw new Error(data.error_description || data.msg || '登录失败');
+    if (!response.ok) throw new Error(loginErrorText(data.error_description || data.msg || data.error));
     sessionStorage.setItem(sessionKey, JSON.stringify(data));
     document.getElementById('password').value = '';
     showManager();
     await recordAdminAuth('login');
     await refreshAll();
   } catch (error) {
-    setMessage(loginMessage, error.message, true);
+    setMessage(loginMessage, loginErrorText(error.message), true);
   } finally {
     button.disabled = false;
   }
@@ -317,6 +377,7 @@ function switchPage(name) {
   });
   const title = document.getElementById('page-title');
   if (title) title.textContent = pageTitles[name] || '管理';
+  setPageSummary('');
   document.body.classList.remove('sidebar-open');
   if (name === 'users') loadUsers();
   if (name === 'intents') loadIntents();
@@ -349,9 +410,10 @@ function buildQuery() {
 
 async function loadFeedback() {
   if (isPreview() && !getSession()) {
-    document.getElementById('overview-feedback').textContent = '12';
     feedbackLoadState = 'ok';
-    feedbackCache = [];
+    feedbackCache = mockFeedback;
+    renderRows(feedbackCache);
+    setMessage(managerMessage, '当前为界面预览数据。');
     setPageSummary('预览数据');
     return;
   }
@@ -570,8 +632,14 @@ function prettyReferrer(name) {
 
 function prettyPath(path) {
   if (!path || path === '/') return '首页';
-  const slug = path.replace(/^\/tools\/|\/$/g, '').replace(/\/$/, '');
-  return toolNames[slug] || path;
+  if (path.startsWith('/admin')) return '管理端';
+  if (path.startsWith('/login')) return '登录';
+  if (path.startsWith('/account')) return '账户';
+  if (path.startsWith('/feedback')) return '功能建议';
+  if (path.startsWith('/pro')) return path.includes('demo=1') ? '专业版演示' : '财务专业版';
+  const match = String(path).match(/\/tools\/([^/]+)/);
+  if (match) return toolLabel(match[1]);
+  return path;
 }
 
 function bucketDaily(daily, days) {
@@ -712,41 +780,46 @@ function renderTable(id, rows) {
 
 function renderAnalytics(data, range) {
   const tools = data.tools || [];
+  const { finance, other } = splitTools(tools);
   const daily = data.daily || [];
   const total = Number(data.total_tool_uses) || 0;
+  const financeTotal = finance.reduce((sum, item) => sum + Number(item.uses || 0), 0);
   const views = Number(data.total_views) || 0;
   const visitors = Number(data.unique_visitors) || 0;
   const days = Number(data.days) || range.days || 30;
   const newVisitors = data.new_visitors;
   const returning = data.returning_visitors;
+  const popular = finance[0] || tools[0];
 
   document.getElementById('total-views').textContent = views.toLocaleString();
   document.getElementById('unique-visitors').textContent = visitors.toLocaleString();
   document.getElementById('today-views').textContent = Number(data.today_views || 0).toLocaleString();
   document.getElementById('average-views').textContent = (views / days).toFixed(1);
-  document.getElementById('total-uses').textContent = total.toLocaleString();
-  document.getElementById('popular-tool').textContent = tools[0] ? (toolNames[tools[0].slug] || tools[0].slug) : '暂无';
+  document.getElementById('total-uses').textContent = financeTotal.toLocaleString();
+  document.getElementById('popular-tool').textContent = popular ? toolLabel(popular.slug) : '暂无';
   document.getElementById('new-visitors').textContent = newVisitors == null ? '—' : Number(newVisitors).toLocaleString();
   document.getElementById('returning-visitors').textContent = returning == null ? '—' : Number(returning).toLocaleString();
   document.getElementById('views-spark').innerHTML = sparkline(daily.map((item) => Number(item.views) || 0));
+  const otherUses = document.getElementById('other-tool-uses');
+  if (otherUses) otherUses.textContent = `其它工具 ${Math.max(0, total - financeTotal).toLocaleString()} 次`;
 
   setDelta('total-views-delta', views, data.prev_total_views);
   setDelta('unique-visitors-delta', visitors, data.prev_unique_visitors);
   setDelta('today-views-delta', data.today_views, data.yesterday_views, ' 较昨日');
-  setDelta('total-uses-delta', total, data.prev_total_tool_uses);
-  setShare('popular-tool-share', tools[0]?.uses, total, '占比');
+  setDelta('total-uses-delta', financeTotal, null);
+  setShare('popular-tool-share', popular?.uses, financeTotal || total, '财务工具占比');
   setShare('new-visitors-share', newVisitors, visitors, '新访客');
   setShare('returning-visitors-share', returning, visitors, '回访');
 
   const rangeLabel = data.start && data.end ? `${data.start} 至 ${data.end}` : range.label;
-  document.getElementById('analytics-subtitle').textContent = `${rangeLabel} · 共 ${days} 天 · 环比对比上一同等周期`;
+  document.getElementById('analytics-subtitle').textContent = `${rangeLabel} · 共 ${days} 天`;
   document.getElementById('daily-chart-title').textContent = `${rangeLabel} 访问趋势`;
-  if (data.prev_total_views == null) {
-    document.getElementById('analytics-subtitle').textContent = `${rangeLabel} · 共 ${days} 天 · 重新执行 supabase/analytics.sql 可启用环比与新访客`;
-  }
 
   renderDailyChart(daily, days);
-  renderRank('tool-chart', tools.map((item) => ({ name: toolNames[item.slug] || item.slug, count: item.uses })), total);
+  renderRank('finance-tool-chart', finance.map((item) => ({ name: toolLabel(item.slug), count: item.uses })), financeTotal || 1);
+  renderRank('other-tool-chart', other.map((item) => ({ name: toolLabel(item.slug), count: item.uses })), total || 1);
+  const otherEmpty = document.getElementById('other-tool-empty');
+  if (otherEmpty) otherEmpty.hidden = other.length > 0;
   renderRank('device-chart', (data.devices || []).map((item) => ({ name: deviceNames[item.name] || item.name, count: item.count })), views);
   renderRank('browser-chart', data.browsers || [], views);
   renderRank('referrer-chart', (data.referrers || []).map((item) => ({ name: prettyReferrer(item.name), count: item.count })), views);
@@ -758,27 +831,24 @@ function renderAnalytics(data, range) {
     Number(item.visitors || 0).toLocaleString(),
     Number(item.uses || 0).toLocaleString(),
   ]));
-  renderTable('tool-stats-list', tools.map((item) => [
-    toolNames[item.slug] || item.slug,
-    Number(item.uses).toLocaleString(),
-    total ? `${((Number(item.uses) / total) * 100).toFixed(1)}%` : '0%',
-  ]));
+  renderTable('tool-stats-list', [
+    ...finance.map((item) => [toolLabel(item.slug), '财务', Number(item.uses).toLocaleString(), financeTotal ? `${((Number(item.uses) / financeTotal) * 100).toFixed(1)}%` : '0%']),
+    ...other.map((item) => [toolLabel(item.slug), '其它', Number(item.uses).toLocaleString(), total ? `${((Number(item.uses) / total) * 100).toFixed(1)}%` : '0%']),
+  ]);
 }
 
 function exportCsv() {
   if (!analyticsCache) return;
   const { data } = analyticsCache;
+  const { finance, other } = splitTools(data.tools || []);
   const lines = ['# 每日明细', '日期,访问量,独立访客,工具使用'];
   (data.daily || []).forEach((item) => {
     lines.push([item.date, item.views || 0, item.visitors || 0, item.uses || 0].join(','));
   });
-  lines.push('', '# 工具使用', '工具,使用次数,占比');
-  const total = Number(data.total_tool_uses) || 0;
-  (data.tools || []).forEach((item) => {
-    const name = toolNames[item.slug] || item.slug;
-    const share = total ? ((Number(item.uses) / total) * 100).toFixed(1) + '%' : '0%';
-    lines.push(`${name},${item.uses},${share}`);
-  });
+  lines.push('', '# 财务工具', '工具,使用次数');
+  finance.forEach((item) => lines.push(`${toolLabel(item.slug)},${item.uses}`));
+  lines.push('', '# 其它工具', '工具,使用次数');
+  other.forEach((item) => lines.push(`${toolLabel(item.slug)},${item.uses}`));
   const blob = new Blob(['\ufeff' + lines.join('\n')], { type: 'text/csv;charset=utf-8' });
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
@@ -809,9 +879,88 @@ document.getElementById('logout').addEventListener('click', logout);
 document.querySelectorAll('[data-page]').forEach((btn) => {
   btn.addEventListener('click', () => switchPage(btn.dataset.page));
 });
-document.getElementById('sidebar-toggle').addEventListener('click', () => {
-  document.body.classList.toggle('sidebar-open');
-});
+const sidebarKey = 'utilora_admin_sidebar';
+const SIDEBAR_NARROW = 72;
+const SIDEBAR_WIDE = 240;
+function desktopNav() {
+  return window.matchMedia('(min-width: 981px)').matches;
+}
+function readSidebarWidth() {
+  const raw = localStorage.getItem(sidebarKey);
+  if (raw === 'narrow') return SIDEBAR_NARROW;
+  if (raw === 'wide' || raw == null) return SIDEBAR_WIDE;
+  const n = Number(raw);
+  return Number.isFinite(n) ? Math.min(360, Math.max(SIDEBAR_NARROW, n)) : SIDEBAR_WIDE;
+}
+function setSidebarWidth(px, persist) {
+  const shell = document.getElementById('manager-panel');
+  const width = Math.round(px);
+  const narrow = width <= 96;
+  if (shell) {
+    shell.style.setProperty('--sidebar-w', `${width}px`);
+    shell.classList.toggle('sidebar-narrow', narrow);
+  }
+  const collapse = document.getElementById('sidebar-collapse');
+  const top = document.getElementById('sidebar-toggle');
+  if (collapse) {
+    collapse.textContent = narrow ? '›' : '‹';
+    collapse.setAttribute('aria-label', narrow ? '展开侧栏' : '收窄侧栏');
+    collapse.title = narrow ? '展开侧栏' : '收窄侧栏';
+  }
+  if (top) {
+    if (desktopNav()) {
+      top.textContent = narrow ? '宽栏' : '窄栏';
+      top.setAttribute('aria-label', narrow ? '展开侧栏' : '收窄侧栏');
+    } else {
+      top.textContent = '菜单';
+      top.setAttribute('aria-label', '菜单');
+    }
+  }
+  if (persist) localStorage.setItem(sidebarKey, String(width));
+}
+function toggleSidebarWidth() {
+  if (!desktopNav()) {
+    document.body.classList.toggle('sidebar-open');
+    return;
+  }
+  setSidebarWidth(readSidebarWidth() <= 96 ? SIDEBAR_WIDE : SIDEBAR_NARROW, true);
+}
+function bindSidebarResize() {
+  const handle = document.getElementById('sidebar-resizer');
+  const shell = document.getElementById('manager-panel');
+  if (!handle || !shell) return;
+  const startDrag = (event) => {
+    if (!desktopNav()) return;
+    event.preventDefault();
+    shell.classList.add('sidebar-dragging');
+    const origin = event.touches ? event.touches[0].clientX : event.clientX;
+    const start = readSidebarWidth();
+    const move = (ev) => {
+      const x = ev.touches ? ev.touches[0].clientX : ev.clientX;
+      setSidebarWidth(Math.min(360, Math.max(SIDEBAR_NARROW, start + (x - origin))), false);
+    };
+    const stop = () => {
+      shell.classList.remove('sidebar-dragging');
+      const current = Number(String(shell.style.getPropertyValue('--sidebar-w')).replace('px', '')) || SIDEBAR_WIDE;
+      setSidebarWidth(current <= 96 ? SIDEBAR_NARROW : current, true);
+      window.removeEventListener('mousemove', move);
+      window.removeEventListener('mouseup', stop);
+      window.removeEventListener('touchmove', move);
+      window.removeEventListener('touchend', stop);
+    };
+    window.addEventListener('mousemove', move);
+    window.addEventListener('mouseup', stop);
+    window.addEventListener('touchmove', move, { passive: false });
+    window.addEventListener('touchend', stop);
+  };
+  handle.addEventListener('mousedown', startDrag);
+  handle.addEventListener('touchstart', startDrag, { passive: false });
+  handle.addEventListener('dblclick', () => toggleSidebarWidth());
+}
+document.getElementById('sidebar-toggle').addEventListener('click', toggleSidebarWidth);
+document.getElementById('sidebar-collapse')?.addEventListener('click', toggleSidebarWidth);
+bindSidebarResize();
+setSidebarWidth(readSidebarWidth(), false);
 document.getElementById('analytics-range').addEventListener('change', () => {
   const custom = document.getElementById('analytics-range').value === 'custom';
   document.getElementById('custom-range').hidden = !custom;
@@ -835,19 +984,19 @@ startInput.value = addDays(endInput.value, -29);
 endInput.max = todayISO();
 startInput.max = todayISO();
 
-if (getSession() || isPreview()) {
-  showManager();
-  refreshAll();
-} else {
-  showLogin();
-}
-
-
 const mockUsers = [
   { id: '1', email: 'admin@utilora.local', name: '站长', created_at: '2026-03-01T08:00:00Z', last_sign_in_at: '2026-08-20T08:12:00Z', email_confirmed_at: '2026-03-01T08:10:00Z', is_admin: true, is_disabled: false },
   { id: '2', email: 'li@example.com', name: '李然', created_at: '2026-06-18T02:00:00Z', last_sign_in_at: '2026-08-19T13:40:00Z', email_confirmed_at: '2026-06-18T02:20:00Z', is_admin: false, is_disabled: false },
   { id: '3', email: 'unverified@example.com', name: '待验证', created_at: '2026-08-12T09:00:00Z', last_sign_in_at: null, email_confirmed_at: null, is_admin: false, is_disabled: false },
   { id: '4', email: 'paused@example.com', name: '已停用账号', created_at: '2026-05-02T04:00:00Z', last_sign_in_at: '2026-07-01T10:00:00Z', email_confirmed_at: '2026-05-02T04:10:00Z', is_admin: false, is_disabled: true },
+];
+const mockIntents = [
+  { id: 'i1', email: 'demo-bookkeeper@example.com', use_case: '银行流水', company_size: '1-10', intended_plan: 'pro', created_at: '2026-08-20T08:00:00Z', follow_status: 'new', follow_note: '' },
+  { id: 'i2', email: 'finance@example.com', use_case: '应收回款', company_size: '11-50', intended_plan: 'pro', created_at: '2026-08-22T11:20:00Z', follow_status: 'contacted', follow_note: '已电话确认' },
+];
+const mockFeedback = [
+  { id: 'f1', created_at: '2026-08-28T09:12:00Z', name: '林青', title: '银行导入', message: '导入预览后想批量确认匹配。', contact: 'qing@example.com', status: 'new' },
+  { id: 'f2', created_at: '2026-08-21T14:40:00Z', name: '周敏', title: '月结导出', message: '希望月底导出能带上未匹配流水。', contact: 'min@example.com', status: 'processing' },
 ];
 
 function formatTime(value) {
@@ -1026,11 +1175,6 @@ renderRows = function(rows) {
   originalRenderRows(rows);
   document.getElementById('overview-feedback').textContent = String(rows.length);
 };
-
-const mockIntents = [
-  { id: 'i1', email: 'demo-bookkeeper@example.com', use_case: '银行流水', company_size: '1-10', intended_plan: 'pro', created_at: '2026-08-20T08:00:00Z', follow_status: 'new', follow_note: '' },
-  { id: 'i2', email: 'finance@example.com', use_case: '应收回款', company_size: '11-50', intended_plan: 'pro', created_at: '2026-08-22T11:20:00Z', follow_status: 'contacted', follow_note: '已电话确认' },
-];
 
 function filteredIntents() {
   const q = (document.getElementById('intent-search')?.value || '').trim().toLowerCase();

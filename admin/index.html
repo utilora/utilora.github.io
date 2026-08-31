@@ -14,7 +14,7 @@
 <body class="admin-body">
   <section id="login-panel" class="panel login-panel">
       <h1>管理员登录</h1>
-      <p class="hint">使用管理员邮箱和密码登录。登录后可查看访问统计、留言、购买意向、操作日志，并管理用户与折扣。</p>
+      <p class="hint">使用管理员邮箱和密码登录。登录后可查看访问、财务工具、购买意向、操作日志，并管理用户与折扣。</p>
       <form id="login-form">
         <div class="field">
           <label for="email">邮箱</label>
@@ -31,28 +31,32 @@
 
     <div id="manager-panel" class="admin-shell" hidden>
       <aside class="admin-sidebar">
-        <a class="side-brand" href="../"><span>U</span>Utilora 管理</a>
+        <div class="side-head">
+          <a class="side-brand" href="../" title="返回网站"><span>U</span><em>Utilora 管理</em></a>
+          <button id="sidebar-collapse" class="side-collapse" type="button" aria-label="收窄侧栏" title="收窄侧栏">‹</button>
+        </div>
         <nav class="side-nav">
           <p>运营</p>
-          <button class="side-link active" data-page="overview" type="button">工作台</button>
-          <button class="side-link" data-page="analytics" type="button" id="tab-analytics">访问统计</button>
-          <button class="side-link" data-page="feedback" type="button" id="tab-feedback">用户留言 <b id="feedback-count" hidden></b></button>
-          <button class="side-link" data-page="intents" type="button" id="tab-intents">购买意向 <b id="intents-count" hidden></b></button>
-          <button class="side-link" data-page="promotions" type="button">生产折扣</button>
-          <button class="side-link" data-page="logs" type="button">操作日志</button>
+          <button class="side-link active" data-page="overview" type="button" title="工作台"><i aria-hidden="true">台</i><span>工作台</span></button>
+          <button class="side-link" data-page="analytics" type="button" id="tab-analytics" title="访问统计"><i aria-hidden="true">统</i><span>访问统计</span></button>
+          <button class="side-link" data-page="feedback" type="button" id="tab-feedback" title="用户留言"><i aria-hidden="true">言</i><span>用户留言</span> <b id="feedback-count" hidden></b></button>
+          <button class="side-link" data-page="intents" type="button" id="tab-intents" title="购买意向"><i aria-hidden="true">购</i><span>购买意向</span> <b id="intents-count" hidden></b></button>
+          <button class="side-link" data-page="promotions" type="button" title="生产折扣"><i aria-hidden="true">折</i><span>生产折扣</span></button>
+          <button class="side-link" data-page="logs" type="button" title="操作日志"><i aria-hidden="true">志</i><span>操作日志</span></button>
           <p>账号</p>
-          <button class="side-link" data-page="users" type="button">用户管理</button>
-          <button class="side-link" data-page="entitlements" type="button">权益一览</button>
+          <button class="side-link" data-page="users" type="button" title="用户管理"><i aria-hidden="true">户</i><span>用户管理</span></button>
+          <button class="side-link" data-page="entitlements" type="button" title="权益一览"><i aria-hidden="true">权</i><span>权益一览</span></button>
         </nav>
         <div class="side-foot">
           <strong id="admin-email">管理员</strong>
-          <button id="logout" class="secondary" type="button">退出登录</button>
+          <button id="logout" class="secondary" type="button" title="退出登录">退出登录</button>
           <a href="../">返回网站</a>
         </div>
+        <div id="sidebar-resizer" class="side-resizer" role="separator" aria-orientation="vertical" title="拖动调整侧栏宽度"></div>
       </aside>
       <div class="admin-content">
         <header class="admin-topbar">
-          <button id="sidebar-toggle" class="ghost" type="button" aria-label="菜单">☰</button>
+          <button id="sidebar-toggle" class="ghost" type="button" aria-label="收窄侧栏">窄栏</button>
           <div>
             <h1 id="page-title">工作台</h1>
             <p id="summary" class="hint"></p>
@@ -78,9 +82,9 @@
                 <em>查看访问统计</em>
               </button>
               <button class="overview-card" data-page="analytics" type="button">
-                <span>工具使用</span>
+                <span>财务工具</span>
                 <strong id="overview-uses">—</strong>
-                <em>查看工具排行</em>
+                <em>价税 / 工资 / 报价等</em>
               </button>
               <button class="overview-card" data-page="intents" type="button">
                 <span>购买意向</span>
@@ -90,7 +94,7 @@
               <button class="overview-card" data-page="analytics" type="button">
                 <span>演示进入</span>
                 <strong id="overview-demo">—</strong>
-                <em>近 30 天漏斗</em>
+                <em id="overview-demo-range">查看漏斗</em>
               </button>
               <button class="overview-card" data-page="promotions" type="button">
                 <span>生效折扣</span>
@@ -113,14 +117,14 @@
                 <em>未关闭的购买意向</em>
               </button>
             </div>
-            <p class="hint">SQL 请稍后一次性执行 supabase/admin-ops.sql，不要现在上生产。本分支不接支付、不改账本。</p>
+            <p class="hint">支付未接通。财务数据仍在本地，管理端不改账本。</p>
           </section>
 
       <section id="analytics-section" class="analytics-panel" hidden aria-labelledby="analytics-title">
         <div class="analytics-head">
           <div>
-            <h2 id="analytics-title">访问与工具统计</h2>
-            <p id="analytics-subtitle" class="hint">按所选时间范围汇总访问趋势、访客构成与工具使用</p>
+            <h2 id="analytics-title">访问与转化</h2>
+            <p id="analytics-subtitle" class="hint">站点访问、财务工具与商业化漏斗</p>
           </div>
           <div class="view-switch">
             <select id="analytics-range" aria-label="统计范围">
@@ -165,12 +169,13 @@
             <em class="delta muted">所选区间</em>
           </div>
           <div class="stat kpi">
-            <span>工具使用次数</span>
+            <span>财务工具次数</span>
             <strong id="total-uses">—</strong>
             <em id="total-uses-delta" class="delta"></em>
+            <small id="other-tool-uses" class="delta muted"></small>
           </div>
           <div class="stat kpi">
-            <span>最常用工具</span>
+            <span>最常用财务工具</span>
             <strong id="popular-tool">—</strong>
             <em id="popular-tool-share" class="delta muted"></em>
           </div>
@@ -186,6 +191,16 @@
           </div>
         </div>
 
+        <h3 id="funnel-title">商业化漏斗</h3>
+        <div id="funnel-overview" class="stats analytics-overview funnel-kpis">
+          <div class="stat kpi"><span>演示进入</span><strong id="funnel-demo">—</strong></div>
+          <div class="stat kpi"><span>定价浏览</span><strong id="funnel-pricing">—</strong></div>
+          <div class="stat kpi"><span>购买意向</span><strong id="funnel-intent">—</strong></div>
+          <div class="stat kpi"><span>登录成功</span><strong id="funnel-login">—</strong></div>
+          <div class="stat kpi"><span>工作台进入</span><strong id="funnel-workspace">—</strong></div>
+          <div class="stat kpi"><span>流水使用</span><strong id="funnel-bank">—</strong></div>
+        </div>
+
         <div id="chart-view">
           <div class="chart-card">
             <div class="chart-card-head">
@@ -194,8 +209,13 @@
             </div>
             <div id="daily-chart" class="bar-chart"></div>
           </div>
-          <h3>工具使用排行</h3>
-          <div id="tool-chart" class="horizontal-chart"></div>
+          <h3>财务工具</h3>
+          <p class="hint">首页主推的免费财税工具</p>
+          <div id="finance-tool-chart" class="horizontal-chart"></div>
+          <h3>其它工具</h3>
+          <p class="hint">历史小工具，不再作为产品主推</p>
+          <div id="other-tool-chart" class="horizontal-chart"></div>
+          <p id="other-tool-empty" class="hint" hidden>该区间没有其它工具使用。</p>
           <div class="analytics-grid">
             <div>
               <h3>设备类型</h3>
@@ -235,6 +255,7 @@
               <thead>
                 <tr>
                   <th>工具</th>
+                  <th>分类</th>
                   <th>使用次数</th>
                   <th>占比</th>
                 </tr>
@@ -244,15 +265,6 @@
           </div>
         </div>
         <div id="chart-tip" class="chart-tip" hidden></div>
-        <h3 id="funnel-title">商业化漏斗</h3>
-        <div id="funnel-overview" class="stats analytics-overview funnel-kpis">
-          <div class="stat kpi"><span>演示进入</span><strong id="funnel-demo">—</strong></div>
-          <div class="stat kpi"><span>定价浏览</span><strong id="funnel-pricing">—</strong></div>
-          <div class="stat kpi"><span>购买意向</span><strong id="funnel-intent">—</strong></div>
-          <div class="stat kpi"><span>登录成功</span><strong id="funnel-login">—</strong></div>
-          <div class="stat kpi"><span>工作台进入</span><strong id="funnel-workspace">—</strong></div>
-          <div class="stat kpi"><span>流水使用</span><strong id="funnel-bank">—</strong></div>
-        </div>
         <div id="analytics-message" class="message"></div>
       </section>
 
@@ -413,7 +425,7 @@
       </section>
 
       <section id="promotions-section" hidden>
-        <p class="hint">生产控制型折扣：只改 promotions 配置，强制不收款。SQL 未执行前仅显示预览数据。</p>
+        <p class="hint">生产控制型折扣：只改 promotions 配置，强制不收款。</p>
         <form id="promo-form" class="filters promo-form">
           <div>
             <label for="promo-code">代码</label>
@@ -460,9 +472,11 @@
           <div class="filter-actions">
             <label class="check"><input id="promo-active" type="checkbox" checked> 立即生效</label>
             <button type="submit">保存折扣</button>
-            <button type="button" class="secondary" id="export-promos">导出 CSV</button>
           </div>
         </form>
+        <div class="users-toolbar">
+          <button type="button" class="secondary" id="export-promos">导出 CSV</button>
+        </div>
         <div id="promotions-message" class="message" role="status"></div>
         <div class="table-wrap">
           <table>

@@ -1,6 +1,6 @@
 # Utilora 近 3 个月产品优化计划
 
-其他 AI 拉取代码后必须阅读本文件，并与 `docs/COMMERCIALIZATION_STATUS.md` 对照。
+其他 AI 拉取代码后必须阅读本文件。这是 **唯一** 的待办与当前项来源。
 
 本文件是 **P1 之后、P2 试用/云同步之前** 的工作清单。  
 目标：小微财务能稳定跑完「导入流水 → 对回款 → 催逾期 → 月结导出 → 备份」。
@@ -14,7 +14,7 @@
 - 状态：未开始
 - 内容：客户催收备忘：联系日、承诺还款日、结果；逾期可按下次跟进排序
 - 开始前：用户需明确说「做 M1-W3」或「做客户催收备忘」
-- 完成后必须更新本文件的进度、当前项，以及 STATUS 的 Next Authorized Step
+- 完成后必须更新本文件的进度和「当前项」
 
 Last reviewed branch: main  
 Last reviewed commit: 05facb9a3c0cdd4aecfc876d9ce68b0d29b417f6
@@ -26,10 +26,10 @@ Last reviewed date: 2026-08-30
 
 1. 把本文件对应周次改成 `[x]`，写下提交 SHA、测试结果、遗留问题。
 2. 把「当前项」改成下一周，且只保留一个当前项。
-3. 同步修改 `docs/COMMERCIALIZATION_STATUS.md` 的 Next Authorized Step。
-4. 未通过 `npm test` 和 `npm run build` 不得勾选完成。
-5. 不得跳周，不得顺便做 P2/P3、支付、云同步。
-6. 不得把「催收备忘」做成工单系统，不得做应付/报税直连。
+
+3. 未通过 `npm test` 和 `npm run build` 不得勾选完成。
+4. 不得跳周，不得顺便做 P2/P3、支付、云同步。
+5. 不得把「催收备忘」做成工单系统，不得做应付/报税直连。
 
 ## 原则
 
@@ -130,13 +130,9 @@ Last reviewed date: 2026-08-30
 - P1.3：月结完成度与 Excel/CSV 底稿
 - P1.4：完整备份、过期提醒、v2/v3 恢复、演示不落库
 
-## 与商业化文档的关系
+## 生产现状（不要回退）
 
-| 文件 | 作用 |
-|---|---|
-| `docs/PRODUCT_OPTIMIZATION.md` | 近 3 个月要改什么、做到哪了 |
-| `docs/COMMERCIALIZATION_STATUS.md` | 唯一当前授权项（必须与本文件「当前项」一致） |
-| `docs/COMMERCIALIZATION_ROADMAP.md` | 长期方向；P2/P3 仍需额外批准 |
-| `docs/COMMERCIALIZATION_REQUIREMENTS.md` | P2/P3 需求，现在不要实施 |
-
+- 支付未接通；云同步默认关闭。
+- 财务数据在本机 IndexedDB（`pro/app.js`），与 Supabase 财务表不同步。
+- 注册走 6 位验证码，邮件模板见 `supabase/templates/README.md`。
 P2 试用和 P3 支付仍须用户另外授权。本计划完成前，默认下一步是本文件的当前项，不是 P2。
