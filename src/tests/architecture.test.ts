@@ -267,6 +267,14 @@ describe("product architecture", () => {
     expect(read("admin/admin.js")).not.toMatch(/service[_-]?role|sb_secret/i);
   });
 
+  it("keeps admin sessions when an authorized endpoint returns 403", () => {
+    const admin = read("admin/admin.js");
+    expect(admin).toMatch(/if \(response\.status === 401\)[\s\S]{0,120}logout\(\)/);
+    const forbiddenBlock = admin.match(/if \(response\.status === 403\) \{([\s\S]*?)\n  \}/)?.[1] ?? "";
+    expect(forbiddenBlock).toContain("throw new Error");
+    expect(forbiddenBlock).not.toContain("logout()");
+  });
+
   it("keeps admin ops behind RPCs including production-controlled discounts and activity logs", () => {
     const sql = read("supabase/admin-ops.sql");
     expect(sql).toContain("record_user_activity");

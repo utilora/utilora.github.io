@@ -296,9 +296,12 @@ async function request(path, options = {}, retried = false) {
     const ok = await refreshSession();
     if (ok) return request(path, options, true);
   }
-  if (response.status === 401 || response.status === 403) {
+  if (response.status === 401) {
     if (!isPreview()) logout();
-    throw new Error('登录已失效或没有管理员权限');
+    throw new Error('登录已失效');
+  }
+  if (response.status === 403) {
+    throw new Error('没有管理员权限');
   }
   if (!response.ok) {
     const data = await response.json().catch(() => ({}));
