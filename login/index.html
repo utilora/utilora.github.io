@@ -11,6 +11,7 @@
   <meta name="description" content="使用邮箱登录 Utilora。注册会向真实邮箱发送验证码，验证成功后才能登录。">
   <link rel="icon" type="image/svg+xml" href="../favicon.svg">
   <link rel="stylesheet" href="../assets/css/site.css">
+  <script src="../assets/js/frame-guard.js"></script>
 </head>
 <body>
   <main class="login-page">
@@ -41,9 +42,9 @@
           <input id="confirm" type="password" minlength="8" autocomplete="new-password">
         </div>
         <div class="field" id="otp-field" hidden>
-          <label for="otp">邮箱验证码</label>
+          <label for="otp" id="otp-label">邮箱验证码</label>
           <input id="otp" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="8" pattern="[0-9]{6,8}" placeholder="请输入邮件中的验证码">
-          <p class="hint tight">填错或过期可点下方「重新发送验证码」，不必重新注册。</p>
+          <p class="hint tight" id="otp-hint">填错或过期可点下方「重新发送验证码」，不必重新注册。</p>
         </div>
         <input id="invite-code" type="hidden" autocomplete="off">
         <div id="turnstile-slot" class="field" hidden></div>
@@ -57,10 +58,10 @@
       </div>
     </div>
   </main>
-  <script src="../assets/js/auth.js?v=20"></script>
+  <script src="../assets/js/auth.js?v=21"></script>
   <script src="../assets/js/analytics.js"></script>
   <script src="../assets/js/turnstile-boot.js"></script>
-  <script src="login.js?v=20"></script>
+  <script src="login.js?v=21"></script>
 
 </body>
 </html>

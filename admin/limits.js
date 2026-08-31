@@ -1,5 +1,5 @@
 (() => {
-  const LIMITS_SQL = 'supabase/migrations/202608310012_admin_platform_limits.sql';
+  const LIMITS_SQL = 'supabase/migrations/202608310017_login_security.sql';
   const GROUP_LABEL = {
     security: '注册与登录',
     strategy: '运营策略',
@@ -14,6 +14,10 @@
     { key: 'login_cooldown_minutes', label: '登录冷却分钟', hint: '达到失败次数后', min: 1, max: 1440, default: 15, group: 'security' },
     { key: 'password_reset_per_email_per_hour', label: '每邮箱每小时找回密码', hint: '点发送重置邮件即计', min: 1, max: 50, default: 3, group: 'security' },
     { key: 'password_reset_per_ip_per_hour', label: '每 IP 每小时找回密码', hint: '点发送重置邮件即计', min: 1, max: 200, default: 10, group: 'security' },
+    { key: 'feedback_per_user_per_hour', label: '每用户每小时留言', hint: '登录用户提交功能建议；超限拒绝', min: 1, max: 50, default: 5, group: 'security' },
+    { key: 'feedback_per_ip_per_hour', label: '每 IP 每小时留言', hint: '功能建议提交；超限拒绝', min: 1, max: 200, default: 10, group: 'security' },
+    { key: 'purchase_intent_per_email_per_hour', label: '每邮箱每小时购买意向', hint: '购买意向提交；超限拒绝', min: 1, max: 50, default: 3, group: 'security' },
+    { key: 'purchase_intent_per_ip_per_hour', label: '每 IP 每小时购买意向', hint: '购买意向提交；超限拒绝', min: 1, max: 200, default: 10, group: 'security' },
     { key: 'edge_function_daily_call_limit', label: 'Edge Function 每日调用上限', hint: '按 function 计', min: 1, max: 1000000, default: 10000, group: 'security' },
     { key: 'match_date_near_days', label: '匹配日期接近天数', hint: '流水与应收建议匹配时，日期差不超过此值（天）', min: 0, max: 30, default: 3, group: 'strategy' },
     { key: 'match_amount_tolerance_cents', label: '匹配金额容差（分）', hint: '0 表示必须分毫不差才可作高/中置信建议', min: 0, max: 100, default: 0, group: 'strategy' },

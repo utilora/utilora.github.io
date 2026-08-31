@@ -35,6 +35,7 @@ function checkPage(path, html) {
   assert(html.includes(`http-equiv="Content-Security-Policy"`), `${path} missing CSP meta`);
   assert(html.includes(POLICY), `${path} CSP policy mismatch`);
   assert(html.includes('name="referrer"'), `${path} missing referrer policy`);
+  assert(/frame-guard\.js/.test(html), `${path} missing frame-guard`);
   assert(/object-src 'none'/.test(html), `${path} missing object-src none`);
   assert(/base-uri 'none'/.test(html), `${path} missing base-uri none`);
   assert(!/script-src[^;]*'unsafe-inline'/.test(html), `${path} must not allow unsafe-inline scripts`);

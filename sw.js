@@ -1,4 +1,4 @@
-const CACHE = "utilora-v20";
+const CACHE = "utilora-v21";
 const PRECACHE = [
   "./",
   "./index.html",
@@ -14,6 +14,7 @@ const PRECACHE = [
   "./assets/js/finance.js",
   "./assets/js/csv.js",
   "./assets/js/xlsx-lite.js",
+  "./assets/js/frame-guard.js",
   "./pro/",
   "./pro/pro.css",
   "./pro/app.js",
@@ -33,11 +34,24 @@ self.addEventListener("activate", (event) => {
   );
 });
 
+const withFrameGuard = (response) => {
+  if (!response) return response;
+  const headers = new Headers(response.headers);
+  headers.set("X-Frame-Options", "DENY");
+  headers.set("Content-Security-Policy", "frame-ancestors 'none'");
+  return new Response(response.body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers
+  });
+};
+
 self.addEventListener("fetch", (event) => {
   if (event.request.method !== "GET") return;
   const url = new URL(event.request.url);
   if (url.origin !== self.location.origin) return;
-  const request = event.request.mode === "navigate"
+  const isNavigate = event.request.mode === "navigate";
+  const request = isNavigate
     ? new Request(event.request, { cache: "reload" })
     : event.request;
   event.respondWith(
@@ -46,7 +60,10 @@ self.addEventListener("fetch", (event) => {
         const copy = response.clone();
         caches.open(CACHE).then((cache) => cache.put(event.request, copy));
       }
-      return response;
-    }).catch(() => caches.match(event.request).then((cached) => cached || caches.match("./")))
+      return isNavigate ? withFrameGuard(response) : response;
+    }).catch(() => caches.match(event.request).then((cached) => {
+      if (cached) return isNavigate ? withFrameGuard(cached) : cached;
+      return caches.match("./").then((home) => (isNavigate ? withFrameGuard(home) : home));
+    }))
   );
 });

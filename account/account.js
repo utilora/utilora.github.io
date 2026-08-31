@@ -86,6 +86,7 @@
       return;
     }
     paint(session.user);
+    loadSecurity();
     const meta = session.user.user_metadata || {};
     if (window.Utilora) {
       const mergedFav = Array.from(new Set([...(meta.favorites || []), ...Utilora.favorites()]));
@@ -112,6 +113,128 @@
   document.getElementById("logout").addEventListener("click", async () => {
     await auth.logout();
     location.href = "../";
+  });
+
+  const setSecurityMsg = (text, error = false) => {
+    const el = document.getElementById("security-msg");
+    if (!el) return;
+    el.className = error ? "message error" : "message";
+    el.textContent = text || "";
+  };
+
+  const paintMfa = (enabled) => {
+    const status = document.getElementById("mfa-status");
+    const enableBtn = document.getElementById("mfa-enable");
+    const disableBtn = document.getElementById("mfa-disable");
+    if (status) status.textContent = enabled ? "二次验证已开启。登录时须再填验证器中的 6 位码。" : "尚未开启二次验证。";
+    if (enableBtn) enableBtn.hidden = enabled;
+    if (disableBtn) disableBtn.hidden = !enabled;
+  };
+
+  const paintLocations = (rows) => {
+    const box = document.getElementById("login-locations");
+    if (!box) return;
+    box.replaceChildren();
+    if (!rows || !rows.length) {
+      const empty = document.createElement("p");
+      empty.className = "hint tight";
+      empty.textContent = "还没有记录。下次登录后会显示最近使用的网络。";
+      box.append(empty);
+      return;
+    }
+    rows.forEach((row) => {
+      const item = document.createElement("div");
+      item.className = "location-item";
+      const last = row.last_seen ? new Date(row.last_seen).toLocaleString("zh-CN") : "";
+      item.innerHTML = "<b>" + (row.network || "未知网络") + "</b>" + (last ? "最近：" + last : "");
+      box.append(item);
+    });
+  };
+
+  const loadSecurity = async () => {
+    if (!auth.listMfaStatus) return;
+    try {
+      const status = await auth.listMfaStatus();
+      paintMfa(Boolean(status && status.enabled));
+    } catch {
+      paintMfa(false);
+    }
+    try {
+      const rows = await auth.listLoginLocations();
+      paintLocations(rows);
+    } catch {
+      paintLocations([]);
+    }
+  };
+
+  let pendingFactorId = "";
+
+  document.getElementById("mfa-enable")?.addEventListener("click", async () => {
+    setSecurityMsg("正在生成密钥…");
+    try {
+      const enrolled = await auth.startMfaEnroll();
+      pendingFactorId = enrolled.id;
+      const totp = enrolled.totp || {};
+      const qr = document.getElementById("mfa-qr");
+      const secret = document.getElementById("mfa-secret");
+      document.getElementById("mfa-enroll").hidden = false;
+      if (totp.qr_code) {
+        qr.src = totp.qr_code;
+        qr.hidden = false;
+      }
+      secret.textContent = totp.secret ? "密钥：" + totp.secret : "";
+      document.getElementById("mfa-code").value = "";
+      setSecurityMsg("请用验证器扫描后填写 6 位码。");
+    } catch (error) {
+      setSecurityMsg(error.message || "无法开启二次验证", true);
+    }
+  });
+
+  document.getElementById("mfa-cancel")?.addEventListener("click", async () => {
+    if (pendingFactorId) await auth.cancelMfaEnroll(pendingFactorId).catch(() => {});
+    pendingFactorId = "";
+    document.getElementById("mfa-enroll").hidden = true;
+    document.getElementById("mfa-qr").hidden = true;
+    document.getElementById("mfa-secret").textContent = "";
+    setSecurityMsg("");
+  });
+
+  document.getElementById("mfa-confirm")?.addEventListener("click", async () => {
+    const code = document.getElementById("mfa-code").value.trim();
+    setSecurityMsg("正在确认…");
+    try {
+      await auth.confirmMfaEnroll(pendingFactorId, code);
+      pendingFactorId = "";
+      document.getElementById("mfa-enroll").hidden = true;
+      paintMfa(true);
+      setSecurityMsg("二次验证已开启。");
+    } catch (error) {
+      setSecurityMsg(error.message || "开启失败", true);
+    }
+  });
+
+  document.getElementById("mfa-disable")?.addEventListener("click", async () => {
+    const code = window.prompt("关闭二次验证须填写验证器中的 6 位码");
+    if (!code) return;
+    setSecurityMsg("正在关闭…");
+    try {
+      await auth.disableMfa(code);
+      paintMfa(false);
+      setSecurityMsg("二次验证已关闭。");
+    } catch (error) {
+      setSecurityMsg(error.message || "关闭失败", true);
+    }
+  });
+
+  document.getElementById("logout-others")?.addEventListener("click", async () => {
+    if (!window.confirm("其他浏览器和设备会立即退出，当前这一处保持登录。继续吗？")) return;
+    setSecurityMsg("正在登出其他设备…");
+    try {
+      await auth.logoutOthers();
+      setSecurityMsg("其他设备已退出。");
+    } catch (error) {
+      setSecurityMsg(error.message || "操作失败", true);
+    }
   });
 
   document.addEventListener("utilora:idle-expired", () => {

@@ -10,6 +10,7 @@
   const LOGIN_COOLDOWN_FN = API + "/functions/v1/login-cooldown";
   const CAPTCHA_FN = API + "/functions/v1/verify-captcha";
   const PASSWORD_RESET_FN = API + "/functions/v1/password-reset-limit";
+  const LOGIN_LOCATION_FN = API + "/functions/v1/login-location";
 
   const headers = (token) => ({
     apikey: KEY,
@@ -113,6 +114,12 @@
     if (/account_disabled|账号已停用/i.test(code + raw)) {
       return raw || DISABLED_ACCOUNT_MESSAGE;
     }
+    if (/mfa_required|二次验证/i.test(code + raw)) {
+      return raw || "请输入验证器中的 6 位码";
+    }
+    if (/invalid.*code|invalid.*totp|mfa_verification|挑战已过期/i.test(code + raw)) {
+      return "验证码不对或已过期，请再试一次。";
+    }
     if (/rate_limit|too many|429/i.test(code + raw)) return "发信通道这小时次数已用完（不是你点错）。请稍后再发验证码。";
     if (/otp_expired|expired/i.test(code + raw)) return "验证码已过期，请重新发送。";
     if (/invalid.*token|otp_disabled|token.*invalid/i.test(code + raw)) return "验证码不对，请核对后重试。";
@@ -184,7 +191,10 @@
   const clearSession = () => {
     localStorage.removeItem(SESSION_KEY);
     localStorage.removeItem(LAST_ACTIVE_KEY);
+    pendingMfa = null;
   };
+
+  let pendingMfa = null;
 
   const parseJson = async (response) => {
     const data = await response.json().catch(() => ({}));
@@ -438,6 +448,228 @@
     }
   };
 
+  const normalizeFactors = (data) => {
+    if (Array.isArray(data)) return data;
+    if (!data || typeof data !== "object") return [];
+    const list = [];
+    if (Array.isArray(data.totp)) list.push(...data.totp);
+    if (Array.isArray(data.phone)) list.push(...data.phone);
+    if (Array.isArray(data.all)) list.push(...data.all);
+    if (Array.isArray(data.factors)) list.push(...data.factors);
+    return list;
+  };
+
+  const isTotpFactor = (factor) => {
+    const type = String((factor && (factor.factor_type || factor.type)) || "");
+    return type === "totp";
+  };
+
+  const verifiedTotp = (factors) => (factors || []).find((factor) => isTotpFactor(factor) && factor.status === "verified");
+
+  const listFactors = async (token) => {
+    const data = await request("/auth/v1/factors", { headers: headers(token) }, 1);
+    return normalizeFactors(data);
+  };
+
+  const assembleSession = async (payload) => {
+    const access = payload.access_token;
+    const refresh = payload.refresh_token;
+    const user = payload.user || (await fetchUser(access));
+    return {
+      access_token: access,
+      refresh_token: refresh,
+      expires_at: payload.expires_at || Math.floor(Date.now() / 1000) + (payload.expires_in || 3600),
+      user,
+    };
+  };
+
+  const pingLoginLocation = (token) => {
+    if (!token) return Promise.resolve();
+    return fetch(LOGIN_LOCATION_FN, {
+      method: "POST",
+      credentials: "omit",
+      cache: "no-store",
+      headers: headers(token),
+      body: "{}",
+    }).catch(() => {});
+  };
+
+  const requireMfaOrPersist = async (payload, email) => {
+    const session = await assembleSession(payload);
+    const active = await enforceActiveAccount(session);
+    if (!active) {
+      const err = new Error(DISABLED_ACCOUNT_MESSAGE);
+      err.code = "account_disabled";
+      throw err;
+    }
+    let totp = null;
+    try {
+      totp = verifiedTotp(await listFactors(session.access_token));
+    } catch {
+      totp = null;
+    }
+    if (totp) {
+      pendingMfa = {
+        session,
+        factorId: totp.id,
+        email: email || (session.user && session.user.email) || "",
+      };
+      const err = new Error("请输入验证器中的 6 位码");
+      err.code = "mfa_required";
+      throw err;
+    }
+    pendingMfa = null;
+    writeSession(session);
+    pingLoginLocation(session.access_token);
+    return session;
+  };
+
+  const challengeAndVerify = async (token, factorId, code) => {
+    const challenge = await request("/auth/v1/factors/" + factorId + "/challenge", {
+      method: "POST",
+      headers: headers(token),
+      body: "{}",
+    });
+    return request("/auth/v1/factors/" + factorId + "/verify", {
+      method: "POST",
+      headers: headers(token),
+      body: JSON.stringify({ challenge_id: challenge.id, code: String(code || "").trim() }),
+    });
+  };
+
+  const verifyMfaLogin = async (code) => {
+    if (!pendingMfa || !pendingMfa.session) {
+      const err = new Error("请重新登录后再填验证码");
+      err.code = "mfa_required";
+      throw err;
+    }
+    const token = String(code || "").trim();
+    if (!/^\d{6}$/.test(token)) throw new Error("请输入 6 位验证码");
+    try {
+      const data = await challengeAndVerify(pendingMfa.session.access_token, pendingMfa.factorId, token);
+      pendingMfa = null;
+      const session = await assembleSession(data);
+      const active = await enforceActiveAccount(session);
+      if (!active) {
+        const err = new Error(DISABLED_ACCOUNT_MESSAGE);
+        err.code = "account_disabled";
+        throw err;
+      }
+      writeSession(session);
+      recordActivity("login", "auth", { source: "mfa" });
+      pingLoginLocation(session.access_token);
+      return session;
+    } catch (error) {
+      if (error && error.code === "account_disabled") throw error;
+      error.message = friendlyError(error, "验证码不对或已过期，请再试一次。");
+      throw error;
+    }
+  };
+
+  const listMfaStatus = async () => {
+    const session = await refreshIfNeeded();
+    if (!session) return { enabled: false };
+    try {
+      const totp = verifiedTotp(await listFactors(session.access_token));
+      return { enabled: Boolean(totp), factorId: totp && totp.id };
+    } catch {
+      return { enabled: false };
+    }
+  };
+
+  const startMfaEnroll = async () => {
+    const session = await refreshIfNeeded();
+    if (!session) throw new Error("请先登录");
+    const existing = await listFactors(session.access_token);
+    if (verifiedTotp(existing)) throw new Error("二次验证已开启");
+    for (const factor of existing) {
+      if (isTotpFactor(factor) && factor.status !== "verified") {
+        await request("/auth/v1/factors/" + factor.id, {
+          method: "DELETE",
+          headers: headers(session.access_token),
+        }).catch(() => {});
+      }
+    }
+    return request("/auth/v1/factors", {
+      method: "POST",
+      headers: headers(session.access_token),
+      body: JSON.stringify({ factor_type: "totp", friendly_name: "Utilora" }),
+    });
+  };
+
+  const confirmMfaEnroll = async (factorId, code) => {
+    const session = await refreshIfNeeded();
+    if (!session) throw new Error("请先登录");
+    const token = String(code || "").trim();
+    if (!/^\d{6}$/.test(token)) throw new Error("请输入 6 位验证码");
+    try {
+      const data = await challengeAndVerify(session.access_token, factorId, token);
+      if (data && data.access_token) {
+        const next = await assembleSession(data);
+        writeSession(next);
+      }
+      recordActivity("profile_update", "auth", { source: "mfa_enable" });
+      return data;
+    } catch (error) {
+      error.message = friendlyError(error, "验证码不对，二次验证未开启。");
+      throw error;
+    }
+  };
+
+  const cancelMfaEnroll = async (factorId) => {
+    const session = await refreshIfNeeded();
+    if (!session || !factorId) return;
+    await request("/auth/v1/factors/" + factorId, {
+      method: "DELETE",
+      headers: headers(session.access_token),
+    }).catch(() => {});
+  };
+
+  const disableMfa = async (code) => {
+    const session = await refreshIfNeeded();
+    if (!session) throw new Error("请先登录");
+    const token = String(code || "").trim();
+    if (!/^\d{6}$/.test(token)) throw new Error("请输入 6 位验证码");
+    const totp = verifiedTotp(await listFactors(session.access_token));
+    if (!totp) throw new Error("尚未开启二次验证");
+    try {
+      await challengeAndVerify(session.access_token, totp.id, token);
+      await request("/auth/v1/factors/" + totp.id, {
+        method: "DELETE",
+        headers: headers(session.access_token),
+      });
+      recordActivity("profile_update", "auth", { source: "mfa_disable" });
+    } catch (error) {
+      error.message = friendlyError(error, "关闭失败，请核对验证码后重试。");
+      throw error;
+    }
+  };
+
+  const logoutOthers = async () => {
+    const session = await refreshIfNeeded();
+    if (!session) throw new Error("请先登录");
+    await request("/auth/v1/logout?scope=others", {
+      method: "POST",
+      headers: headers(session.access_token),
+    });
+    recordActivity("logout", "auth", { source: "others" });
+  };
+
+  const listLoginLocations = async () => {
+    const session = await refreshIfNeeded();
+    if (!session) return [];
+    try {
+      const data = await request("/rest/v1/rpc/list_my_login_locations", {
+        method: "POST",
+        headers: headers(session.access_token),
+        body: "{}",
+      }, 1);
+      return Array.isArray(data) ? data : [];
+    } catch {
+      return [];
+    }
+  };
+
   const fetchUser = (token) => request("/auth/v1/user", { headers: headers(token) });
 
   const saveTokens = async (payload) => {
@@ -512,20 +744,25 @@
     const refresh = hash.get("refresh_token");
     if (!access) return null;
     const type = hash.get("type") || search.get("type") || "";
-    await saveTokens({
-      access_token: access,
-      refresh_token: refresh,
-      expires_in: Number(hash.get("expires_in") || 3600),
-    });
     history.replaceState({}, "", location.pathname);
-    if (type === "signup") {
-      try {
-        await recordRegistrationSuccess(access);
-      } catch {
+    try {
+      const session = await requireMfaOrPersist({
+        access_token: access,
+        refresh_token: refresh,
+        expires_in: Number(hash.get("expires_in") || 3600),
+      });
+      if (type === "signup") {
+        try {
+          await recordRegistrationSuccess(session.access_token);
+        } catch {
+        }
       }
+      recordActivity("login", "auth", { source: "redirect", type });
+      return { type };
+    } catch (error) {
+      if (error && error.code === "mfa_required") return { mfa: true };
+      throw error;
     }
-    recordActivity("login", "auth", { source: "redirect", type });
-    return { type };
   };
 
   const sendOtp = async (email, name, captchaToken, extra) => {
@@ -566,7 +803,13 @@
           headers: headers(),
           body: JSON.stringify({ type, email, token: String(token).trim() }),
         });
-        const session = await saveTokens(data);
+        let session;
+        try {
+          session = await requireMfaOrPersist(data, email);
+        } catch (gateError) {
+          if (gateError && gateError.code === "mfa_required") throw gateError;
+          throw gateError;
+        }
         if (type === "signup" || type === "email") {
           try {
             await recordRegistrationSuccess(session.access_token);
@@ -601,12 +844,14 @@
         headers: headers(),
         body: JSON.stringify({ email, password }),
       });
-      let session = await saveTokens(data);
-      session = await enforceActiveAccount(session);
-      if (!session) {
-        const err = new Error(DISABLED_ACCOUNT_MESSAGE);
-        err.code = "account_disabled";
-        throw err;
+      let session;
+      try {
+        session = await requireMfaOrPersist(data, email);
+      } catch (gateError) {
+        if (gateError && gateError.code === "mfa_required") {
+          await clearLoginFailures(email);
+        }
+        throw gateError;
       }
       await clearLoginFailures(email);
       recordActivity("login", "auth", { source: "password" });
@@ -736,6 +981,15 @@
     setPassword,
     signup,
     login,
+    verifyMfaLogin,
+    listMfaStatus,
+    startMfaEnroll,
+    confirmMfaEnroll,
+    cancelMfaEnroll,
+    disableMfa,
+    logoutOthers,
+    listLoginLocations,
+    cancelPendingMfa: () => { pendingMfa = null; },
     recover,
     resend,
     updateUser,

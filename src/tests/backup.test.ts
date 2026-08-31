@@ -5,6 +5,9 @@ import {
   buildBackup,
   closeBackupWarning,
   companyMismatch,
+  decryptBackup,
+  encryptBackup,
+  isEncryptedBackup,
   parseBackup,
   previewBackup,
   previewWorkspace,
@@ -67,6 +70,8 @@ describe("finance backup restore", () => {
     expect(parseBackup({ type: "other", version: 3, data: { company: {} } }).ok).toBe(false);
     expect(parseBackup({ type: BACKUP_TYPE, version: 1, data: { company: {} } }).ok).toBe(false);
     expect(parseBackup({ type: BACKUP_TYPE, version: 3, data: { company: { name: "x" }, invoices: {} } }).ok).toBe(false);
+    expect(parseBackup({ type: BACKUP_TYPE, version: 4, enc: true, ciphertext: "x" }).ok).toBe(false);
+    expect(isEncryptedBackup({ type: BACKUP_TYPE, version: 4, enc: true, ciphertext: "x" })).toBe(true);
   });
 
   it("previews company name and key counts before restore", () => {
@@ -120,5 +125,36 @@ describe("backup reminders", () => {
     expect(shouldRecordBackupTime(true, false)).toBe(true);
     expect(shouldRecordBackupTime(false, false)).toBe(false);
     expect(shouldRecordBackupTime(true, true)).toBe(false);
+  });
+});
+
+describe("encrypted finance backup", () => {
+  it("encrypts with a passphrase and decrypts back to the same company", async () => {
+    const backup = buildBackup(workspace, "2026-08-30T00:00:00.000Z");
+    const wrapped = await encryptBackup(backup, "star-sea-88");
+    expect(wrapped.enc).toBe(true);
+    expect(wrapped.version).toBe(4);
+    expect(wrapped.ciphertext).toBeTruthy();
+    expect(JSON.stringify(wrapped)).not.toContain("星海贸易");
+    const restored = await decryptBackup(wrapped, "star-sea-88");
+    expect(restored.ok).toBe(true);
+    expect(restored.backup?.data.company).toMatchObject({ name: "星海贸易" });
+    expect(restored.backup?.data.customers).toHaveLength(1);
+  });
+
+  it("rejects a wrong passphrase without exposing content", async () => {
+    const backup = buildBackup(workspace, "2026-08-30T00:00:00.000Z");
+    const wrapped = await encryptBackup(backup, "star-sea-88");
+    const failed = await decryptBackup(wrapped, "wrong-pass");
+    expect(failed.ok).toBe(false);
+    expect(failed.error).toContain("口令不对");
+    expect(failed.backup).toBeUndefined();
+  });
+
+  it("still imports a plaintext v3 backup", () => {
+    const backup = buildBackup(workspace, "2026-08-30T00:00:00.000Z");
+    const parsed = parseBackup(backup);
+    expect(parsed.ok).toBe(true);
+    expect(isEncryptedBackup(backup)).toBe(false);
   });
 });

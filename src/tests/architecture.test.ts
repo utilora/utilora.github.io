@@ -251,6 +251,10 @@ describe("product architecture", () => {
     expect(read("login/index.html")).toContain("assets/js/turnstile-boot.js");
     expect(read("feedback/index.html")).toContain("assets/js/turnstile-boot.js");
     expect(read("vite.config.ts")).toMatch(/modulePreload:\s*\{\s*polyfill:\s*false\s*\}/);
+    expect(home).toContain("assets/js/frame-guard.js");
+    expect(read("assets/js/frame-guard.js")).toContain("top.location.replace");
+    expect(read("sw.js")).toContain("frame-ancestors 'none'");
+    expect(read("sw.js")).toContain("X-Frame-Options");
   });
 
   it("lets admins list purchase intents through RPC without table grants", () => {
@@ -425,6 +429,8 @@ describe("product architecture", () => {
     expect(read("admin/limits.js")).toContain("rpc/admin_list_platform_limits");
     expect(read("admin/limits.js")).toContain("rpc/admin_set_platform_limits");
     expect(read("admin/limits.js")).toContain("invite_reward_months");
+    expect(read("admin/limits.js")).toContain("feedback_per_user_per_hour");
+    expect(read("admin/limits.js")).toContain("purchase_intent_per_email_per_hour");
     expect(read("admin/limits.js")).toContain("validateLimits");
     expect(read("admin/limits.js")).toContain("confirmLimitChange");
     expect(read("admin/limits.js")).not.toMatch(/service[_-]?role|sb_secret/i);
@@ -465,5 +471,30 @@ describe("product architecture", () => {
     expect(read("src/pro.ts")).toContain("UtiloraAgingBounds");
     expect(read("pro/app.js")).toContain("agingBucketLabels");
     expect(read("pro/app.js")).toContain("agingConfig()");
+  });
+
+  it("protects login with totp, other-device logout, encrypted backup and clickjacking guard", () => {
+    const sql = read("supabase/migrations/202608310017_login_security.sql");
+    expect(sql).toContain("login_locations");
+    expect(sql).toContain("record_login_location");
+    expect(sql).toContain("list_my_login_locations");
+    expect(sql).toContain("feedback_per_user_per_hour");
+    expect(sql).toContain("purchase_intent_per_ip_per_hour");
+    expect(sql).toContain("grant execute on function public.record_login_location(uuid, text) to service_role");
+    expect(sql).not.toMatch(/grant\s+(select|insert|update|delete)\s+on\s+public\.login_locations\s+to\s+(public|anon|authenticated)/i);
+    expect(read("assets/js/auth.js")).toContain("mfa_required");
+    expect(read("assets/js/auth.js")).toContain("logout?scope=others");
+    expect(read("assets/js/auth.js")).toContain("functions/v1/login-location");
+    expect(read("login/login.js")).toContain('mode === "mfa"');
+    expect(read("account/index.html")).toContain("登录安全");
+    expect(read("account/index.html")).toContain("登出其他设备");
+    expect(read("src/core/backup/local.ts")).toContain("encryptBackup");
+    expect(read("src/core/backup/local.ts")).toContain("decryptBackup");
+    expect(read("pro/app.js")).toContain("encryptBackup");
+    expect(read("pro/app.js")).toContain("isEncryptedBackup");
+    expect(read("admin/limits.js")).toContain("feedback_per_user_per_hour");
+    expect(read("supabase/functions/login-location/index.ts")).toContain("user_activity_logs");
+    expect(read("supabase/functions/login-location/index.ts")).not.toMatch(/sb_secret/i);
+    expect(read("assets/js/auth.js")).not.toMatch(/service[_-]?role|sb_secret/i);
   });
 });

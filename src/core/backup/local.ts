@@ -1,7 +1,10 @@
 export const BACKUP_TYPE = "utilora-finance-backup";
 export const BACKUP_VERSION = 3;
+export const ENCRYPTED_BACKUP_VERSION = 4;
 export const SUPPORTED_BACKUP_VERSIONS = [2, 3];
 export const STALE_BACKUP_DAYS = 7;
+export const BACKUP_PASSPHRASE_MIN = 8;
+export const BACKUP_KDF_ITERATIONS = 210000;
 
 export const BACKUP_COLLECTIONS = [
   "customers",
@@ -54,6 +57,17 @@ export interface BackupStatus {
   reminder: string;
 }
 
+export interface EncryptedBackup {
+  type: typeof BACKUP_TYPE;
+  version: number;
+  enc: true;
+  kdf: "PBKDF2-SHA-256";
+  iter: number;
+  salt: string;
+  iv: string;
+  ciphertext: string;
+}
+
 export interface ParseBackupResult {
   ok: boolean;
   error?: string;
@@ -104,6 +118,7 @@ export const buildBackup = (data: Record<string, unknown>, exportedAt: string): 
 export const parseBackup = (payload: unknown): ParseBackupResult => {
   if (!isRecord(payload)) return { ok: false, error: "备份不是有效的 JSON 对象" };
   if (payload.type !== BACKUP_TYPE) return { ok: false, error: "备份格式不正确" };
+  if (payload.enc === true) return { ok: false, error: "这是加密备份，请先输入口令" };
   if (!SUPPORTED_BACKUP_VERSIONS.includes(Number(payload.version))) return { ok: false, error: "备份版本不受支持" };
   if (!isRecord(payload.data) || !isRecord(payload.data.company)) return { ok: false, error: "备份缺少公司信息" };
   for (const key of BACKUP_COLLECTIONS) {
@@ -197,3 +212,75 @@ export const closeBackupWarning = (status: BackupStatus): string | null => {
 
 export const shouldRecordBackupTime = (confirmed: boolean, demoMode: boolean): boolean =>
   Boolean(confirmed) && !demoMode;
+
+const bytesToBase64 = (bytes: Uint8Array): string => {
+  let binary = "";
+  bytes.forEach((byte) => {
+    binary += String.fromCharCode(byte);
+  });
+  if (typeof btoa === "function") return btoa(binary);
+  return Buffer.from(bytes).toString("base64");
+};
+
+const base64ToBytes = (value: string): Uint8Array => {
+  if (typeof atob === "function") {
+    const binary = atob(value);
+    const out = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i += 1) out[i] = binary.charCodeAt(i) & 255;
+    return out;
+  }
+  return new Uint8Array(Buffer.from(value, "base64"));
+};
+
+export const isEncryptedBackup = (payload: unknown): payload is EncryptedBackup =>
+  isRecord(payload) && payload.type === BACKUP_TYPE && payload.enc === true && Boolean(payload.ciphertext);
+
+const deriveBackupKey = async (passphrase: string, salt: Uint8Array, usages: KeyUsage[], iterations: number) => {
+  const material = await crypto.subtle.importKey("raw", new TextEncoder().encode(passphrase), "PBKDF2", false, ["deriveKey"]);
+  return crypto.subtle.deriveKey(
+    { name: "PBKDF2", salt: salt as BufferSource, iterations, hash: "SHA-256" },
+    material,
+    { name: "AES-GCM", length: 256 },
+    false,
+    usages
+  );
+};
+
+export const encryptBackup = async (backup: FinanceBackup, passphrase: string): Promise<EncryptedBackup> => {
+  const pass = String(passphrase || "");
+  if (pass.length < BACKUP_PASSPHRASE_MIN) throw new Error("口令至少 8 位");
+  const salt = crypto.getRandomValues(new Uint8Array(16));
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const key = await deriveBackupKey(pass, salt, ["encrypt"], BACKUP_KDF_ITERATIONS);
+  const cipher = await crypto.subtle.encrypt({ name: "AES-GCM", iv: iv as BufferSource }, key, new TextEncoder().encode(JSON.stringify(backup)));
+  return {
+    type: BACKUP_TYPE,
+    version: ENCRYPTED_BACKUP_VERSION,
+    enc: true,
+    kdf: "PBKDF2-SHA-256",
+    iter: BACKUP_KDF_ITERATIONS,
+    salt: bytesToBase64(salt),
+    iv: bytesToBase64(iv),
+    ciphertext: bytesToBase64(new Uint8Array(cipher))
+  };
+};
+
+export const decryptBackup = async (payload: unknown, passphrase: string): Promise<ParseBackupResult> => {
+  if (!isEncryptedBackup(payload)) return { ok: false, error: "不是加密备份" };
+  const pass = String(passphrase || "");
+  if (!pass) return { ok: false, error: "请输入备份口令" };
+  try {
+    const salt = base64ToBytes(String(payload.salt || ""));
+    const iv = base64ToBytes(String(payload.iv || ""));
+    const ciphertext = base64ToBytes(String(payload.ciphertext || ""));
+    if (salt.length < 16 || iv.length < 12 || ciphertext.length < 16) {
+      return { ok: false, error: "加密备份损坏" };
+    }
+    const iterations = Number(payload.iter) > 10000 ? Number(payload.iter) : BACKUP_KDF_ITERATIONS;
+    const key = await deriveBackupKey(pass, salt, ["decrypt"], iterations);
+    const plain = await crypto.subtle.decrypt({ name: "AES-GCM", iv: iv as BufferSource }, key, ciphertext as BufferSource);
+    return parseBackup(JSON.parse(new TextDecoder().decode(plain)));
+  } catch {
+    return { ok: false, error: "口令不对，无法预览备份内容" };
+  }
+};

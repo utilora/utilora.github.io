@@ -47,7 +47,8 @@
     const isRecover = mode === "recover";
     const isVerify = mode === "verify";
     const isReset = mode === "reset";
-    title.textContent = isUp ? "创建账号" : isRecover ? "重置密码" : isVerify ? "验证邮箱" : isReset ? "设置新密码" : "登录";
+    const isMfa = mode === "mfa";
+    title.textContent = isUp ? "创建账号" : isRecover ? "重置密码" : isVerify ? "验证邮箱" : isReset ? "设置新密码" : isMfa ? "二次验证" : "登录";
     lead.textContent = isUp
       ? "使用真实邮箱。我们会发送验证码，验证成功后才能登录。"
       : isRecover
@@ -56,21 +57,29 @@
           ? `验证码已发送到 ${pendingEmail}，请输入邮件中的数字验证码。`
           : isReset
             ? "请设置新密码，保存后进入账号页。"
-            : "使用已验证的邮箱登录。工具本身仍可免登录使用。";
+            : isMfa
+              ? "请输入验证器中的 6 位码。未完成验证不会登录。"
+              : "使用已验证的邮箱登录。工具本身仍可免登录使用。";
     nameField.hidden = !isUp;
     confirmField.hidden = !(isUp || isReset);
-    passwordField.hidden = isRecover || isVerify;
-    otpField.hidden = !isVerify;
-    passwordInput.required = !isRecover && !isVerify;
+    passwordField.hidden = isRecover || isVerify || isMfa;
+    otpField.hidden = !(isVerify || isMfa);
+    passwordInput.required = !isRecover && !isVerify && !isMfa;
     confirmInput.required = isUp || isReset;
-    otpInput.required = isVerify;
-    emailInput.readOnly = isVerify || isReset;
-    submit.textContent = isUp ? "发送验证码" : isRecover ? "发送重置邮件" : isVerify ? "验证并完成注册" : isReset ? "保存新密码" : "登录";
-    toggleMode.textContent = isUp || isRecover || isVerify || isReset ? "返回登录" : "没有账号？注册";
-    toggleRecover.hidden = isRecover || isVerify || isReset;
+    otpInput.required = isVerify || isMfa;
+    emailInput.readOnly = isVerify || isReset || isMfa;
+    submit.textContent = isUp ? "发送验证码" : isRecover ? "发送重置邮件" : isVerify ? "验证并完成注册" : isReset ? "保存新密码" : isMfa ? "验证并登录" : "登录";
+    toggleMode.textContent = isUp || isRecover || isVerify || isReset || isMfa ? "返回登录" : "没有账号？注册";
+    toggleRecover.hidden = isRecover || isVerify || isReset || isMfa;
     resend.hidden = !pendingEmail || !isVerify;
     resend.textContent = cooldown > 0 ? resend.textContent : "重新发送验证码";
     strength.hidden = !(isUp && passwordInput.value);
+    const otpLabel = document.getElementById("otp-label");
+    const otpHint = document.getElementById("otp-hint");
+    if (otpLabel) otpLabel.textContent = isMfa ? "二次验证码" : "邮箱验证码";
+    if (otpHint) otpHint.hidden = isMfa;
+    otpInput.placeholder = isMfa ? "请输入验证器中的 6 位码" : "请输入邮件中的验证码";
+    otpInput.maxLength = isMfa ? 6 : 8;
   };
 
   const goAfterAuth = () => {
@@ -137,6 +146,12 @@
         setMsg(banner, captured.error, true);
         return;
       }
+      if (captured && captured.mfa) {
+        mode = "mfa";
+        paint();
+        setMsg(formMsg, "请输入验证器中的 6 位码。未完成验证不会登录。");
+        return;
+      }
       if ((captured && captured.type === "recovery") || wantReset) {
         mode = "reset";
         const session = await auth.refreshIfNeeded();
@@ -182,6 +197,7 @@
     mode = mode === "in" ? "up" : "in";
     pendingEmail = "";
     emailInput.readOnly = false;
+    auth.cancelPendingMfa?.();
     setMsg(formMsg, "");
     paint();
   });
@@ -246,12 +262,25 @@
         goLoggedInHome();
         return;
       }
+      if (mode === "mfa") {
+        const token = otpInput.value.trim();
+        if (!/^\d{6}$/.test(token)) throw new Error("请输入验证器中的 6 位码");
+        await auth.verifyMfaLogin(token);
+        if (await auth.isDisabled()) {
+          await auth.logout();
+          throw new Error(auth.DISABLED_ACCOUNT_MESSAGE || "该账号已停用，请联系管理员。");
+        }
+        trackLoginSuccess();
+        goAfterAuth();
+        return;
+      }
       if (mode === "verify") {
         const token = otpInput.value.trim();
         if (!/^\d{6,8}$/.test(token)) throw new Error("请输入邮件中的 6 到 8 位验证码");
         try {
           await auth.verifyOtp(pendingEmail || email, token);
         } catch (error) {
+          if (error && error.code === "mfa_required") throw error;
           const text = String(error.message || "");
           if (/过期|expired/i.test(text)) {
             throw new Error("验证码已过期，请点下方重新发送，不必重新注册。");
@@ -286,6 +315,14 @@
         goAfterAuth();
 
       } catch (error) {
+        if (error && error.code === "mfa_required") {
+          pendingEmail = email;
+          mode = "mfa";
+          otpInput.value = "";
+          paint();
+          setMsg(formMsg, error.message || "请输入验证器中的 6 位码");
+          return;
+        }
         if (/尚未验证|not_confirmed|confirm/i.test((error.code || "") + error.message)) {
           await sendMail(email, name, password);
           return;
@@ -293,6 +330,14 @@
         throw error;
       }
     } catch (error) {
+      if (error && error.code === "mfa_required") {
+        pendingEmail = email;
+        mode = "mfa";
+        otpInput.value = "";
+        paint();
+        setMsg(formMsg, error.message || "请输入验证器中的 6 位码");
+        return;
+      }
       const text = String(error.message || "登录失败");
       if (mode === "verify") {
         setMsg(formMsg, text, true);

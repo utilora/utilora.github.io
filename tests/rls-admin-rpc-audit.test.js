@@ -27,6 +27,7 @@ const TABLES_DENY_ANON = [
   "edge_function_call_log",
   "public_submit_log",
   "password_reset_log",
+  "login_locations",
 ];
 
 const RPC_DENY_ANON = [
@@ -65,6 +66,8 @@ const RPC_DENY_ANON = [
   "check_public_submit_allowed",
   "record_public_submit",
   "submit_purchase_intent",
+  "record_login_location",
+  "list_my_login_locations",
 ];
 
 const RPC_ALLOW_ANON = ["track_analytics_event", "get_aging_bucket_bounds"];

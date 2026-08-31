@@ -15,6 +15,10 @@ const FIELDS = [
   { key: "login_cooldown_minutes", min: 1, max: 1440, label: "登录冷却分钟", group: "security" },
   { key: "password_reset_per_email_per_hour", min: 1, max: 50, label: "每邮箱每小时找回密码", group: "security" },
   { key: "password_reset_per_ip_per_hour", min: 1, max: 200, label: "每 IP 每小时找回密码", group: "security" },
+  { key: "feedback_per_user_per_hour", min: 1, max: 50, label: "每用户每小时留言", group: "security" },
+  { key: "feedback_per_ip_per_hour", min: 1, max: 200, label: "每 IP 每小时留言", group: "security" },
+  { key: "purchase_intent_per_email_per_hour", min: 1, max: 50, label: "每邮箱每小时购买意向", group: "security" },
+  { key: "purchase_intent_per_ip_per_hour", min: 1, max: 200, label: "每 IP 每小时购买意向", group: "security" },
   { key: "edge_function_daily_call_limit", min: 1, max: 1000000, label: "Edge Function 每日调用上限", group: "security" },
   { key: "match_date_near_days", min: 0, max: 30, label: "匹配日期接近天数", group: "strategy" },
   { key: "match_amount_tolerance_cents", min: 0, max: 100, label: "匹配金额容差（分）", group: "strategy" },
@@ -80,6 +84,10 @@ const defaults = {
   login_cooldown_minutes: 15,
   password_reset_per_email_per_hour: 3,
   password_reset_per_ip_per_hour: 10,
+  feedback_per_user_per_hour: 5,
+  feedback_per_ip_per_hour: 10,
+  purchase_intent_per_email_per_hour: 3,
+  purchase_intent_per_ip_per_hour: 10,
   edge_function_daily_call_limit: 10000,
   match_date_near_days: 3,
   match_amount_tolerance_cents: 0,
@@ -91,7 +99,7 @@ const defaults = {
   aging_bucket_3_days: 90,
 };
 
-assert(FIELDS.length === 16, "all configurable limits present");
+assert(FIELDS.length === 20, "all configurable limits present");
 assert(FIELDS.filter((field) => field.group === "strategy").map((field) => field.key).join(",") === "match_date_near_days,match_amount_tolerance_cents,backup_stale_days", "ops strategy keys grouped");
 assert(FIELDS.filter((field) => field.group === "aging").map((field) => field.key).join(",") === "aging_bucket_1_days,aging_bucket_2_days,aging_bucket_3_days", "aging keys grouped");
 assert(validateLimits(defaults).ok === true, "defaults valid");
@@ -118,6 +126,10 @@ assert(validateLimits({ ...defaults, backup_stale_days: 1 }).ok === true, "backu
 assert(validateLimits({ ...defaults, backup_stale_days: 90 }).ok === true, "backup 90 allowed");
 assert(validateLimits({ ...defaults, backup_stale_days: 0 }).ok === false, "backup 0 rejected");
 assert(validateLimits({ ...defaults, backup_stale_days: 91 }).ok === false, "backup 91 rejected");
+assert(validateLimits({ ...defaults, feedback_per_user_per_hour: 5 }).ok === true, "feedback user default ok");
+assert(validateLimits({ ...defaults, feedback_per_user_per_hour: 0 }).ok === false, "feedback user 0 rejected");
+assert(validateLimits({ ...defaults, purchase_intent_per_email_per_hour: 51 }).ok === false, "purchase email over max rejected");
+assert(FIELDS.map((field) => field.key).includes("purchase_intent_per_ip_per_hour"), "purchase ip key present");
 
 const dateMsg = validateLimits({ ...defaults, match_date_near_days: 31 });
 assert(dateMsg.ok === false && /匹配日期接近/.test(dateMsg.error) && /0–30/.test(dateMsg.error), "date window range message");

@@ -10,6 +10,7 @@
   <meta name="description" content="查看 Utilora 方案、到期日，并进入本地财务备份。">
   <link rel="icon" type="image/svg+xml" href="../favicon.svg">
   <link rel="stylesheet" href="../assets/css/site.css">
+  <script src="../assets/js/frame-guard.js"></script>
 </head>
 <body>
   <header class="tool-head">
@@ -66,16 +67,43 @@
       <div id="recents" class="account-chips"></div>
       <p id="recent-empty" class="hint">还没有使用记录。</p>
     </section>
+    <section class="panel" id="security-panel">
+      <h2>登录安全</h2>
+      <p class="hint">二次验证开启后，登录除密码外还须填验证器中的 6 位码。未完成验证不会留下可用会话。</p>
+      <p id="mfa-status" class="hint">读取中</p>
+      <div id="mfa-enroll" hidden>
+        <p class="hint tight">用验证器扫描二维码，或手动输入密钥。</p>
+        <img id="mfa-qr" class="mfa-qr" alt="二次验证二维码" hidden>
+        <p id="mfa-secret" class="hint tight"></p>
+        <div class="field">
+          <label for="mfa-code">验证器中的 6 位码</label>
+          <input id="mfa-code" inputmode="numeric" maxlength="6" autocomplete="one-time-code">
+        </div>
+        <div class="actions">
+          <button id="mfa-confirm" type="button">确认开启</button>
+          <button id="mfa-cancel" class="secondary" type="button">取消</button>
+        </div>
+      </div>
+      <div class="actions">
+        <button id="mfa-enable" type="button">开启二次验证</button>
+        <button id="mfa-disable" class="secondary" type="button" hidden>关闭二次验证</button>
+        <button id="logout-others" class="secondary" type="button">登出其他设备</button>
+      </div>
+      <p id="security-msg" class="message" role="status"></p>
+      <h3>最近登录网络</h3>
+      <p class="hint tight">只显示哈希后的网络标识，不含完整地址。新地点会写入账号活动；能发信时通知注册邮箱。</p>
+      <div id="login-locations" class="account-chips"></div>
+    </section>
     <div class="actions">
       <a class="download-button" href="../">返回工具箱</a>
       <button id="logout" class="secondary" type="button">退出登录</button>
     </div>
   </main>
-  <script src="../assets/js/auth.js?v=19"></script>
+  <script src="../assets/js/auth.js?v=21"></script>
   <script src="../assets/js/announcement.js"></script>
   <script src="../assets/js/app.js?v=14"></script>
   <script src="../assets/js/pro.js?v=2"></script>
-  <script src="account.js?v=4"></script>
+  <script src="account.js?v=5"></script>
   <script type="module" src="/src/account.ts"></script>
 </body>
 </html>

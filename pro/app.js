@@ -1343,7 +1343,7 @@
       <div class="field"><label>收款账户</label><input id="co-pay" value="${esc(c.payInfo)}"></div>
     </div><div class="actions"><button id="co-save" type="button">保存企业信息</button></div><p id="co-msg" class="empty"></p></div>
     <div class="panel settings-section"><h2>数据与备份</h2>
-      <p class="data-note"><b>重要：</b>清理浏览器数据、使用无痕模式或更换设备都可能导致本地数据丢失。完整备份包含客户、应收、收款、银行流水、费用和科目。演示模式不会写入真实公司。</p>
+      <p class="data-note"><b>重要：</b>清理浏览器数据、使用无痕模式或更换设备都可能导致本地数据丢失。完整备份包含客户、应收、收款、银行流水、费用和科目。新导出必须设置口令加密；旧的明文备份仍可导入。演示模式不会写入真实公司。</p>
       <div class="actions">
         <button id="data-export" type="button">导出完整备份</button>
         <button id="data-import" class="secondary" type="button">导入备份</button>
@@ -1420,17 +1420,40 @@
     document.getElementById("aging-csv").onclick = exportAgingCsv;
     document.getElementById("data-export").onclick = async () => {
       const Backup = window.UtiloraBackup;
+      const msg = document.getElementById("data-msg");
+      msg.classList.remove("error");
+      const passphrase = window.prompt("请为这份备份设置口令（至少 8 位）。口令不会上传，丢失后无法打开备份。");
+      if (!passphrase) {
+        msg.textContent = "已取消导出";
+        return;
+      }
+      if (passphrase.length < 8) {
+        msg.classList.add("error");
+        msg.textContent = "口令至少 8 位";
+        return;
+      }
+      const again = window.prompt("再输入一次口令以确认");
+      if (again !== passphrase) {
+        msg.classList.add("error");
+        msg.textContent = "两次口令不一致，未导出";
+        return;
+      }
       const safeName = (db.company.name || "公司").replace(/[\\/:*?"<>|]/g, "-");
       const exportedAt = new Date().toISOString();
       const payload = Backup ? Backup.buildBackup(db, exportedAt) : { type: "utilora-finance-backup", version: 3, exportedAt, data: db };
-      downloadJson(`utilora-backup-${safeName}-${today()}.json`, payload);
+      try {
+        const file = Backup?.encryptBackup ? await Backup.encryptBackup(payload, passphrase) : payload;
+        downloadJson(`utilora-backup-${safeName}-${today()}.json`, file);
+      } catch (error) {
+        msg.classList.add("error");
+        msg.textContent = error.message || "加密失败";
+        return;
+      }
       const confirmed = demoMode ? false : window.confirm("备份文件已开始下载。请确认文件已保存到电脑后，再记备份时间。\n\n文件已保存好了吗？");
       const record = Backup?.shouldRecordBackupTime ? Backup.shouldRecordBackupTime(confirmed, demoMode) : (confirmed && !demoMode);
       if (record) await setSetting(backupKey(), exportedAt);
-      const msg = document.getElementById("data-msg");
-      msg.classList.remove("error");
       if (demoMode) msg.textContent = "演示数据已下载，不会记入真实公司的备份时间。";
-      else if (record) msg.textContent = "完整备份已下载，已记录备份时间。请妥善保管，文件中包含客户和财务信息。";
+      else if (record) msg.textContent = "加密备份已下载，已记录备份时间。请妥善保管口令，丢失后无法打开。";
       else msg.textContent = "备份已下载，但未记录备份时间。确认文件保存后可再点一次导出。";
     };
     const previewBox = document.getElementById("backup-preview");
@@ -1502,9 +1525,16 @@
       try {
         if (demoMode) throw new Error("演示模式不会导入到真实公司");
         const payload = JSON.parse(await file.text());
-        const parsed = window.UtiloraBackup ? window.UtiloraBackup.parseBackup(payload) : { ok: payload.type === "utilora-finance-backup" && [2, 3].includes(payload.version), backup: payload, error: "备份格式、版本或必要数据不完整" };
-        if (!parsed.ok || !parsed.backup) throw new Error(parsed.error || "备份格式、版本或必要数据不完整");
         const Backup = window.UtiloraBackup;
+        let parsed;
+        if (Backup?.isEncryptedBackup?.(payload)) {
+          const pass = window.prompt("这份备份已加密，请输入口令。口令错误不会展示任何内容。");
+          if (!pass) throw new Error("已取消导入");
+          parsed = await Backup.decryptBackup(payload, pass);
+        } else {
+          parsed = Backup ? Backup.parseBackup(payload) : { ok: payload.type === "utilora-finance-backup" && [2, 3].includes(payload.version), backup: payload, error: "备份格式、版本或必要数据不完整" };
+        }
+        if (!parsed.ok || !parsed.backup) throw new Error(parsed.error || "备份格式、版本或必要数据不完整");
         const preview = Backup?.previewBackup ? Backup.previewBackup(parsed.backup) : parsed.backup.summary;
         const mismatch = Backup?.companyMismatch ? Backup.companyMismatch(db.company.name, preview.company) : (db.company.name && preview.company && db.company.name !== preview.company);
         showBackupPreview({
