@@ -33,6 +33,8 @@ export default defineConfig({
     outDir: "dist",
     emptyOutDir: true,
     sourcemap: true,
+    // 默认的 modulepreload polyfill 是内联脚本，会破坏无 unsafe-inline 的 CSP。
+    modulePreload: { polyfill: false },
     rollupOptions: {
       input: {
         main: resolve(import.meta.dirname, "index.html"),

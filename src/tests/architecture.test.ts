@@ -237,6 +237,18 @@ describe("product architecture", () => {
     }
   });
 
+  it("ships a content security policy without executable inline scripts", () => {
+    const home = read("index.html");
+    expect(home).toContain('http-equiv="Content-Security-Policy"');
+    expect(home).toContain("object-src 'none'");
+    expect(home).toContain("base-uri 'none'");
+    expect(home).not.toMatch(/script-src[^;]*'unsafe-inline'/);
+    expect(home).toContain("assets/js/home-hero.js");
+    expect(read("login/index.html")).toContain("assets/js/turnstile-boot.js");
+    expect(read("feedback/index.html")).toContain("assets/js/turnstile-boot.js");
+    expect(read("vite.config.ts")).toMatch(/modulePreload:\s*\{\s*polyfill:\s*false\s*\}/);
+  });
+
   it("lets admins list purchase intents through RPC without table grants", () => {
     const sql = read("supabase/admin-purchase-intents.sql");
     expect(sql).toContain("admin_list_purchase_intents");

@@ -2,6 +2,8 @@
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'none'; object-src 'none'; script-src 'self' 'sha256-Qh+9xkTNhTOw2jXvTpp0GWe0474h6HJvhkkrM/ZlwhE=' https://challenges.cloudflare.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://challenges.cloudflare.com; font-src 'self'; connect-src 'self' https://nkxgnqzdswugbjjquxfj.supabase.co wss://nkxgnqzdswugbjjquxfj.supabase.co https://challenges.cloudflare.com; frame-src https://challenges.cloudflare.com; form-action 'self'; manifest-src 'self'; worker-src 'self' blob:; upgrade-insecure-requests">
+  <meta name="referrer" content="strict-origin-when-cross-origin">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="description" content="Utilora 提供永久免费、匿名、无需登录的财务工具，以及覆盖银行流水、应收回款、月结检查和经营报表的专业财务工作台。">
   <meta name="theme-color" content="#0b1730">
@@ -19,15 +21,7 @@
   <link rel="manifest" href="site.webmanifest">
   <link rel="stylesheet" href="assets/css/site.css">
   <link rel="stylesheet" href="assets/css/finance-home.css?v=15">
-  <script type="application/ld+json">
-  {
-    "@context":"https://schema.org",
-    "@type":"WebSite",
-    "name":"Utilora 财务工具",
-    "url":"https://utilora.github.io/",
-    "description":"免费财务工具 + 专业财务工作台。免费工具永久免费、匿名、无需登录。"
-  }
-  </script>
+  <script type="application/ld+json">{"@context":"https://schema.org","@type":"WebSite","name":"Utilora 财务工具","url":"https://utilora.github.io/","description":"免费财务工具 + 专业财务工作台。免费工具永久免费、匿名、无需登录。"}</script>
 </head>
 <body class="finance-home">
   <div class="notice-bar"><strong>财务专业版内测限时免费</strong> · Pro 预计 ¥19/月 · 正式收费前提前通知 · 免费工具永久免费。<a href="pro/?demo=1#/dashboard">体验完整演示</a></div>
@@ -260,15 +254,7 @@
     <div class="footer-bottom"><span>© <span id="year"></span> Utilora</span><span>结果仅供辅助测算</span></div>
   </footer>
 
-  <script>
-    const menu=document.querySelector(".mobile-menu");
-    const links=document.querySelector(".finance-nav-links");
-    menu?.addEventListener("click",()=>{const open=links.classList.toggle("open");menu.setAttribute("aria-expanded",String(open));});
-    document.querySelectorAll(".finance-nav-links a").forEach(a=>a.addEventListener("click",()=>links.classList.remove("open")));
-    document.getElementById("year").textContent=new Date().getFullYear();
-    const amount=document.getElementById("home-vat-amount"),rate=document.getElementById("home-vat-rate"),fmt=new Intl.NumberFormat("zh-CN",{style:"currency",currency:"CNY"});
-    const calc=()=>{const gross=Math.max(0,Number(amount.value)||0),r=(Number(rate.value)||0)/100,net=Math.round(gross/(1+r)*100)/100;document.getElementById("home-vat-net").textContent=fmt.format(net);document.getElementById("home-vat-tax").textContent=fmt.format(Math.round((gross-net)*100)/100);};amount?.addEventListener("input",calc);rate?.addEventListener("change",calc);calc();
-  </script>
+  <script src="assets/js/home-hero.js"></script>
   <script src="assets/js/app.js?v=14"></script>
   <script src="assets/js/announcement.js"></script>
   <script type="module" src="/src/main.ts"></script>

@@ -143,7 +143,7 @@ A-11 账龄分桶边界配置：在限额/运营策略配置中增加「账龄�
 
 ## 安全改善（分支 fix/security-hardening）
 
-允许路径：`supabase/functions/`、`supabase/migrations/`（限流/验证码/RLS）、`assets/js/auth.js`、`login/`、`feedback/`。
+允许路径：`supabase/functions/`、`supabase/migrations/`（限流/验证码/RLS）、`assets/js/auth.js`、`login/`、`feedback/`。S-10 可改全站 HTML 与为去掉内联脚本新增的 `assets/js/` 文件。
 
 S-01 每 IP 每天成功注册不超过配置值（默认 3；验证成功才计数，不是点发送就计数）。  
 S-02 验证码服务端限额：读配置（默认每邮箱每小时 3 封；每 IP 每小时 10 封）。  
@@ -154,6 +154,7 @@ S-06 Edge Function 鉴权、超时、日调用上限读配置；前端不得出�
 S-07 停用账号后 refresh 立即失效。  
 S-08 找回密码限流：发送重置邮件与提交新密码接口均读配置（默认每邮箱每小时 3 次、每 IP 每小时 10 次）；超限返回明确文案且不泄露邮箱是否存在；成功与失败均计入审计可查事件。验收：超限后同邮箱/同 IP 在窗口内无法再触发发送；配置变更后立即生效。
 S-09 留言与购买意向提交限流：功能建议必须登录后走 submit-feedback；购买意向走 submit-purchase-intent。服务端读配置（默认每用户每小时留言 5、每 IP 每小时留言 10、每邮箱每小时购买意向 3、每 IP 每小时购买意向 10）。关闭 feedback 表的匿名/登录直写。验收：超限返回明确文案；anon key 不能直接 INSERT feedback。
+S-10 内容安全策略：所有公开页用 meta CSP（GitHub Pages 设不了响应头）。禁止插件与改 base；脚本默认本站 + 人机验证域名；连接仅本站与账号服务。页面不得有未哈希的可执行内联脚本。frame-ancestors 无法经 meta 生效，不在本项承诺。
 
 | 编号 | 状态 | 分支 | 最近提交 | 测试 |
 |------|------|------|----------|------|
@@ -166,9 +167,11 @@ S-09 留言与购买意向提交限流：功能建议必须登录后走 submit-f
 | S-07 | 已合入 main | fix/security-hardening | f01f0ee | 生产 SQL 已执行 |
 | S-08 | 已合入 main | fix/security-hardening | — | 找回密码限流；生产 SQL 已执行；Edge Function 已部署 |
 | S-09 | 已合入 main | fix/security-hardening | 9facb2b | 留言与购买意向提交限流；购买意向改走云函数并记账；直连 RPC 已收回；留言表收掉改删清空 |
+| S-10 | 已合入 main | fix/security-hardening | — | 内容安全策略；公开页 meta CSP；禁止未哈希的可执行内联脚本；构建关闭 modulepreload 内联垫片 |
 
 ## 变更记录
 
+- 2026-08-31：合入 main：内容安全策略（S-10）。12 个公开页加 CSP 与 referrer；首页 JSON-LD 用哈希放行；菜单与人机验证启动脚本外置；Vite 关闭会注入内联脚本的 modulepreload 垫片。GitHub Pages 设不了响应头，frame-ancestors 不在本项。占用改为五个财税工具打磨 / 空闲 / 安全空闲。
 - 2026-08-31：合入 main：提交限流收口（e272b14）。购买意向只走带人机验证和次数上限的云函数；直连 RPC 已拒绝；留言表访客无法改删清空；人机验证密钥缺失时拒绝；已下线无鉴权遗留函数。生产已执行 202608310016_submit_path_lockdown.sql。增加 SECURITY.md、Dependabot，并打开密钥扫描与私下漏洞报告。占用改为五个财税工具打磨 / 空闲 / 安全空闲。
 - 2026-08-31：合入 main：账龄分桶边界配置（48e4294）。限额页独立账龄组与五桶预览；非法序拒绝保存并写审计；get_aging_bucket_bounds 供新打开的账龄视图读取。生产已执行 202608310015_aging_bucket_bounds.sql。占用改为五个财税工具打磨 / 空闲 / 安全空闲。
 - 2026-08-31：合入 main：登录注册走通（17aaa9e）。验证码失败可重发、找回密码、next 只允许站内相对路径、停用账号提示、超限文案读服务端限额。占用改为五个财税工具打磨 / 账龄分桶边界配置 / 安全空闲。

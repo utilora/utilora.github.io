@@ -2,6 +2,8 @@
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'none'; object-src 'none'; script-src 'self' 'sha256-Qh+9xkTNhTOw2jXvTpp0GWe0474h6HJvhkkrM/ZlwhE=' https://challenges.cloudflare.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://challenges.cloudflare.com; font-src 'self'; connect-src 'self' https://nkxgnqzdswugbjjquxfj.supabase.co wss://nkxgnqzdswugbjjquxfj.supabase.co https://challenges.cloudflare.com; frame-src https://challenges.cloudflare.com; form-action 'self'; manifest-src 'self'; worker-src 'self' blob:; upgrade-insecure-requests">
+  <meta name="referrer" content="strict-origin-when-cross-origin">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="robots" content="noindex,nofollow">
   <meta name="turnstile-site-key" content="0x4AAAAAAEig18AwvL5M_t-J">
@@ -57,29 +59,7 @@
   </main>
   <script src="../assets/js/auth.js?v=20"></script>
   <script src="../assets/js/analytics.js"></script>
-  <script>
-    (function () {
-      var meta = document.querySelector('meta[name="turnstile-site-key"]');
-      var siteKey = (window.__TURNSTILE_SITE_KEY || (meta && meta.content) || "").trim();
-      if (!siteKey) return;
-      var slot = document.getElementById("turnstile-slot");
-      if (slot) slot.hidden = false;
-      window.__onTurnstile = function (token) { window.__turnstileToken = token; };
-      var s = document.createElement("script");
-      s.src = "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit";
-      s.async = true;
-      s.onload = function () {
-        if (!window.turnstile || !slot) return;
-        window.turnstile.render(slot, {
-          sitekey: siteKey,
-          callback: window.__onTurnstile,
-          "error-callback": function () { window.__turnstileToken = ""; },
-          "expired-callback": function () { window.__turnstileToken = ""; }
-        });
-      };
-      document.head.appendChild(s);
-    })();
-  </script>
+  <script src="../assets/js/turnstile-boot.js"></script>
   <script src="login.js?v=20"></script>
 
 </body>
