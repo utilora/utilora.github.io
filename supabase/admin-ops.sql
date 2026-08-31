@@ -4,11 +4,15 @@
 -- 依赖：public.is_admin()、purchase_intents、promotions、entitlement_grants、analytics_events、admin_users
 -- A-01 grant/revoke：见 migrations/202608310001_admin_grant_entitlement.sql（请一并执行）
 -- A-02 风控台：见 migrations/202608310002_admin_risk_console.sql（admin_risk_console RPC）
+-- A-03 意向跟进：见 migrations/202608310003_admin_intent_followup.sql
 
 create table if not exists public.purchase_intent_followups (
   intent_id uuid primary key references public.purchase_intents(id) on delete cascade,
   status text not null default 'new' check (status in ('new', 'contacted', 'follow_up', 'closed')),
   note text,
+  next_follow_on date,
+  result text check (result is null or result in ('interested', 'considering', 'no_response', 'declined')),
+  trial_granted boolean not null default false,
   updated_at timestamptz not null default now(),
   updated_by uuid references auth.users(id)
 );
@@ -132,6 +136,9 @@ begin
       i.user_id,
       coalesce(f.status, 'new') as follow_status,
       f.note as follow_note,
+      f.next_follow_on,
+      f.result as follow_result,
+      coalesce(f.trial_granted, false) as trial_granted,
       f.updated_at as follow_updated_at
     from public.purchase_intents i
     left join public.purchase_intent_followups f on f.intent_id = i.id
@@ -142,17 +149,25 @@ $$;
 revoke all on function public.admin_list_purchase_intents() from public, anon;
 grant execute on function public.admin_list_purchase_intents() to authenticated;
 
+drop function if exists public.admin_set_purchase_intent_followup(uuid, text, text);
+drop function if exists public.admin_set_purchase_intent_followup(uuid, text, text, date, text, boolean);
+
 create or replace function public.admin_set_purchase_intent_followup(
   p_intent_id uuid,
   p_status text,
-  p_note text default null
+  p_note text default null,
+  p_next_follow_on date default null,
+  p_result text default null,
+  p_trial_granted boolean default false
 )
 returns void
 language plpgsql
 security definer
 set search_path = ''
 as $$
-declare v_email text;
+declare
+  v_email text;
+  v_result text;
 begin
   if not public.is_admin() then
     raise insufficient_privilege;
@@ -160,15 +175,33 @@ begin
   if p_status not in ('new', 'contacted', 'follow_up', 'closed') then
     raise exception 'invalid status';
   end if;
+  v_result := nullif(trim(coalesce(p_result, '')), '');
+  if v_result is not null and v_result not in ('interested', 'considering', 'no_response', 'declined') then
+    raise exception 'invalid result';
+  end if;
   select email into v_email from public.purchase_intents where id = p_intent_id;
   if v_email is null then
     raise exception 'intent not found';
   end if;
-  insert into public.purchase_intent_followups(intent_id, status, note, updated_at, updated_by)
-  values (p_intent_id, p_status, nullif(left(trim(coalesce(p_note, '')), 500), ''), now(), auth.uid())
+  insert into public.purchase_intent_followups(
+    intent_id, status, note, next_follow_on, result, trial_granted, updated_at, updated_by
+  )
+  values (
+    p_intent_id,
+    p_status,
+    nullif(left(trim(coalesce(p_note, '')), 500), ''),
+    p_next_follow_on,
+    v_result,
+    coalesce(p_trial_granted, false),
+    now(),
+    auth.uid()
+  )
   on conflict (intent_id) do update
     set status = excluded.status,
         note = excluded.note,
+        next_follow_on = excluded.next_follow_on,
+        result = excluded.result,
+        trial_granted = excluded.trial_granted,
         updated_at = now(),
         updated_by = auth.uid();
   perform public.admin_write_activity(
@@ -177,12 +210,19 @@ begin
     'intent_followup',
     'admin',
     '/admin/',
-    jsonb_build_object('intent_id', p_intent_id, 'email', v_email, 'status', p_status)
+    jsonb_build_object(
+      'intent_id', p_intent_id,
+      'email', v_email,
+      'status', p_status,
+      'next_follow_on', p_next_follow_on,
+      'result', v_result,
+      'trial_granted', coalesce(p_trial_granted, false)
+    )
   );
 end;
 $$;
-revoke all on function public.admin_set_purchase_intent_followup(uuid, text, text) from public, anon;
-grant execute on function public.admin_set_purchase_intent_followup(uuid, text, text) to authenticated;
+revoke all on function public.admin_set_purchase_intent_followup(uuid, text, text, date, text, boolean) from public, anon;
+grant execute on function public.admin_set_purchase_intent_followup(uuid, text, text, date, text, boolean) to authenticated;
 
 create or replace function public.admin_list_promotions()
 returns jsonb

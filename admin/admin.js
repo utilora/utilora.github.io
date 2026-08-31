@@ -992,8 +992,8 @@ const mockUsers = [
   { id: '4', email: 'paused@example.com', name: '已停用账号', created_at: '2026-05-02T04:00:00Z', last_sign_in_at: '2026-07-01T10:00:00Z', email_confirmed_at: '2026-05-02T04:10:00Z', is_admin: false, is_disabled: true },
 ];
 const mockIntents = [
-  { id: 'i1', email: 'demo-bookkeeper@example.com', use_case: '银行流水', company_size: '1-10', intended_plan: 'pro', created_at: '2026-08-20T08:00:00Z', follow_status: 'new', follow_note: '' },
-  { id: 'i2', email: 'finance@example.com', use_case: '应收回款', company_size: '11-50', intended_plan: 'pro', created_at: '2026-08-22T11:20:00Z', follow_status: 'contacted', follow_note: '已电话确认' },
+  { id: 'i1', email: 'demo-bookkeeper@example.com', use_case: '银行流水', company_size: '1-10', intended_plan: 'pro', created_at: '2026-08-20T08:00:00Z', follow_status: 'follow_up', follow_note: '', next_follow_on: '2026-08-31', follow_result: 'considering', trial_granted: false },
+  { id: 'i2', email: 'finance@example.com', use_case: '应收回款', company_size: '11-50', intended_plan: 'pro', created_at: '2026-08-22T11:20:00Z', follow_status: 'contacted', follow_note: '已电话确认', next_follow_on: '2026-09-05', follow_result: 'interested', trial_granted: true },
 ];
 const mockFeedback = [
   { id: 'f1', created_at: '2026-08-28T09:12:00Z', name: '林青', title: '银行导入', message: '导入预览后想批量确认匹配。', contact: 'qing@example.com', status: 'new' },
@@ -1182,11 +1182,18 @@ function filteredIntents() {
   const use = document.getElementById('intent-use-filter')?.value || '';
   const size = document.getElementById('intent-size-filter')?.value || '';
   const follow = document.getElementById('intent-follow-filter')?.value || '';
+  const today = todayISO();
   return intentsCache.filter((row) => {
     if (q && !(row.email || '').toLowerCase().includes(q)) return false;
     if (use && row.use_case !== use) return false;
     if (size && row.company_size !== size) return false;
-    if (follow && (row.follow_status || 'new') !== follow) return false;
+    if (follow === 'due') {
+      if ((row.follow_status || 'new') === 'closed') return false;
+      const due = (row.next_follow_on || '').toString().slice(0, 10);
+      if (!due || due > today) return false;
+    } else if (follow === 'trial') {
+      if (!row.trial_granted) return false;
+    } else if (follow && (row.follow_status || 'new') !== follow) return false;
     return true;
   });
 }
@@ -1224,12 +1231,13 @@ function renderIntents() {
     setEmptyState(
       emptyBox,
       intentsCache.length && filtered ? '没有符合当前筛选的购买意向。' : '暂无购买意向。',
-      intentsCache.length && filtered ? '可重置筛选后再查询。' : '用户在首页或专业版提交「我愿意购买」后会出现在这里，仅供只读查看。'
+      intentsCache.length && filtered ? '可重置筛选后再查询。' : '用户提交「我愿意购买」后会出现在这里。可填写下次跟进日、结果，并标记已发试用。'
     );
     return;
   }
   hideEmpty(emptyBox);
   const followLabels = { new: '未联系', contacted: '已联系', follow_up: '待回访', closed: '已关闭' };
+  const resultLabels = { '': '未记录', interested: '有意向', considering: '再考虑', no_response: '无响应', declined: '暂不需要' };
   rows.forEach((row) => {
     const tr = document.createElement('tr');
     const timeTd = document.createElement('td');
@@ -1253,6 +1261,26 @@ function renderIntents() {
       select.add(new Option(label, value, value === (row.follow_status || 'new'), value === (row.follow_status || 'new')));
     });
     followTd.append(select);
+    const nextTd = document.createElement('td');
+    const next = document.createElement('input');
+    next.type = 'date';
+    next.value = (row.next_follow_on || '').toString().slice(0, 10);
+    nextTd.append(next);
+    const resultTd = document.createElement('td');
+    const result = document.createElement('select');
+    Object.entries(resultLabels).forEach(([value, label]) => {
+      const current = row.follow_result || '';
+      result.add(new Option(label, value, value === current, value === current));
+    });
+    resultTd.append(result);
+    const trialTd = document.createElement('td');
+    const trialLabel = document.createElement('label');
+    trialLabel.className = 'check';
+    const trial = document.createElement('input');
+    trial.type = 'checkbox';
+    trial.checked = Boolean(row.trial_granted);
+    trialLabel.append(trial, document.createTextNode('已发'));
+    trialTd.append(trialLabel);
     const noteTd = document.createElement('td');
     const note = document.createElement('input');
     note.type = 'text';
@@ -1263,9 +1291,16 @@ function renderIntents() {
     save.type = 'button';
     save.className = 'secondary';
     save.textContent = '保存';
-    save.addEventListener('click', () => window.AdminOps?.saveIntentFollowup?.(row, select.value, note.value));
+    save.addEventListener('click', () => window.AdminOps?.saveIntentFollowup?.(
+      row,
+      select.value,
+      note.value,
+      next.value,
+      result.value,
+      trial.checked
+    ));
     noteTd.append(note, save);
-    tr.append(followTd, noteTd);
+    tr.append(followTd, nextTd, resultTd, trialTd, noteTd);
     list.append(tr);
   });
 }
@@ -1289,11 +1324,11 @@ async function loadIntents() {
     renderIntents();
     paintOverviewExtras();
     setMessage(msg, `共 ${intentsCache.length} 条意向`);
-    setPageSummary(`购买意向 ${intentsCache.length} 条（只读）`);
+    setPageSummary(`购买意向 ${intentsCache.length} 条`);
   } catch (error) {
     intentsLoadState = classifyError(error);
     intentsCache = [];
-    const hint = setupHint(intentsLoadState, 'supabase/admin-ops.sql') || error.message;
+    const hint = setupHint(intentsLoadState, 'supabase/migrations/202608310003_admin_intent_followup.sql') || error.message;
     setMessage(msg, hint, true);
     renderIntents();
     setPageSummary('购买意向不可用');

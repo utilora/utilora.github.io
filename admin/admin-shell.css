@@ -152,6 +152,9 @@ html,body.admin-body{height:100%;min-height:100vh;background:#f1f5f9}
 .filter-actions{flex-wrap:wrap}
 .check{display:flex;align-items:center;gap:8px;font-size:13px}
 #intents-list input[type=text]{min-width:140px;margin-right:8px}
+#intents-section .table-wrap table{min-width:1180px}
+#intents-list input[type=date]{min-width:138px}
+#intents-list .check{white-space:nowrap}
 button.linkish{
   padding:0;border:0;background:none;color:#4f46e5;font:inherit;font-weight:700;cursor:pointer;text-align:left
 }

@@ -1,6 +1,7 @@
 (() => {
   const OPS_SQL = 'supabase/admin-ops.sql';
   const GRANT_SQL = 'supabase/migrations/202608310001_admin_grant_entitlement.sql';
+  const FOLLOW_SQL = 'supabase/migrations/202608310003_admin_intent_followup.sql';
   const TRIAL_DAYS_DEFAULT = 14;
   const LOG_PAGE = 50;
   let promotionsCache = [];
@@ -357,11 +358,14 @@
     });
   }
 
-  async function saveIntentFollowup(row, status, note) {
+  async function saveIntentFollowup(row, status, note, nextFollowOn, result, trialGranted) {
     const msg = document.getElementById('intents-message');
     if (isPreview() && !getSession()) {
       row.follow_status = status;
       row.follow_note = note;
+      row.next_follow_on = nextFollowOn || null;
+      row.follow_result = result || null;
+      row.trial_granted = Boolean(trialGranted);
       renderIntents();
       setMessage(msg, '预览已更新，未写入生产。');
       return;
@@ -369,12 +373,19 @@
     try {
       await request('rpc/admin_set_purchase_intent_followup', {
         method: 'POST',
-        body: JSON.stringify({ p_intent_id: row.id, p_status: status, p_note: note }),
+        body: JSON.stringify({
+          p_intent_id: row.id,
+          p_status: status,
+          p_note: note,
+          p_next_follow_on: nextFollowOn || null,
+          p_result: result || null,
+          p_trial_granted: Boolean(trialGranted),
+        }),
       });
       setMessage(msg, '跟进已保存');
       await loadIntents();
     } catch (error) {
-      setMessage(msg, setupHint(classifyError(error), OPS_SQL) || error.message, true);
+      setMessage(msg, setupHint(classifyError(error), FOLLOW_SQL) || error.message, true);
     }
   }
 
@@ -625,13 +636,16 @@
       return;
     }
     if (kind === 'intents') {
-      downloadCsv(`utilora-intents-${stamp}.csv`, ['时间', '邮箱', '用途', '规模', '方案', '跟进', '备注'], filteredIntents().map((row) => [
+      downloadCsv(`utilora-intents-${stamp}.csv`, ['时间', '邮箱', '用途', '规模', '方案', '跟进', '下次跟进', '结果', '已发试用', '备注'], filteredIntents().map((row) => [
         row.created_at || '',
         row.email || '',
         row.use_case || '',
         row.company_size || '',
         row.intended_plan || '',
         row.follow_status || 'new',
+        (row.next_follow_on || '').toString().slice(0, 10),
+        row.follow_result || '',
+        row.trial_granted ? '是' : '',
         row.follow_note || '',
       ]));
       return;
