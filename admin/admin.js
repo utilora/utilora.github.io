@@ -577,19 +577,6 @@ function switchTab(name) {
   switchPage(name === 'analytics' ? 'analytics' : 'feedback');
 }
 
-function buildQuery() {
-  const params = new URLSearchParams();
-  params.set('select', 'id,created_at,name,title,message,contact,status');
-  params.set('order', 'created_at.desc');
-  const status = document.getElementById('status-filter').value;
-  const start = document.getElementById('start-date').value;
-  const end = document.getElementById('end-date').value;
-  if (status) params.append('status', `eq.${status}`);
-  if (start) params.append('created_at', `gte.${new Date(`${start}T00:00:00`).toISOString()}`);
-  if (end) params.append('created_at', `lte.${new Date(`${end}T23:59:59.999`).toISOString()}`);
-  return params.toString();
-}
-
 async function loadFeedback() {
   if (isPreview() && !getSession()) {
     feedbackLoadState = 'ok';
@@ -609,7 +596,17 @@ async function loadFeedback() {
   }
   setMessage(managerMessage, '正在加载……');
   try {
-    const response = await request(`feedback?${buildQuery()}`);
+    const status = document.getElementById('status-filter').value;
+    const start = document.getElementById('start-date').value;
+    const end = document.getElementById('end-date').value;
+    const response = await request('rpc/admin_list_feedback', {
+      method: 'POST',
+      body: JSON.stringify({
+        p_status: status || null,
+        p_start: start ? new Date(`${start}T00:00:00`).toISOString() : null,
+        p_end: end ? new Date(`${end}T23:59:59.999`).toISOString() : null,
+      }),
+    });
     const rows = await response.json();
     feedbackLoadState = 'ok';
     feedbackCache = Array.isArray(rows) ? rows : [];
@@ -667,10 +664,9 @@ function renderRows(rows) {
 
 async function updateStatus(id, status) {
   try {
-    await request(`feedback?id=eq.${id}`, {
-      method: 'PATCH',
-      headers: { Prefer: 'return=minimal' },
-      body: JSON.stringify({ status }),
+    await request('rpc/admin_set_feedback_status', {
+      method: 'POST',
+      body: JSON.stringify({ p_id: id, p_status: status }),
     });
     setMessage(managerMessage, '状态已更新');
     await loadFeedback();
@@ -683,7 +679,10 @@ async function updateStatus(id, status) {
 async function deleteFeedback(id, title) {
   if (!confirm(`确定删除“${title}”吗？此操作无法撤销。`)) return;
   try {
-    await request(`feedback?id=eq.${id}`, { method: 'DELETE', headers: { Prefer: 'return=minimal' } });
+    await request('rpc/admin_delete_feedback', {
+      method: 'POST',
+      body: JSON.stringify({ p_id: id }),
+    });
     setMessage(managerMessage, '留言已删除');
     await loadFeedback();
   } catch (error) {

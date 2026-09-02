@@ -54,7 +54,7 @@
 | 线 | 分支 | 当前项 | 状态 |
 |----|------|--------|------|
 | 用户端 | feat/user-workspace | 五个财税工具打磨 | 待开始 |
-| 管理端 | feat/admin-ops | — | 空闲 |
+| 管理端 | feat/admin-ops | 留言读取权限 | 进行中 |
 | 安全 | fix/security-hardening | — | 空闲 |
 
 ## AI 开工前必读

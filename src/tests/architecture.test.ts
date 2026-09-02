@@ -561,7 +561,12 @@ describe("product architecture", () => {
     expect(read("admin/index.html")).toContain('value="force_logout"');
     expect(read("admin/admin.js")).toContain("sessions: '在线账号'");
     expect(read("admin/admin.js")).toContain("AdminSessions?.loadSessions");
-    expect(read("admin/admin.js")).toContain("强制下线");
+    expect(read("admin/admin.js")).toContain("rpc/admin_list_feedback");
+    expect(read("admin/admin.js")).toContain("rpc/admin_set_feedback_status");
+    expect(read("admin/admin.js")).toContain("rpc/admin_delete_feedback");
+    expect(read("admin/admin.js")).not.toContain("`feedback?");
+    expect(read("supabase/migrations/202609020022_admin_feedback_rpc.sql")).toContain("admin_list_feedback");
+    expect(read("supabase/migrations/202609020022_admin_feedback_rpc.sql")).not.toMatch(/grant execute on function public.admin_list_feedback\([^\)]*\) to (public|anon)/i);
     expect(read("admin/sessions.js")).toContain("rpc/admin_list_sessions");
     expect(read("admin/sessions.js")).toContain("rpc/admin_force_logout");
     expect(read("admin/sessions.js")).toContain("confirmSensitive");
