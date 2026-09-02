@@ -49,6 +49,8 @@ const RPC_DENY_ANON = [
   "admin_list_activity_logs",
   "admin_overview_stats",
   "admin_write_activity",
+  "admin_list_sessions",
+  "admin_force_logout",
   "get_analytics_summary",
   "get_platform_config_int",
   "admin_list_platform_limits",

@@ -54,6 +54,7 @@
           <button class="side-link" data-page="logs" type="button" title="操作日志"><i aria-hidden="true">志</i><span>操作日志</span></button>
           <p>账号</p>
           <button class="side-link" data-page="users" type="button" title="用户管理"><i aria-hidden="true">户</i><span>用户管理</span></button>
+          <button class="side-link" data-page="sessions" type="button" title="在线账号"><i aria-hidden="true">线</i><span>在线账号</span></button>
           <button class="side-link" data-page="risk" type="button" title="风控台"><i aria-hidden="true">控</i><span>风控台</span></button>
           <button class="side-link" data-page="entitlements" type="button" title="权益一览"><i aria-hidden="true">权</i><span>权益一览</span></button>
           <button class="side-link" data-page="limits" type="button" title="限额配置"><i aria-hidden="true">额</i><span>限额配置</span></button>
@@ -341,6 +342,37 @@
         <div id="users-empty" class="empty-state" hidden>
           <strong id="users-empty-title">没有符合条件的用户。</strong>
           <p id="users-empty-hint" class="hint"></p>
+        </div>
+      </section>
+
+      <section id="sessions-section" hidden>
+        <p class="hint">30 分钟内有活动视为在线。强制下线后对方无法再刷新登录；已发出的短时令牌会在过期前仍可用。不能下线当前这一处后台会话。</p>
+        <div class="users-toolbar">
+          <label class="check-line" for="session-online-only">
+            <input id="session-online-only" type="checkbox" checked>
+            只看在线
+          </label>
+          <span id="sessions-summary" class="hint tight"></span>
+        </div>
+        <div id="sessions-message" class="message" role="status"></div>
+        <div class="table-wrap">
+          <table class="users-table">
+            <thead>
+              <tr>
+                <th>账号</th>
+                <th>角色</th>
+                <th>状态</th>
+                <th>会话</th>
+                <th>最近活动</th>
+                <th>操作</th>
+              </tr>
+            </thead>
+            <tbody id="sessions-list"></tbody>
+          </table>
+        </div>
+        <div id="sessions-empty" class="empty-state" hidden>
+          <strong>当前没有在线账号。</strong>
+          <p class="hint"></p>
         </div>
       </section>
 
@@ -733,6 +765,7 @@
               <option value="">全部类型</option>
               <option value="set_user_admin">提权/取消管理员</option>
               <option value="set_user_disabled">停用/启用账号</option>
+              <option value="force_logout">强制下线</option>
               <option value="grant_entitlement">发放专业版/试用</option>
               <option value="revoke_entitlement">收回专业版</option>
               <option value="update_platform_limits">改限额</option>
@@ -869,5 +902,6 @@
   <script src="admin-ops.js"></script>
   <script src="risk-console.js"></script>
   <script src="limits.js"></script>
+  <script src="sessions.js"></script>
 </body>
 </html>

@@ -531,4 +531,28 @@ describe("product architecture", () => {
     expect(read("supabase/functions/mfa-recovery/index.ts")).not.toMatch(/sb_secret/i);
     expect(read("supabase/admin-ops.sql")).toContain("202609020018_mfa_recovery_sessions.sql");
   });
+
+  it("lets admins inspect online sessions and force logout", () => {
+    const sql = read("supabase/migrations/202609020019_admin_online_sessions.sql");
+    expect(sql).toContain("admin_list_sessions");
+    expect(sql).toContain("admin_force_logout");
+    expect(sql).toContain("不能下线当前这一处后台会话");
+    expect(sql).toContain("delete from auth.sessions");
+    expect(sql).toContain("grant execute on function public.admin_list_sessions() to authenticated");
+    expect(sql).toContain("grant execute on function public.admin_force_logout(uuid, uuid) to authenticated");
+    expect(sql).not.toMatch(/grant execute on function public.admin_list_sessions\(\) to (public|anon)/i);
+    expect(read("admin/index.html")).toContain('data-page="sessions"');
+    expect(read("admin/index.html")).toContain('id="sessions-section"');
+    expect(read("admin/index.html")).toContain("src=\"sessions.js\"");
+    expect(read("admin/index.html")).toContain('value="force_logout"');
+    expect(read("admin/admin.js")).toContain("sessions: '在线账号'");
+    expect(read("admin/admin.js")).toContain("AdminSessions?.loadSessions");
+    expect(read("admin/admin.js")).toContain("强制下线");
+    expect(read("admin/sessions.js")).toContain("rpc/admin_list_sessions");
+    expect(read("admin/sessions.js")).toContain("rpc/admin_force_logout");
+    expect(read("admin/sessions.js")).toContain("confirmSensitive");
+    expect(read("admin/sessions.js")).not.toMatch(/service[_-]?role|sb_secret/i);
+    expect(read("admin/admin-ops.js")).toContain("force_logout: '强制下线'");
+    expect(read("supabase/admin-ops.sql")).toContain("202609020019_admin_online_sessions.sql");
+  });
 });

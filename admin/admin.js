@@ -543,10 +543,10 @@ function logout() {
   recordAdminAuth('logout').then(finish, finish);
 }
 
-const pageTitles = { overview: '工作台', analytics: '访问统计', users: '用户管理', risk: '风控台', feedback: '用户留言', intents: '购买意向', promotions: '生产折扣', announcements: '站点公告', entitlements: '权益一览', limits: '限额配置', logs: '操作日志' };
+const pageTitles = { overview: '工作台', analytics: '访问统计', users: '用户管理', sessions: '在线账号', risk: '风控台', feedback: '用户留言', intents: '购买意向', promotions: '生产折扣', announcements: '站点公告', entitlements: '权益一览', limits: '限额配置', logs: '操作日志' };
 
 function switchPage(name) {
-  ['overview', 'analytics', 'users', 'risk', 'feedback', 'intents', 'promotions', 'announcements', 'entitlements', 'limits', 'logs'].forEach((id) => {
+  ['overview', 'analytics', 'users', 'sessions', 'risk', 'feedback', 'intents', 'promotions', 'announcements', 'entitlements', 'limits', 'logs'].forEach((id) => {
     const section = document.getElementById(`${id}-section`);
     if (section) section.hidden = id !== name;
   });
@@ -558,6 +558,7 @@ function switchPage(name) {
   setPageSummary('');
   document.body.classList.remove('sidebar-open');
   if (name === 'users') loadUsers();
+  if (name === 'sessions') window.AdminSessions?.loadSessions?.();
   if (name === 'intents') loadIntents();
   if (name === 'feedback') loadFeedback();
   if (name === 'analytics') {
@@ -1262,11 +1263,15 @@ function renderUsers() {
     disableBtn.className = user.is_disabled ? 'secondary' : 'delete';
     disableBtn.textContent = user.is_disabled ? '启用' : '停用';
     disableBtn.addEventListener('click', () => setUserDisabled(user, !user.is_disabled));
+    const kickBtn = document.createElement('button');
+    kickBtn.className = 'secondary';
+    kickBtn.textContent = '强制下线';
+    kickBtn.addEventListener('click', () => window.AdminSessions?.forceUserById?.(user));
     const detailBtn = document.createElement('button');
     detailBtn.className = 'secondary';
     detailBtn.textContent = '详情';
     detailBtn.addEventListener('click', () => window.AdminOps?.openDossier?.(user.email, user));
-    actions.append(adminBtn, disableBtn, detailBtn);
+    actions.append(adminBtn, disableBtn, kickBtn, detailBtn);
     tr.append(who, role, status, created, seen, actions);
     list.append(tr);
   });
@@ -1537,6 +1542,7 @@ async function refreshAll() {
       window.AdminOps?.loadLogs?.(true),
       window.AdminRisk?.loadRiskConsole?.(),
       window.AdminLimits?.loadLimits?.(),
+      window.AdminSessions?.loadSessions?.(),
     ]);
     await window.AdminOps?.loadOverviewStats?.();
     const page = document.querySelector('.side-link.active')?.dataset.page || 'overview';

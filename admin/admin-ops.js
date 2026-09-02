@@ -60,6 +60,7 @@
   const AUDIT_ACTIONS = {
     set_user_admin: '提权/取消管理员',
     set_user_disabled: '停用/启用账号',
+    force_logout: '强制下线',
     update_platform_limits: '改限额',
     announcement_upsert: '发布/改公告',
     announcement_expire: '停止弹出公告',
@@ -94,6 +95,9 @@
     }
     if (Object.prototype.hasOwnProperty.call(detail, 'disabled')) {
       return { before: detail.disabled ? '正常' : '停用', after: detail.disabled ? '停用' : '正常' };
+    }
+    if (detail.scope === 'session' || detail.scope === 'user' || detail.scope === 'others') {
+      return { before: '仍登录', after: `已下线 ${detail.revoked || 0} 处` };
     }
     if (detail.plan_code) {
       return { before: '', after: `${detail.plan_code}${detail.days ? ` · ${detail.days}天` : ''}` };

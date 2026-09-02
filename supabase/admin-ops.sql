@@ -8,6 +8,7 @@
 -- A-07 限额配置：见 migrations/202608310012_admin_platform_limits.sql（请一并执行）
 -- A-11 账龄分桶边界：见 migrations/202608310015_aging_bucket_bounds.sql
 -- S-17 二次验证恢复码 / 登录设备清单：见 migrations/202609020018_mfa_recovery_sessions.sql
+-- A-12 在线账号与强制下线：见 migrations/202609020019_admin_online_sessions.sql
 
 create table if not exists public.purchase_intent_followups (
   intent_id uuid primary key references public.purchase_intents(id) on delete cascade,
