@@ -16,12 +16,20 @@
     otp_by_ip_last_hour: [
       { ip_hash: 'a1b2c3d4', used: 4, limit_value: 10 },
     ],
+    login_locked: [
+      { subject_type: 'email', subject_key: 'li@example.com', failure_count: 5, locked_until: new Date(Date.now() + 10 * 60 * 1000).toISOString() },
+    ],
+    password_reset_last_hour: [
+      { email_norm: 'li@example.com', used: 2, limit_value: 3 },
+    ],
     limits: {
       registration_success_per_ip_per_day: 3,
       otp_per_email_per_hour: 3,
       otp_per_ip_per_hour: 10,
+      login_failure_max_attempts: 5,
+      password_reset_per_email_per_hour: 3,
     },
-    tables_ready: { registration_ip_log: true, otp_send_log: true },
+    tables_ready: { registration_ip_log: true, otp_send_log: true, login_attempt_state: true, password_reset_log: true },
   };
 
   let riskCache = null;
@@ -75,9 +83,11 @@
       const parts = [];
       if (!ready.registration_ip_log) parts.push('registration_ip_log 未就绪（安全线）');
       if (!ready.otp_send_log) parts.push('otp_send_log 未就绪（安全线）');
+      if (!ready.login_attempt_state) parts.push('login_attempt_state 未就绪（安全线）');
+      if (!ready.password_reset_log) parts.push('password_reset_log 未就绪（安全线）');
       hint.textContent = parts.length
         ? `明细表：${parts.join('；')}。今日新注册与一键停用仍可用。`
-        : 'IP/验证码明细表已就绪。限额来自平台配置（缺省见 COLLAB 默认值）。';
+        : 'IP/验证码/登录冷却明细表已就绪。限额来自平台配置（缺省见 COLLAB 默认值）。';
     }
 
     const users = Array.isArray(d.new_users) ? d.new_users : [];
@@ -153,6 +163,42 @@
       });
       oiBody?.append(tr);
     });
+
+    const locked = Array.isArray(d.login_locked) ? d.login_locked : [];
+    paintRiskEmpty('risk-locked', 'risk-locked-empty', locked.length === 0);
+    const lockedBody = document.getElementById('risk-locked');
+    locked.forEach((row) => {
+      const tr = document.createElement('tr');
+      const type = row.subject_type === 'ip' ? '网络' : '邮箱';
+      const key = row.subject_type === 'ip' ? shortHash(row.subject_key) : (row.subject_key || '—');
+      [type, key, String(row.failure_count ?? 0), fmtTime(row.locked_until)].forEach((text) => {
+        const td = document.createElement('td');
+        td.textContent = text;
+        tr.append(td);
+      });
+      const act = document.createElement('td');
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'secondary';
+      btn.textContent = '解锁';
+      btn.addEventListener('click', () => unlockLogin(row));
+      act.append(btn);
+      tr.append(act);
+      lockedBody?.append(tr);
+    });
+
+    const resets = Array.isArray(d.password_reset_last_hour) ? d.password_reset_last_hour : [];
+    paintRiskEmpty('risk-resets', 'risk-resets-empty', resets.length === 0);
+    const resetBody = document.getElementById('risk-resets');
+    resets.forEach((row) => {
+      const tr = document.createElement('tr');
+      [row.email_norm || '—', String(row.used ?? 0), String(row.limit_value ?? '—')].forEach((text) => {
+        const td = document.createElement('td');
+        td.textContent = text;
+        tr.append(td);
+      });
+      resetBody?.append(tr);
+    });
   }
 
   async function loadRiskConsole() {
@@ -172,6 +218,36 @@
       setMessage(msg, '已刷新。');
     } catch (error) {
       renderRiskConsole(mockRisk);
+      setMessage(msg, error.message || String(error), true);
+    }
+  }
+
+  async function unlockLogin(row) {
+    const label = row?.subject_type === 'ip'
+      ? `网络 ${shortHash(row.subject_key)}`
+      : `邮箱 ${row?.subject_key || ''}`;
+    const ask = window.confirmSensitive || ((text) => Promise.resolve(confirm(text)));
+    if (!(await ask(`解锁登录冷却：${label}。须二次确认并写入操作日志。`))) return;
+    const msg = document.getElementById('risk-message');
+    const isPreview = typeof window.isPreview === 'function' ? window.isPreview() : !/utilora\.github\.io$/i.test(location.hostname);
+    const getSession = window.getSession || (() => null);
+    const request = window.request;
+    if (isPreview && !getSession()) {
+      if (riskCache && Array.isArray(riskCache.login_locked)) {
+        riskCache.login_locked = riskCache.login_locked.filter((item) => !(item.subject_type === row.subject_type && item.subject_key === row.subject_key));
+      }
+      renderRiskConsole(riskCache);
+      setMessage(msg, '预览已解锁，未写入生产。');
+      return;
+    }
+    try {
+      await request('rpc/admin_unlock_login', {
+        method: 'POST',
+        body: JSON.stringify({ p_subject_type: row.subject_type, p_subject_key: row.subject_key }),
+      });
+      setMessage(msg, `已解锁 ${label}`);
+      await loadRiskConsole();
+    } catch (error) {
       setMessage(msg, error.message || String(error), true);
     }
   }

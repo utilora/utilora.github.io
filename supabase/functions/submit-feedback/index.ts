@@ -64,7 +64,7 @@ async function handler(req: Request): Promise<Response> {
       "Content-Type": "application/json",
       Prefer: "return=minimal",
     },
-    body: JSON.stringify({ name, title, message, contact: contact || null, status: "new" }),
+    body: JSON.stringify({ name, title, message, contact: contact || null, status: "new", user_id: user.id }),
   });
   if (!insertRes.ok) {
     return json({ error: "submit_failed", detail: await insertRes.text() }, insertRes.status >= 400 ? insertRes.status : 500);

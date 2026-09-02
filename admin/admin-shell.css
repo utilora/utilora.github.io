@@ -234,5 +234,5 @@ button.linkish:hover{text-decoration:underline}
 .overview-expiring h3{margin:0 0 8px;font-size:14px}
 .overview-expiring ul{margin:0;padding-left:0;list-style:none}
 .overview-expiring li{display:flex;flex-wrap:wrap;gap:4px;padding:4px 0;font-size:13px;color:#475569}
-#dossier-sessions-empty,#dossier-locations-empty{margin:8px 0 0}
+#dossier-sessions-empty,#dossier-locations-empty,#dossier-intents-empty,#dossier-feedback-empty{margin:8px 0 0}
 

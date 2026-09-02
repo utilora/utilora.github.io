@@ -220,9 +220,7 @@ async function recordAdminAuth(eventType) {
 }
 
 function todayISO() {
-  const now = new Date();
-  const local = new Date(now.getTime() - now.getTimezoneOffset() * 60000);
-  return local.toISOString().slice(0, 10);
+  return new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Shanghai' });
 }
 
 function loginErrorText(raw) {
@@ -475,6 +473,13 @@ function paintOverviewExtras() {
   const openIntents = intentsLoadState === 'ok'
     ? intentsCache.filter((row) => (row.follow_status || 'new') !== 'closed').length
     : null;
+  const dueIntents = intentsLoadState === 'ok'
+    ? intentsCache.filter((row) => {
+        if ((row.follow_status || 'new') === 'closed') return false;
+        const due = (row.next_follow_on || '').toString().slice(0, 10);
+        return due && due <= todayISO();
+      }).length
+    : null;
   const set = (id, value) => {
     const el = document.getElementById(id);
     if (el) el.textContent = value == null ? '—' : String(value);
@@ -483,6 +488,7 @@ function paintOverviewExtras() {
   set('overview-signins', signins);
   set('overview-open-intents', openIntents);
   set('todo-intents', openIntents);
+  set('todo-due', dueIntents);
 }
 
 function paginate(rows, page) {
@@ -638,11 +644,28 @@ function renderRows(rows) {
   }
   rows.forEach((row) => {
     const tr = document.createElement('tr');
-    [new Date(row.created_at).toLocaleString(), row.name, row.title, row.message, row.contact || '—'].forEach((value) => {
-      const td = document.createElement('td');
-      td.textContent = value;
-      tr.append(td);
-    });
+    const timeTd = document.createElement('td');
+    timeTd.textContent = new Date(row.created_at).toLocaleString();
+    const nameTd = document.createElement('td');
+    nameTd.textContent = row.name || '—';
+    const accountTd = document.createElement('td');
+    if (row.user_email || row.user_id) {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'linkish';
+      btn.textContent = row.user_email || '已关联';
+      btn.addEventListener('click', () => window.AdminOps?.openDossier?.(row.user_email, row.user_id ? { id: row.user_id, email: row.user_email } : null));
+      accountTd.append(btn);
+    } else {
+      accountTd.textContent = '未关联';
+    }
+    const titleTd = document.createElement('td');
+    titleTd.textContent = row.title || '—';
+    const msgTd = document.createElement('td');
+    msgTd.textContent = row.message || '—';
+    const contactTd = document.createElement('td');
+    contactTd.textContent = row.contact || '—';
+    tr.append(timeTd, nameTd, accountTd, titleTd, msgTd, contactTd);
     const statusTd = document.createElement('td');
     const select = document.createElement('select');
     [['new', '新留言'], ['processing', '处理中'], ['completed', '已完成'], ['closed', '已关闭']].forEach(([value, label]) => {
@@ -1062,6 +1085,10 @@ document.querySelectorAll('[data-page]').forEach((btn) => {
     if (btn.dataset.grantFilter) {
       const filter = document.getElementById('grant-filter');
       if (filter) filter.value = btn.dataset.grantFilter;
+    }
+    if (btn.dataset.intentFilter) {
+      const filter = document.getElementById('intent-follow-filter');
+      if (filter) filter.value = btn.dataset.intentFilter;
     }
     switchPage(btn.dataset.page);
   });
@@ -1486,14 +1513,23 @@ function renderIntents() {
     save.type = 'button';
     save.className = 'secondary';
     save.textContent = '保存';
-    save.addEventListener('click', () => window.AdminOps?.saveIntentFollowup?.(
-      row,
-      select.value,
-      note.value,
-      next.value,
-      result.value,
-      trial.checked
-    ));
+    save.addEventListener('click', async () => {
+      if (trial.checked && !row.trial_granted) {
+        const ok = await window.AdminOps?.issueIntentTrial?.(row);
+        if (!ok) {
+          trial.checked = false;
+          return;
+        }
+      }
+      window.AdminOps?.saveIntentFollowup?.(
+        row,
+        select.value,
+        note.value,
+        next.value,
+        result.value,
+        trial.checked
+      );
+    });
     noteTd.append(note, save);
     tr.append(followTd, nextTd, resultTd, trialTd, noteTd);
     list.append(tr);

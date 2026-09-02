@@ -4,6 +4,7 @@
   const FOLLOW_SQL = 'supabase/migrations/202608310003_admin_intent_followup.sql';
   const ANNOUNCE_SQL = 'supabase/migrations/202608310010_announcements.sql';
   const EXPIRE_SQL = 'supabase/migrations/202608310014_admin_expire_announcement.sql';
+  const FOLLOWTHROUGH_SQL = 'supabase/migrations/202609020023_admin_ops_followthrough.sql';
   const TRIAL_DAYS_DEFAULT = 14;
   const LOG_PAGE = 50;
   let promotionsCache = [];
@@ -17,6 +18,7 @@
   let warnDays = 7;
   let expiringItems = [];
   let dossierDetail = null;
+  let lastPromoImpact = null;
 
   const askConfirm = (summary) => (window.confirmSensitive || ((text) => Promise.resolve(window.confirm(text))))(summary);
 
@@ -77,6 +79,8 @@
     grant_entitlement: '发放专业版/试用',
     revoke_entitlement: '收回专业版',
     intent_followup: '意向跟进',
+    intent_trial_grant: '意向发放试用',
+    unlock_login: '解锁登录冷却',
     promotion_upsert: '改促销',
     login: '登录',
     logout: '登出',
@@ -231,12 +235,78 @@
     if (em) em.textContent = active ? '全员限免开启' : '全员限免已关';
   }
 
+  async function fetchPromotionImpact() {
+    if (isPreview() && !getSession()) {
+      return paintPromoImpact({
+        registered: 3,
+        keep_access: 1,
+        lose_access: 2,
+        items: [
+          { user_id: '2', email: 'li@example.com' },
+          { user_id: '3', email: 'unverified@example.com' },
+        ],
+      });
+    }
+    const response = await request('rpc/admin_promotion_impact', { method: 'POST', body: '{}' });
+    return paintPromoImpact(await response.json());
+  }
+
+  function paintPromoImpact(data) {
+    lastPromoImpact = data || null;
+    const box = document.getElementById('promo-impact');
+    const copy = document.getElementById('promo-impact-copy');
+    const list = document.getElementById('promo-impact-list');
+    if (!box || !list) return data;
+    const lose = Number(data?.lose_access || 0);
+    const keep = Number(data?.keep_access || 0);
+    const total = Number(data?.registered || 0);
+    const items = Array.isArray(data?.items) ? data.items : [];
+    if (copy) {
+      copy.textContent = lose
+        ? `注册 ${total} 人；仍有单独权益 ${keep} 人；将失去入口 ${lose} 人${lose > items.length ? `（列表最多显示 ${items.length} 个邮箱）` : ''}。`
+        : `注册 ${total} 人；关闭后无人失去入口（均有单独权益或订阅）。`;
+    }
+    list.replaceChildren();
+    items.forEach((row) => {
+      const li = document.createElement('li');
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'linkish';
+      btn.textContent = row.email || '—';
+      if (row.email) {
+        btn.addEventListener('click', () => openDossier(row.email, row.user_id ? { id: row.user_id, email: row.email } : null));
+      }
+      li.append(btn);
+      list.append(li);
+    });
+    box.hidden = false;
+    return data;
+  }
+
+  function exportPromoImpact() {
+    const items = Array.isArray(lastPromoImpact?.items) ? lastPromoImpact.items : [];
+    downloadCsv(`utilora-promo-impact-${todayISO()}.csv`, ['邮箱', '用户ID'], items.map((row) => [
+      row.email || '',
+      row.user_id || '',
+    ]));
+  }
+
   async function setLaunchPromo(active) {
     const msg = document.getElementById('promotions-message');
     const row = launchPromoRow();
     const cfg = row?.config || {};
     if (active && !(await askConfirm(`开启全员限免：所有已登录用户可免费使用专业工作台。仍不接入支付。`))) return;
-    if (!active && !(await askConfirm(`关闭全员限免：未单独发放权益的登录用户将不能进入专业工作台。仍不接入支付。`))) return;
+    if (!active) {
+      let impact;
+      try {
+        impact = await fetchPromotionImpact();
+      } catch (error) {
+        setMessage(msg, setupHint(classifyError(error), FOLLOWTHROUGH_SQL) || error.message, true);
+        return;
+      }
+      const lose = Number(impact?.lose_access || 0);
+      if (!(await askConfirm(`关闭全员限免：约 ${lose} 个未单独发放权益的登录用户将不能进入专业工作台。仍不接入支付。`))) return;
+    }
     const payload = {
       p_code: 'pro-launch-free',
       p_name: row?.name || '财务专业版内测限免',
@@ -329,7 +399,9 @@
     title: '专业版内测说明',
     body: '当前内测免费，数据保存在你的浏览器。正式收费前会再通知。',
     is_active: true,
+    starts_at: '2026-08-31T02:00:00Z',
     created_at: '2026-08-31T02:00:00Z',
+    dismiss_count: 2,
   }];
 
   async function loadAnnouncements() {
@@ -359,9 +431,20 @@
 
   function announcementStatus(row) {
     const end = row?.ends_at ? new Date(row.ends_at) : null;
+    const start = row?.starts_at ? new Date(row.starts_at) : null;
     if (end && !Number.isNaN(end.getTime()) && end.getTime() <= Date.now()) return 'expired';
+    if (start && !Number.isNaN(start.getTime()) && start.getTime() > Date.now()) {
+      return row?.is_active ? 'scheduled' : 'off';
+    }
     if (row?.is_active) return 'live';
     return 'off';
+  }
+
+  function announcementStatusLabel(kind) {
+    if (kind === 'live') return '弹出中';
+    if (kind === 'scheduled') return '未到点';
+    if (kind === 'expired') return '已过期';
+    return '未发布';
   }
 
   function renderAnnouncements() {
@@ -386,10 +469,14 @@
       body.textContent = (row.body || '').slice(0, 80);
       const status = document.createElement('td');
       const kind = announcementStatus(row);
-      status.innerHTML = `<span class="status-pill ${kind === 'live' ? 'ok' : 'off'}"></span>`;
-      status.querySelector('span').textContent = kind === 'live' ? '弹出中' : (kind === 'expired' ? '已过期' : '未发布');
+      status.innerHTML = `<span class="status-pill ${kind === 'live' ? 'ok' : kind === 'scheduled' ? 'wait' : 'off'}"></span>`;
+      status.querySelector('span').textContent = announcementStatusLabel(kind);
+      const startTd = document.createElement('td');
+      startTd.textContent = row.starts_at ? formatTime(row.starts_at) : '—';
       const time = document.createElement('td');
       time.textContent = row.ends_at ? formatTime(row.ends_at) : '未设过期';
+      const dismissTd = document.createElement('td');
+      dismissTd.textContent = String(row.dismiss_count ?? 0);
       const actions = document.createElement('td');
       const use = document.createElement('button');
       use.type = 'button';
@@ -407,7 +494,7 @@
         });
         actions.append(stop);
       }
-      tr.append(title, body, status, time, actions);
+      tr.append(title, body, status, startTd, time, dismissTd, actions);
       list.append(tr);
     });
   }
@@ -417,6 +504,7 @@
     document.getElementById('announcement-title').value = row.title || '';
     document.getElementById('announcement-body').value = row.body || '';
     document.getElementById('announcement-active').checked = Boolean(row.is_active);
+    document.getElementById('announcement-start').value = toLocalInput(row.starts_at);
     document.getElementById('announcement-end').value = toLocalInput(row.ends_at);
   }
 
@@ -430,12 +518,13 @@
     event.preventDefault();
     const msg = document.getElementById('announcements-message');
     const id = document.getElementById('announcement-id').value || null;
+    const startVal = document.getElementById('announcement-start')?.value;
     const payload = {
       p_id: id,
       p_title: document.getElementById('announcement-title').value.trim(),
       p_body: document.getElementById('announcement-body').value.trim(),
       p_is_active: document.getElementById('announcement-active').checked,
-      p_starts_at: id ? null : new Date().toISOString(),
+      p_starts_at: startVal ? new Date(startVal).toISOString() : (id ? null : new Date().toISOString()),
       p_ends_at: document.getElementById('announcement-end').value
         ? new Date(document.getElementById('announcement-end').value).toISOString()
         : null,
@@ -682,6 +771,38 @@
     });
   }
 
+  async function issueIntentTrial(row) {
+    const msg = document.getElementById('intents-message');
+    if (!row?.id) {
+      setMessage(msg, '找不到这条购买意向。', true);
+      return false;
+    }
+    if (!row.user_id) {
+      setMessage(msg, '该意向没有绑定注册账号，无法发放试用。', true);
+      return false;
+    }
+    if (!(await askConfirm(`给「${row.email || row.user_id}」按当前试用天数发放专业版试用。已有生效权益则只记已发、不再重复发放。须二次确认并写入操作日志。`))) {
+      return false;
+    }
+    if (isPreview() && !getSession()) {
+      setMessage(msg, '预览已标记发放试用，未写入生产。');
+      return true;
+    }
+    try {
+      const response = await request('rpc/admin_issue_intent_trial', {
+        method: 'POST',
+        body: JSON.stringify({ p_intent_id: row.id }),
+      });
+      const data = await response.json();
+      if (data?.skipped) setMessage(msg, '该账号已有生效权益，已记为已发试用，未重复发放。');
+      else setMessage(msg, `已发放 ${data?.days || TRIAL_DAYS_DEFAULT} 天试用`);
+      return true;
+    } catch (error) {
+      setMessage(msg, setupHint(classifyError(error), FOLLOWTHROUGH_SQL) || error.message, true);
+      return false;
+    }
+  }
+
   async function saveIntentFollowup(row, status, note, nextFollowOn, result, trialGranted) {
     const msg = document.getElementById('intents-message');
     if (isPreview() && !getSession()) {
@@ -726,6 +847,7 @@
           days_left: grantState(row).days,
         }));
       fill('todo-expiring', expiringItems.length);
+      fill('todo-due', 1);
       paintExpiringList();
       paintOverviewExtras();
       return;
@@ -739,6 +861,7 @@
       fill('overview-feedback', data.new_feedback ?? '—');
       fill('todo-feedback', data.new_feedback ?? '—');
       fill('todo-intents', data.open_intents ?? '—');
+      fill('todo-due', data.due_intents ?? '—');
       fill('todo-risk', data.abnormal_registrations_today ?? '—');
       warnDays = Number(data.trial_expiry_warn_days) || 7;
       expiringItems = Array.isArray(data.expiring_items) ? data.expiring_items : [];
@@ -997,6 +1120,62 @@
     ]);
   }
 
+  function paintDossierProfile(profile) {
+    fillDl(document.getElementById('dossier-profile'), [
+      ['称呼', profile?.display_name || '—'],
+      ['公司', profile?.company || '—'],
+      ['职务', profile?.title || '—'],
+      ['城市', profile?.city || '—'],
+      ['简介', profile?.bio || '—'],
+    ]);
+  }
+
+  function paintDossierCooldown(cooldown) {
+    const el = document.getElementById('dossier-cooldown');
+    if (!el) return;
+    if (!cooldown) {
+      el.textContent = '';
+      return;
+    }
+    if (cooldown.locked) {
+      el.textContent = `登录冷却中，失败 ${cooldown.failure_count ?? '—'} 次，解锁时间 ${formatTime(cooldown.locked_until)}。可到风控台解锁。`;
+      return;
+    }
+    el.textContent = cooldown.failure_count
+      ? `最近连续失败 ${cooldown.failure_count} 次，当前未锁。`
+      : '';
+  }
+
+  function paintSimpleList(listId, emptyId, rows, format) {
+    const list = document.getElementById(listId);
+    const empty = document.getElementById(emptyId);
+    if (!list) return;
+    list.replaceChildren();
+    const items = Array.isArray(rows) ? rows : [];
+    if (empty) empty.hidden = items.length > 0;
+    items.forEach((row) => {
+      const li = document.createElement('li');
+      li.textContent = format(row);
+      list.append(li);
+    });
+  }
+
+  const followLabels = { new: '未联系', contacted: '已联系', follow_up: '待回访', closed: '已关闭' };
+  const feedbackLabels = { new: '新留言', processing: '处理中', completed: '已完成', closed: '已关闭' };
+
+  function paintDossierRelatedLists(extra) {
+    paintSimpleList('dossier-intents', 'dossier-intents-empty', extra?.intents, (row) => {
+      const follow = followLabels[row.follow_status] || row.follow_status || '未联系';
+      const due = row.next_follow_on ? ` · 下次 ${(row.next_follow_on || '').toString().slice(0, 10)}` : '';
+      const trial = row.trial_granted ? ' · 已发试用' : '';
+      return `${row.use_case || '意向'} · ${follow}${due}${trial} · ${formatTime(row.created_at)}`;
+    });
+    paintSimpleList('dossier-feedback', 'dossier-feedback-empty', extra?.feedback, (row) => {
+      const status = feedbackLabels[row.status] || row.status || '新留言';
+      return `${row.title || '留言'} · ${status} · ${formatTime(row.created_at)}`;
+    });
+  }
+
   function paintDossierSessions(sessions) {
     const body = document.getElementById('dossier-sessions');
     const empty = document.getElementById('dossier-sessions-empty');
@@ -1063,8 +1242,15 @@
         ],
         locations: [{ network: 'a1b2c3d4', first_seen: '2026-08-01T08:00:00Z', last_seen: new Date().toISOString() }],
         grants: (grantsCache || []).filter((row) => row.email === dossierEmail),
+        profile: { display_name: dossierUser?.name || '李然', company: '示例工作室', title: '记账', city: '上海', bio: '预览资料' },
+        intents: [{ id: 'i1', email: dossierEmail, use_case: '银行流水', created_at: '2026-08-20T08:00:00Z', follow_status: 'follow_up', next_follow_on: '2026-08-31', trial_granted: false }],
+        feedback: [{ id: 'f1', created_at: '2026-08-30T08:00:00Z', name: dossierUser?.name || '李然', title: '想导出对账单', status: 'new' }],
+        cooldown: { subject_type: 'email', failure_count: 2, locked_until: null, locked: false },
       };
       paintDossierAccount(dossierUser, dossierDetail);
+      paintDossierProfile(dossierDetail.profile);
+      paintDossierCooldown(dossierDetail.cooldown);
+      paintDossierRelatedLists(dossierDetail);
       paintDossierSessions(dossierDetail.sessions);
       paintDossierLocations(dossierDetail.locations);
       paintDossierGrants(dossierEmail);
@@ -1082,6 +1268,9 @@
         setGrantFormVisible(true);
       }
       paintDossierAccount(dossierUser, dossierDetail);
+      paintDossierProfile(dossierDetail.profile);
+      paintDossierCooldown(dossierDetail.cooldown);
+      paintDossierRelatedLists(dossierDetail);
       paintDossierSessions(dossierDetail.sessions);
       paintDossierLocations(dossierDetail.locations);
       paintDossierGrants(dossierEmail);
@@ -1114,6 +1303,9 @@
     panel.hidden = false;
     document.getElementById('dossier-title').textContent = email;
     paintDossierAccount(found, null);
+    paintDossierProfile(null);
+    paintDossierCooldown(null);
+    paintDossierRelatedLists(null);
     document.getElementById('dossier-meta').textContent = found?.id ? '来自用户管理、会话与最近日志' : '正在按邮箱匹配注册用户。';
     resetGrantForm();
     setGrantFormVisible(Boolean(found?.id));
@@ -1188,8 +1380,9 @@
       return;
     }
     if (kind === 'feedback') {
-      downloadCsv(`utilora-feedback-${stamp}.csv`, ['时间', '称呼', '功能', '说明', '联系方式', '状态'], (feedbackCache || []).map((row) => [
+      downloadCsv(`utilora-feedback-${stamp}.csv`, ['时间', '提交账号', '称呼', '功能', '说明', '联系方式', '状态'], (feedbackCache || []).map((row) => [
         row.created_at || '',
+        row.user_email || '',
         row.name || '',
         row.title || '',
         row.message || '',
@@ -1257,6 +1450,7 @@
   document.getElementById('announcement-reset')?.addEventListener('click', resetAnnouncementForm);
   document.getElementById('launch-promo-off')?.addEventListener('click', () => setLaunchPromo(false));
   document.getElementById('launch-promo-on')?.addEventListener('click', () => setLaunchPromo(true));
+  document.getElementById('export-promo-impact')?.addEventListener('click', exportPromoImpact);
   document.getElementById('grant-search')?.addEventListener('input', renderEntitlements);
   document.getElementById('grant-filter')?.addEventListener('change', renderEntitlements);
   document.getElementById('logs-filter-form')?.addEventListener('submit', (event) => {
@@ -1323,6 +1517,7 @@
     loadLogs,
     loadOverviewStats,
     saveIntentFollowup,
+    issueIntentTrial,
     openDossier,
     closeDossier,
     grantEntitlement,
