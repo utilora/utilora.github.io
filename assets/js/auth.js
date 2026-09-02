@@ -206,7 +206,7 @@
   const parseJson = async (response) => {
     const data = await response.json().catch(() => ({}));
     if (!response.ok) {
-      const error = new Error(data.msg || data.error_description || data.error || data.message || "请求失败");
+      const error = new Error(data.msg || data.error_description || data.error || data.message || `请求失败（${response.status}）`);
       error.code = data.error_code || data.code || data.error;
       error.status = response.status;
       throw error;
@@ -474,8 +474,15 @@
   const verifiedTotp = (factors) => (factors || []).find((factor) => isTotpFactor(factor) && factor.status === "verified");
 
   const listFactors = async (token) => {
-    const data = await request("/auth/v1/factors", { headers: headers(token) }, 1);
-    return normalizeFactors(data);
+    const user = await request("/auth/v1/user", { headers: headers(token) }, 1);
+    if (user && Array.isArray(user.factors)) return user.factors;
+    try {
+      const data = await request("/auth/v1/factors", { headers: headers(token) }, 1);
+      return normalizeFactors(data);
+    } catch (error) {
+      if (error && (error.status === 404 || error.status === 405)) return [];
+      throw error;
+    }
   };
 
   const assembleSession = async (payload) => {
@@ -667,6 +674,13 @@
     }
   };
 
+  const totpQrSrc = (raw) => {
+    const value = String(raw || "");
+    if (!value) return "";
+    if (/^(data:|https:)/i.test(value)) return value;
+    return "data:image/svg+xml;charset=utf-8," + encodeURIComponent(value);
+  };
+
   const startMfaEnroll = async () => {
     const session = await refreshIfNeeded();
     if (!session) throw new Error("请先登录");
@@ -680,11 +694,13 @@
         }).catch(() => {});
       }
     }
-    return request("/auth/v1/factors", {
+    const data = await request("/auth/v1/factors", {
       method: "POST",
       headers: headers(session.access_token),
       body: JSON.stringify({ factor_type: "totp", friendly_name: "Utilora" }),
     });
+    if (data && data.totp) data.totp.qr_code = totpQrSrc(data.totp.qr_code);
+    return data;
   };
 
   const confirmMfaEnroll = async (factorId, code) => {

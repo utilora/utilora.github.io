@@ -518,6 +518,10 @@ describe("product architecture", () => {
     expect(read("assets/js/auth.js")).toContain("functions/v1/mfa-recovery");
     expect(read("assets/js/auth.js")).toContain("redeemRecoveryCode");
     expect(read("assets/js/auth.js")).toContain("listMySessions");
+    expect(read("assets/js/auth.js")).toContain('request("/auth/v1/user"');
+    expect(read("assets/js/auth.js")).toContain("totpQrSrc");
+    expect(read("admin/admin.js")).toContain("/auth/v1/user");
+    expect(read("supabase/functions/mfa-recovery/index.ts")).toContain("/auth/v1/user");
     expect(read("login/login.js")).toContain('mode === "recovery"');
     expect(read("login/index.html")).toContain("toggle-recovery-code");
     expect(read("account/index.html")).toContain("recovery-once");

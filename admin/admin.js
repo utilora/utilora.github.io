@@ -263,10 +263,10 @@ function totpFromFactors(data) {
 }
 
 async function listAdminTotp(token) {
-  const response = await fetch(`${SUPABASE_CONFIG.url}/auth/v1/factors`, { headers: adminAuthHeaders(token) });
+  const response = await fetch(`${SUPABASE_CONFIG.url}/auth/v1/user`, { headers: adminAuthHeaders(token) });
   const data = await response.json().catch(() => ({}));
   if (!response.ok) return null;
-  return totpFromFactors(data);
+  return totpFromFactors(data.factors || data);
 }
 
 async function verifyAdminTotp(token, factorId, code) {

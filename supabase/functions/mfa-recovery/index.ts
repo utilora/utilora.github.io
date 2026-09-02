@@ -59,17 +59,11 @@ async function authUser(token: string, apiUrl: string, anonKey: string) {
 }
 
 async function listTotpFactors(token: string, apiUrl: string, anonKey: string) {
-  const res = await fetch(`${apiUrl}/auth/v1/factors`, {
+  const res = await fetch(`${apiUrl}/auth/v1/user`, {
     headers: { apikey: anonKey, Authorization: `Bearer ${token}` },
   });
   const data = res.ok ? await res.json().catch(() => ({})) : {};
-  const list = Array.isArray(data)
-    ? data
-    : [
-        ...(Array.isArray(data?.totp) ? data.totp : []),
-        ...(Array.isArray(data?.all) ? data.all : []),
-        ...(Array.isArray(data?.factors) ? data.factors : []),
-      ];
+  const list = Array.isArray(data?.factors) ? data.factors : [];
   return list.filter((factor: { factor_type?: string; type?: string; status?: string }) => {
     const type = String(factor.factor_type || factor.type || "");
     return type === "totp" && factor.status === "verified";
