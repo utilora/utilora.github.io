@@ -549,10 +549,10 @@ function logout() {
   recordAdminAuth('logout').then(finish, finish);
 }
 
-const pageTitles = { overview: '工作台', analytics: '访问统计', users: '用户管理', sessions: '在线账号', risk: '风控台', feedback: '用户留言', intents: '购买意向', promotions: '生产折扣', announcements: '站点公告', entitlements: '权益一览', limits: '限额配置', logs: '操作日志' };
+const pageTitles = { overview: '工作台', analytics: '访问统计', users: '用户管理', sessions: '在线账号', risk: '风控台', feedback: '用户留言', intents: '购买意向', promotions: '生产折扣', announcements: '站点公告', entitlements: '权益一览', invites: '邀请记录', limits: '限额配置', logs: '操作日志' };
 
 function switchPage(name) {
-  ['overview', 'analytics', 'users', 'sessions', 'risk', 'feedback', 'intents', 'promotions', 'announcements', 'entitlements', 'limits', 'logs'].forEach((id) => {
+  ['overview', 'analytics', 'users', 'sessions', 'risk', 'feedback', 'intents', 'promotions', 'announcements', 'entitlements', 'invites', 'limits', 'logs'].forEach((id) => {
     const section = document.getElementById(`${id}-section`);
     if (section) section.hidden = id !== name;
   });
@@ -567,6 +567,7 @@ function switchPage(name) {
   if (name === 'sessions') window.AdminSessions?.loadSessions?.();
   if (name === 'intents') loadIntents();
   if (name === 'feedback') loadFeedback();
+  if (name === 'invites') window.AdminInvites?.loadInvites?.();
   if (name === 'analytics') {
     loadAnalytics();
     window.AdminOps?.loadFunnel?.();
@@ -673,16 +674,54 @@ function renderRows(rows) {
     });
     select.addEventListener('change', () => updateStatus(row.id, select.value));
     statusTd.append(select);
-    tr.append(statusTd);
+    const handlerTd = document.createElement('td');
+    handlerTd.textContent = row.handler_email || '未认领';
+    const noteTd = document.createElement('td');
+    const note = document.createElement('input');
+    note.type = 'text';
+    note.maxLength = 500;
+    note.value = row.admin_note || '';
+    note.placeholder = '内部备注，用户看不到';
+    const saveNote = document.createElement('button');
+    saveNote.type = 'button';
+    saveNote.className = 'secondary';
+    saveNote.textContent = '保存';
+    saveNote.addEventListener('click', () => saveFeedbackFollowup(row.id, select.value, note.value, false));
+    noteTd.append(note, saveNote);
+    tr.append(statusTd, handlerTd, noteTd);
     const actionTd = document.createElement('td');
+    const claim = document.createElement('button');
+    claim.type = 'button';
+    claim.className = 'secondary';
+    claim.textContent = row.handler_id ? '改认领' : '认领';
+    claim.addEventListener('click', () => saveFeedbackFollowup(row.id, select.value, note.value, true));
     const button = document.createElement('button');
     button.className = 'delete';
     button.textContent = '删除';
     button.addEventListener('click', () => deleteFeedback(row.id, row.title));
-    actionTd.append(button);
+    actionTd.append(claim, button);
     tr.append(actionTd);
     feedbackList.append(tr);
   });
+}
+
+async function saveFeedbackFollowup(id, status, note, claim) {
+  try {
+    await request('rpc/admin_set_feedback_followup', {
+      method: 'POST',
+      body: JSON.stringify({
+        p_id: id,
+        p_status: status || null,
+        p_note: note == null ? null : String(note),
+        p_claim: Boolean(claim),
+      }),
+    });
+    setMessage(managerMessage, claim ? '已认领并保存' : '备注已保存');
+    await loadFeedback();
+  } catch (error) {
+    setMessage(managerMessage, error.message, true);
+    await loadFeedback();
+  }
 }
 
 async function updateStatus(id, status) {
@@ -1209,7 +1248,7 @@ const mockIntents = [
   { id: 'i2', email: 'finance@example.com', use_case: '应收回款', company_size: '11-50', intended_plan: 'pro', created_at: '2026-08-22T11:20:00Z', follow_status: 'contacted', follow_note: '已电话确认', next_follow_on: '2026-09-05', follow_result: 'interested', trial_granted: true },
 ];
 const mockFeedback = [
-  { id: 'f1', created_at: '2026-08-28T09:12:00Z', name: '林青', title: '银行导入', message: '导入预览后想批量确认匹配。', contact: 'qing@example.com', status: 'new' },
+  { id: 'f1', created_at: '2026-08-28T09:12:00Z', name: '林青', title: '银行导入', message: '导入预览后想批量确认匹配。', contact: 'qing@example.com', status: 'new', admin_note: '', handler_email: null },
   { id: 'f2', created_at: '2026-08-21T14:40:00Z', name: '周敏', title: '月结导出', message: '希望月底导出能带上未匹配流水。', contact: 'min@example.com', status: 'processing' },
 ];
 
@@ -1287,13 +1326,17 @@ function renderUsers() {
     seen.textContent = formatTime(user.last_sign_in_at);
     const actions = document.createElement('td');
     actions.className = 'row-actions';
+    const adminCount = usersCache.filter((row) => row.is_admin && !row.is_disabled).length;
+    const self = user.id === currentAdminId();
     const adminBtn = document.createElement('button');
     adminBtn.className = 'secondary';
     adminBtn.textContent = user.is_admin ? '取消管理员' : '设为管理员';
+    adminBtn.disabled = Boolean(user.is_admin && (self || adminCount <= 1));
     adminBtn.addEventListener('click', () => setUserAdmin(user, !user.is_admin));
     const disableBtn = document.createElement('button');
     disableBtn.className = user.is_disabled ? 'secondary' : 'delete';
     disableBtn.textContent = user.is_disabled ? '启用' : '停用';
+    disableBtn.disabled = Boolean(!user.is_disabled && (self || (user.is_admin && adminCount <= 1)));
     disableBtn.addEventListener('click', () => setUserDisabled(user, !user.is_disabled));
     const kickBtn = document.createElement('button');
     kickBtn.className = 'secondary';
@@ -1376,6 +1419,8 @@ async function setUserDisabled(user, disabled) {
     setMessage(document.getElementById('users-message'), error.message, true);
   }
 }
+
+window.AdminUsers = { setUserAdmin, setUserDisabled };
 
 function updateOverview() {
   const views = document.getElementById('total-views')?.textContent;
@@ -1584,6 +1629,7 @@ async function refreshAll() {
       window.AdminRisk?.loadRiskConsole?.(),
       window.AdminLimits?.loadLimits?.(),
       window.AdminSessions?.loadSessions?.(),
+      window.AdminInvites?.loadInvites?.(),
     ]);
     await window.AdminOps?.loadOverviewStats?.();
     const page = document.querySelector('.side-link.active')?.dataset.page || 'overview';
@@ -1593,6 +1639,18 @@ async function refreshAll() {
   }
 }
 
+document.getElementById('overview-find')?.addEventListener('submit', (event) => {
+  event.preventDefault();
+  const email = (document.getElementById('overview-email')?.value || '').trim();
+  const msg = document.getElementById('overview-find-message');
+  if (!email.includes('@')) {
+    setMessage(msg, '请输入注册邮箱。', true);
+    return;
+  }
+  const user = usersCache.find((row) => (row.email || '').toLowerCase() === email.toLowerCase()) || null;
+  setMessage(msg, '');
+  window.AdminOps?.openDossier?.(user?.email || email, user);
+});
 document.getElementById('user-search')?.addEventListener('input', () => { usersPage = 1; renderUsers(); });
 document.getElementById('user-role-filter')?.addEventListener('change', () => { usersPage = 1; renderUsers(); });
 document.getElementById('user-status-filter')?.addEventListener('change', () => { usersPage = 1; renderUsers(); });

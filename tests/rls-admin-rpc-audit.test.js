@@ -30,6 +30,7 @@ const TABLES_DENY_ANON = [
   "login_locations",
   "mfa_recovery_codes",
   "mfa_recovery_attempts",
+  "invites",
 ];
 
 const RPC_DENY_ANON = [
@@ -59,6 +60,9 @@ const RPC_DENY_ANON = [
   "admin_promotion_impact",
   "admin_unlock_login",
   "admin_risk_console",
+  "admin_set_feedback_followup",
+  "admin_list_new_login_locations",
+  "admin_list_invites",
   "get_analytics_summary",
   "get_platform_config_int",
   "admin_list_platform_limits",

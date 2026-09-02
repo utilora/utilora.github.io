@@ -189,6 +189,8 @@ tr.session-child td:first-child{padding-left:28px}
 .filter-actions{flex-wrap:wrap}
 .check{display:flex;align-items:center;gap:8px;font-size:13px}
 #intents-list input[type=text]{min-width:140px;margin-right:8px}
+#feedback-list input[type=text]{min-width:140px;margin-right:8px}
+#feedback-section .table-wrap table{min-width:1280px}
 #intents-section .table-wrap table{min-width:1180px}
 #intents-list input[type=date]{min-width:138px}
 #intents-list .check{white-space:nowrap}

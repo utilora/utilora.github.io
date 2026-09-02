@@ -22,6 +22,9 @@
     password_reset_last_hour: [
       { email_norm: 'li@example.com', used: 2, limit_value: 3 },
     ],
+    new_locations_today: [
+      { user_id: '2', email: 'li@example.com', network: 'a1b2c3d4', first_seen: '2026-08-31T03:00:00Z', last_seen: '2026-08-31T03:00:00Z' },
+    ],
     limits: {
       registration_success_per_ip_per_day: 3,
       otp_per_email_per_hour: 3,
@@ -29,7 +32,7 @@
       login_failure_max_attempts: 5,
       password_reset_per_email_per_hour: 3,
     },
-    tables_ready: { registration_ip_log: true, otp_send_log: true, login_attempt_state: true, password_reset_log: true },
+    tables_ready: { registration_ip_log: true, otp_send_log: true, login_attempt_state: true, password_reset_log: true, login_locations: true },
   };
 
   let riskCache = null;
@@ -85,6 +88,7 @@
       if (!ready.otp_send_log) parts.push('otp_send_log 未就绪（安全线）');
       if (!ready.login_attempt_state) parts.push('login_attempt_state 未就绪（安全线）');
       if (!ready.password_reset_log) parts.push('password_reset_log 未就绪（安全线）');
+      if (!ready.login_locations) parts.push('login_locations 未就绪（安全线）');
       hint.textContent = parts.length
         ? `明细表：${parts.join('；')}。今日新注册与一键停用仍可用。`
         : 'IP/验证码/登录冷却明细表已就绪。限额来自平台配置（缺省见 COLLAB 默认值）。';
@@ -199,6 +203,31 @@
       });
       resetBody?.append(tr);
     });
+
+    const locations = Array.isArray(d.new_locations_today) ? d.new_locations_today : [];
+    paintRiskEmpty('risk-new-locations', 'risk-new-locations-empty', locations.length === 0);
+    const locBody = document.getElementById('risk-new-locations');
+    locations.forEach((row) => {
+      const tr = document.createElement('tr');
+      const emailTd = document.createElement('td');
+      if (row.email) {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'linkish';
+        btn.textContent = row.email;
+        btn.addEventListener('click', () => window.AdminOps?.openDossier?.(row.email, row.user_id ? { id: row.user_id, email: row.email } : null));
+        emailTd.append(btn);
+      } else {
+        emailTd.textContent = '—';
+      }
+      tr.append(emailTd);
+      [row.network || '—', fmtTime(row.first_seen), fmtTime(row.last_seen)].forEach((text) => {
+        const td = document.createElement('td');
+        td.textContent = text;
+        tr.append(td);
+      });
+      locBody?.append(tr);
+    });
   }
 
   async function loadRiskConsole() {
@@ -214,6 +243,12 @@
     try {
       const response = await request('rpc/admin_risk_console', { method: 'POST', body: '{}' });
       const data = await response.json();
+      try {
+        const locRes = await request('rpc/admin_list_new_login_locations', { method: 'POST', body: '{}' });
+        data.new_locations_today = await locRes.json();
+      } catch {
+        data.new_locations_today = data.new_locations_today || [];
+      }
       renderRiskConsole(data);
       setMessage(msg, '已刷新。');
     } catch (error) {

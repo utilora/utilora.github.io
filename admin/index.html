@@ -57,6 +57,7 @@
           <button class="side-link" data-page="sessions" type="button" title="在线账号"><i aria-hidden="true">线</i><span>在线账号</span></button>
           <button class="side-link" data-page="risk" type="button" title="风控台"><i aria-hidden="true">控</i><span>风控台</span></button>
           <button class="side-link" data-page="entitlements" type="button" title="权益一览"><i aria-hidden="true">权</i><span>权益一览</span></button>
+          <button class="side-link" data-page="invites" type="button" title="邀请记录"><i aria-hidden="true">邀</i><span>邀请记录</span></button>
           <button class="side-link" data-page="limits" type="button" title="限额配置"><i aria-hidden="true">额</i><span>限额配置</span></button>
         </nav>
         <div class="side-foot">
@@ -168,6 +169,16 @@
                 <em>未关闭的购买意向</em>
               </button>
             </div>
+            <form id="overview-find" class="filters">
+              <div>
+                <label for="overview-email">打开用户档案</label>
+                <input id="overview-email" type="search" placeholder="输入注册邮箱" autocomplete="off">
+              </div>
+              <div class="filter-actions">
+                <button type="submit">打开档案</button>
+              </div>
+            </form>
+            <p id="overview-find-message" class="message" role="status"></p>
             <p class="hint">支付未接通。财务数据仍在本地，管理端不改账本。</p>
           </section>
 
@@ -428,6 +439,8 @@
                 <th>详细说明</th>
                 <th>联系方式</th>
                 <th>状态</th>
+                <th>处理人</th>
+                <th>内部备注</th>
                 <th>操作</th>
               </tr>
             </thead>
@@ -686,6 +699,33 @@
         </div>
       </section>
 
+      <section id="invites-section" hidden>
+        <p id="invites-ui-state" class="hint">邀请对用户默认关闭。支付接通前不能打开，也不会入账。</p>
+        <div class="users-toolbar">
+          <button type="button" class="secondary" id="export-invites">导出 CSV</button>
+        </div>
+        <div id="invites-message" class="message" role="status"></div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>邀请人</th>
+                <th>被邀请人</th>
+                <th>邀请码</th>
+                <th>状态</th>
+                <th>绑定时间</th>
+                <th>入账时间</th>
+              </tr>
+            </thead>
+            <tbody id="invites-list"></tbody>
+          </table>
+        </div>
+        <div id="invites-empty" class="empty-state" hidden>
+          <strong>还没有邀请记录。</strong>
+          <p class="hint">支付接通前不对用户展示邀请，这里只预埋查询。入账要等真实付款，不会在这里点按钮发奖励。</p>
+        </div>
+      </section>
+
       <section id="limits-section" hidden>
         <p class="hint">数量类限额全部在这里改，保存后立即生效。运营策略（匹配日期接近天数、匹配金额容差、备份过期天数）与账龄分桶单独成组；账龄须满足 0 < 桶1 < 桶2 < 桶3 ≤ 365，保存后新打开的账龄视图采用新边界。非法值会拒绝保存。改限额须二次确认并写入操作日志。邀请奖励月数可配，但支付接通前不对用户展示邀请。</p>
         <div id="limits-message" class="message" role="status"></div>
@@ -813,6 +853,25 @@
           <strong>近 1 小时没有找回密码请求。</strong>
           <p class="hint">依赖安全线表 password_reset_log。</p>
         </div>
+        <h3>今日新地点登录</h3>
+        <p class="hint">上海自然日内首次出现的哈希网络。仅保存网络标识，不含明文 IP。</p>
+        <div class="table-wrap analytics-table">
+          <table>
+            <thead>
+              <tr>
+                <th>邮箱</th>
+                <th>网络</th>
+                <th>首次</th>
+                <th>最近</th>
+              </tr>
+            </thead>
+            <tbody id="risk-new-locations"></tbody>
+          </table>
+        </div>
+        <div id="risk-new-locations-empty" class="empty-state" hidden>
+          <strong>今日没有新地点登录。</strong>
+          <p class="hint">依赖安全线表 login_locations。</p>
+        </div>
       </section>
 
       <section id="logs-section" hidden>
@@ -844,6 +903,9 @@
               <option value="announcement_expire">停止弹出公告</option>
               <option value="promotion_upsert">改促销</option>
               <option value="intent_followup">意向跟进</option>
+              <option value="intent_trial_grant">意向发放试用</option>
+              <option value="feedback_followup">留言跟进</option>
+              <option value="unlock_login">解锁登录冷却</option>
               <option value="intent_trial_grant">意向发放试用</option>
               <option value="unlock_login">解锁登录冷却</option>
               <option value="login">login</option>
@@ -910,6 +972,10 @@
         <p id="dossier-message" class="message" role="status"></p>
         <h3>账号</h3>
         <dl id="dossier-account" class="dossier-dl"></dl>
+        <div id="dossier-account-actions" class="row-actions" hidden>
+          <button id="dossier-toggle-admin" class="secondary" type="button">设为管理员</button>
+          <button id="dossier-toggle-disabled" class="delete" type="button">停用</button>
+        </div>
         <h3>资料</h3>
         <dl id="dossier-profile" class="dossier-dl"></dl>
         <p id="dossier-cooldown" class="hint"></p>
@@ -1005,6 +1071,7 @@
   <script src="admin.js"></script>
   <script src="admin-ops.js"></script>
   <script src="risk-console.js"></script>
+  <script src="invites.js"></script>
   <script src="limits.js"></script>
   <script src="sessions.js"></script>
 </body>

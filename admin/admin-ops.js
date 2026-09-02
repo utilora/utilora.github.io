@@ -5,6 +5,7 @@
   const ANNOUNCE_SQL = 'supabase/migrations/202608310010_announcements.sql';
   const EXPIRE_SQL = 'supabase/migrations/202608310014_admin_expire_announcement.sql';
   const FOLLOWTHROUGH_SQL = 'supabase/migrations/202609020023_admin_ops_followthrough.sql';
+  const CRM_SQL = 'supabase/migrations/202609020024_admin_ops_crm_invite.sql';
   const TRIAL_DAYS_DEFAULT = 14;
   const LOG_PAGE = 50;
   let promotionsCache = [];
@@ -80,6 +81,7 @@
     revoke_entitlement: '收回专业版',
     intent_followup: '意向跟进',
     intent_trial_grant: '意向发放试用',
+    feedback_followup: '留言跟进',
     unlock_login: '解锁登录冷却',
     promotion_upsert: '改促销',
     login: '登录',
@@ -777,7 +779,7 @@
       setMessage(msg, '找不到这条购买意向。', true);
       return false;
     }
-    if (!row.user_id) {
+    if (!row.user_id && !row.email) {
       setMessage(msg, '该意向没有绑定注册账号，无法发放试用。', true);
       return false;
     }
@@ -1118,6 +1120,30 @@
       ['二次验证', extra ? (extra.mfa_enabled ? '已开启' : '未开启') : '加载中'],
       ['试用到期', state ? `${planLabel(grant.plan_code)} · ${state.label}` : '无单独授予'],
     ]);
+    paintDossierAccountActions(found || extra?.user);
+  }
+
+  function paintDossierAccountActions(user) {
+    const box = document.getElementById('dossier-account-actions');
+    const adminBtn = document.getElementById('dossier-toggle-admin');
+    const disableBtn = document.getElementById('dossier-toggle-disabled');
+    if (!box || !adminBtn || !disableBtn) return;
+    const row = user || dossierUser;
+    if (!row?.id) {
+      box.hidden = true;
+      return;
+    }
+    box.hidden = false;
+    const isAdmin = Boolean(row.is_admin);
+    const disabled = Boolean(row.is_disabled);
+    const self = row.id === (typeof currentAdminId === 'function' ? currentAdminId() : '');
+    const adminCount = (typeof usersCache !== 'undefined' ? usersCache : [])
+      .filter((item) => item.is_admin && !item.is_disabled).length;
+    adminBtn.textContent = isAdmin ? '取消管理员' : '设为管理员';
+    adminBtn.disabled = Boolean(isAdmin && (self || adminCount <= 1));
+    disableBtn.textContent = disabled ? '启用' : '停用';
+    disableBtn.className = disabled ? 'secondary' : 'delete';
+    disableBtn.disabled = Boolean(!disabled && (self || (isAdmin && adminCount <= 1)));
   }
 
   function paintDossierProfile(profile) {
@@ -1380,7 +1406,7 @@
       return;
     }
     if (kind === 'feedback') {
-      downloadCsv(`utilora-feedback-${stamp}.csv`, ['时间', '提交账号', '称呼', '功能', '说明', '联系方式', '状态'], (feedbackCache || []).map((row) => [
+      downloadCsv(`utilora-feedback-${stamp}.csv`, ['时间', '提交账号', '称呼', '功能', '说明', '联系方式', '状态', '处理人', '内部备注'], (feedbackCache || []).map((row) => [
         row.created_at || '',
         row.user_email || '',
         row.name || '',
@@ -1388,6 +1414,8 @@
         row.message || '',
         row.contact || '',
         row.status || '',
+        row.handler_email || '',
+        row.admin_note || '',
       ]));
       return;
     }
@@ -1478,6 +1506,14 @@
   });
   document.getElementById('dossier-kick')?.addEventListener('click', () => {
     kickDossierUser().catch((error) => setMessage(document.getElementById('dossier-message'), error.message, true));
+  });
+  document.getElementById('dossier-toggle-admin')?.addEventListener('click', () => {
+    if (!dossierUser?.id || typeof setUserAdmin !== 'function') return;
+    setUserAdmin(dossierUser, !dossierUser.is_admin).then(() => loadDossierDetail());
+  });
+  document.getElementById('dossier-toggle-disabled')?.addEventListener('click', () => {
+    if (!dossierUser?.id || typeof setUserDisabled !== 'function') return;
+    setUserDisabled(dossierUser, !dossierUser.is_disabled).then(() => loadDossierDetail());
   });
   document.getElementById('dossier')?.addEventListener('click', (event) => {
     if (event.target.id === 'dossier') closeDossier();
