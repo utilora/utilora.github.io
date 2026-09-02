@@ -54,7 +54,7 @@
 | 线 | 分支 | 当前项 | 状态 |
 |----|------|--------|------|
 | 用户端 | feat/user-workspace | 五个财税工具打磨 | 待开始 |
-| 管理端 | feat/admin-ops | 试用到期预警与用户详情 | 进行中 |
+| 管理端 | feat/admin-ops | — | 空闲 |
 | 安全 | fix/security-hardening | — | 空闲 |
 
 ## AI 开工前必读
@@ -144,7 +144,7 @@ A-13 试用到期预警与用户详情：工作台列出单独授予且将在「
 | A-10 | 已合入 main | feat/admin-ops | 0e80a78 | 运营策略配置（匹配窗口 / 金额容差 / 备份过期）；71 tests；build PASS；生产 SQL 已执行 |
 | A-11 | 已合入 main | feat/admin-ops | 48e4294 | 账龄分桶边界配置；非法序拒绝；预览五桶；用户端读配置；82 tests；build PASS；生产 SQL 已执行 |
 | A-12 | 已合入 main | feat/admin-ops | c95fd77 | 在线账号与强制下线；生产 SQL 已执行 |
-| A-13 | 进行中 | feat/admin-ops | — | 试用到期预警与用户详情 |
+| A-13 | 已合入 main | feat/admin-ops | ce25533 | 试用到期预警与用户详情；生产 SQL 已执行 |
 
 ## 安全改善（分支 fix/security-hardening）
 
