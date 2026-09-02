@@ -202,13 +202,13 @@ button.linkish:hover{text-decoration:underline}
 }
 .dossier[hidden]{display:none}
 .dossier-card{
-  width:min(720px,100%);max-height:min(88vh,860px);overflow:auto;
+  width:min(800px,100%);max-height:min(88vh,900px);overflow:auto;
   background:#fff;border-radius:16px;padding:22px 22px 18px;box-shadow:0 24px 60px #0f172a33
 }
 .dossier-card header{display:flex;justify-content:space-between;gap:16px;align-items:flex-start;margin-bottom:8px}
 .dossier-card h2{margin:0;font-size:18px;word-break:break-all}
 .dossier-card h3{margin:18px 0 8px;font-size:13px;color:#64748b}
-.dossier-dl{display:grid;grid-template-columns:88px 1fr;gap:6px 12px;margin:0}
+.dossier-dl{display:grid;grid-template-columns:96px 1fr;gap:6px 12px;margin:0}
 .dossier-dl dt{color:#64748b;font-size:12px}
 .dossier-dl dd{margin:0;font-weight:700}
 .dossier-card ul{margin:0;padding-left:18px}
@@ -229,4 +229,10 @@ button.linkish:hover{text-decoration:underline}
 #risk-section h3{margin:22px 0 8px;font-size:15px}
 #risk-section .table-wrap table{min-width:520px}
 #risk-section .row-actions,#risk-section td button{margin-top:0}
+
+.overview-expiring{margin:12px 0 4px;padding:14px 16px;background:#fff;border:1px solid #e2e8f0;border-radius:12px}
+.overview-expiring h3{margin:0 0 8px;font-size:14px}
+.overview-expiring ul{margin:0;padding-left:0;list-style:none}
+.overview-expiring li{display:flex;flex-wrap:wrap;gap:4px;padding:4px 0;font-size:13px;color:#475569}
+#dossier-sessions-empty,#dossier-locations-empty{margin:8px 0 0}
 

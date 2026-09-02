@@ -263,5 +263,12 @@
         sessions: [],
       });
     },
+    forceSessionByIds: async (user, sessionId) => {
+      if (!user?.id || !sessionId) return;
+      await forceSession(
+        { user_id: user.id, email: user.email || '', sessions: [] },
+        { session_id: sessionId },
+      );
+    },
   };
 })();

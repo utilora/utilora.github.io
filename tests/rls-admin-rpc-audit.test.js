@@ -48,6 +48,7 @@ const RPC_DENY_ANON = [
   "admin_product_funnel",
   "admin_list_activity_logs",
   "admin_overview_stats",
+  "admin_user_dossier",
   "admin_write_activity",
   "admin_list_sessions",
   "admin_force_logout",

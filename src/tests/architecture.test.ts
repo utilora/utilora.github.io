@@ -555,4 +555,25 @@ describe("product architecture", () => {
     expect(read("admin/admin-ops.js")).toContain("force_logout: '强制下线'");
     expect(read("supabase/admin-ops.sql")).toContain("202609020019_admin_online_sessions.sql");
   });
+
+  it("warns admins about expiring trials and fills the user dossier", () => {
+    const sql = read("supabase/migrations/202609020020_admin_dossier_expiry.sql");
+    expect(sql).toContain("trial_expiry_warn_days");
+    expect(sql).toContain("expiring_trials");
+    expect(sql).toContain("admin_user_dossier");
+    expect(sql).toContain("mfa_enabled");
+    expect(sql).toContain("login_locations");
+    expect(sql).toContain("grant execute on function public.admin_user_dossier(uuid, text) to authenticated");
+    expect(sql).not.toMatch(/grant execute on function public.admin_user_dossier\(uuid, text\) to (public|anon)/i);
+    expect(read("admin/index.html")).toContain('id="todo-expiring"');
+    expect(read("admin/index.html")).toContain('id="dossier-sessions"');
+    expect(read("admin/index.html")).toContain('id="dossier-locations"');
+    expect(read("admin/index.html")).toContain('id="grant-filter"');
+    expect(read("admin/admin-ops.js")).toContain("rpc/admin_user_dossier");
+    expect(read("admin/admin-ops.js")).toContain("expiring_items");
+    expect(read("admin/admin-ops.js")).toContain("二次验证");
+    expect(read("admin/admin-ops.js")).not.toMatch(/service[_-]?role|sb_secret/i);
+    expect(read("admin/limits.js")).toContain("trial_expiry_warn_days");
+    expect(read("supabase/admin-ops.sql")).toContain("202609020020_admin_dossier_expiry.sql");
+  });
 });

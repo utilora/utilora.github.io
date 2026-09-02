@@ -95,6 +95,15 @@
                   <strong id="todo-risk">—</strong>
                   <em>停用或同 IP 达上限</em>
                 </button>
+                <button type="button" data-page="entitlements" data-grant-filter="expiring">
+                  <span>试用将到期</span>
+                  <strong id="todo-expiring">—</strong>
+                  <em id="todo-expiring-hint">预警天数内到期，可续发或收回</em>
+                </button>
+              </div>
+              <div id="overview-expiring" class="overview-expiring" hidden>
+                <h3>即将到期</h3>
+                <ul id="overview-expiring-list"></ul>
               </div>
             </div>
             <div class="overview-grid">
@@ -629,6 +638,12 @@
       <section id="entitlements-section" hidden>
         <div class="users-toolbar">
           <input id="grant-search" type="search" placeholder="搜索邮箱">
+          <select id="grant-filter">
+            <option value="">全部记录</option>
+            <option value="active">生效中</option>
+            <option value="expiring">将到期</option>
+            <option value="ended">已结束</option>
+          </select>
           <button type="button" class="secondary" id="export-grants">导出 CSV</button>
         </div>
         <div id="entitlements-message" class="message" role="status"></div>
@@ -641,6 +656,7 @@
                 <th>来源</th>
                 <th>开始</th>
                 <th>结束</th>
+                <th>状态</th>
               </tr>
             </thead>
             <tbody id="entitlements-list"></tbody>
@@ -837,6 +853,28 @@
         <p id="dossier-message" class="message" role="status"></p>
         <h3>账号</h3>
         <dl id="dossier-account" class="dossier-dl"></dl>
+        <h3>在线会话</h3>
+        <p id="dossier-sessions-hint" class="hint">30 分钟内有活动视为在线。下线后对方无法再刷新登录。</p>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>设备</th>
+                <th>状态</th>
+                <th>最近活动</th>
+                <th>操作</th>
+              </tr>
+            </thead>
+            <tbody id="dossier-sessions"></tbody>
+          </table>
+        </div>
+        <p id="dossier-sessions-empty" class="hint" hidden>当前没有仍有效的登录会话。</p>
+        <div class="row-actions">
+          <button id="dossier-kick" class="delete" type="button">下线该账号其他设备</button>
+        </div>
+        <h3>最近登录地点</h3>
+        <ul id="dossier-locations"></ul>
+        <p id="dossier-locations-empty" class="hint" hidden>还没有登记过登录地点。仅保存哈希后的网络标识。</p>
         <h3>权益</h3>
         <ul id="dossier-grants"></ul>
         <form id="dossier-grant-form" class="dossier-grant" hidden>

@@ -1059,7 +1059,13 @@ document.getElementById('reset-filter').addEventListener('click', () => {
 document.getElementById('refresh').addEventListener('click', () => refreshAll());
 document.getElementById('logout').addEventListener('click', logout);
 document.querySelectorAll('[data-page]').forEach((btn) => {
-  btn.addEventListener('click', () => switchPage(btn.dataset.page));
+  btn.addEventListener('click', () => {
+    if (btn.dataset.grantFilter) {
+      const filter = document.getElementById('grant-filter');
+      if (filter) filter.value = btn.dataset.grantFilter;
+    }
+    switchPage(btn.dataset.page);
+  });
 });
 const sidebarKey = 'utilora_admin_sidebar';
 const SIDEBAR_NARROW = 72;

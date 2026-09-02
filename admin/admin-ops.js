@@ -14,6 +14,9 @@
   let promotionsState = 'ok';
   let grantsState = 'ok';
   let logsState = 'ok';
+  let warnDays = 7;
+  let expiringItems = [];
+  let dossierDetail = null;
 
   const askConfirm = (summary) => (window.confirmSensitive || ((text) => Promise.resolve(window.confirm(text))))(summary);
 
@@ -35,6 +38,13 @@
     plan_code: 'pro_trial',
     source: 'promotion',
     starts_at: '2026-08-18T00:00:00Z',
+    ends_at: new Date(Date.now() + 3 * 86400000).toISOString(),
+  }, {
+    id: 'g2',
+    email: 'admin@utilora.local',
+    plan_code: 'pro',
+    source: 'admin_grant',
+    starts_at: '2026-03-01T00:00:00Z',
     ends_at: null,
   }];
 
@@ -509,8 +519,7 @@
     const emptyBox = document.getElementById('entitlements-empty');
     if (!list) return;
     list.replaceChildren();
-    const q = (document.getElementById('grant-search')?.value || '').trim().toLowerCase();
-    const rows = grantsCache.filter((row) => !q || (row.email || '').toLowerCase().includes(q));
+    const rows = filteredGrants();
     if (grantsState !== 'ok') {
       setEmptyState(emptyBox, grantsState === 'missing' ? '尚未启用权益一览' : '权益加载失败', setupHint(grantsState, OPS_SQL));
       return;
@@ -522,11 +531,26 @@
     hideEmpty(emptyBox);
     rows.forEach((row) => {
       const tr = document.createElement('tr');
-      [row.email || '—', row.plan_code || '—', row.source || '—', formatTime(row.starts_at), row.ends_at ? formatTime(row.ends_at) : '长期'].forEach((value) => {
+      const emailTd = document.createElement('td');
+      const emailBtn = document.createElement('button');
+      emailBtn.type = 'button';
+      emailBtn.className = 'linkish';
+      emailBtn.textContent = row.email || '—';
+      emailBtn.addEventListener('click', () => openDossier(row.email, { id: row.user_id, email: row.email }));
+      emailTd.append(emailBtn);
+      tr.append(emailTd);
+      [planLabel(row.plan_code), row.source || '—', formatTime(row.starts_at), row.ends_at ? formatTime(row.ends_at) : '长期'].forEach((value) => {
         const td = document.createElement('td');
         td.textContent = value;
         tr.append(td);
       });
+      const state = grantState(row);
+      const statusTd = document.createElement('td');
+      const pill = document.createElement('span');
+      pill.className = `status-pill ${state.key === 'ended' ? 'off' : state.key === 'expiring' ? 'wait' : 'ok'}`;
+      pill.textContent = state.label;
+      statusTd.append(pill);
+      tr.append(statusTd);
       list.append(tr);
     });
   }
@@ -691,6 +715,18 @@
 
   async function loadOverviewStats() {
     if (isPreview() && !getSession()) {
+      warnDays = 7;
+      expiringItems = mockGrants
+        .filter((row) => grantState(row).key === 'expiring')
+        .map((row) => ({
+          user_id: '2',
+          email: row.email,
+          plan_code: row.plan_code,
+          ends_at: row.ends_at,
+          days_left: grantState(row).days,
+        }));
+      fill('todo-expiring', expiringItems.length);
+      paintExpiringList();
       paintOverviewExtras();
       return;
     }
@@ -704,9 +740,39 @@
       fill('todo-feedback', data.new_feedback ?? '—');
       fill('todo-intents', data.open_intents ?? '—');
       fill('todo-risk', data.abnormal_registrations_today ?? '—');
+      warnDays = Number(data.trial_expiry_warn_days) || 7;
+      expiringItems = Array.isArray(data.expiring_items) ? data.expiring_items : [];
+      fill('todo-expiring', data.expiring_trials ?? expiringItems.length);
+      const hint = document.getElementById('todo-expiring-hint');
+      if (hint) hint.textContent = `${warnDays} 天内到期，可续发或收回`;
+      paintExpiringList();
     } catch {
       paintOverviewExtras();
     }
+  }
+
+  function paintExpiringList() {
+    const box = document.getElementById('overview-expiring');
+    const list = document.getElementById('overview-expiring-list');
+    if (!box || !list) return;
+    list.replaceChildren();
+    if (!expiringItems.length) {
+      box.hidden = true;
+      return;
+    }
+    box.hidden = false;
+    expiringItems.forEach((row) => {
+      const li = document.createElement('li');
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'linkish';
+      btn.textContent = row.email || '—';
+      btn.addEventListener('click', () => openDossier(row.email, { id: row.user_id, email: row.email }));
+      const meta = document.createElement('span');
+      meta.textContent = ` · ${planLabel(row.plan_code)} · ${row.days_left ?? grantState(row).days} 天后`;
+      li.append(btn, meta);
+      list.append(li);
+    });
   }
 
   let dossierEmail = '';
@@ -717,6 +783,7 @@
     if (panel) panel.hidden = true;
     dossierEmail = '';
     dossierUser = null;
+    dossierDetail = null;
   }
 
   function fillDl(el, pairs) {
@@ -737,11 +804,53 @@
     return code || '—';
   }
 
+  function grantState(row) {
+    if (!row?.ends_at) return { key: 'active', label: '长期', days: null };
+    const ms = new Date(row.ends_at).getTime() - Date.now();
+    if (Number.isNaN(ms) || ms <= 0) return { key: 'ended', label: '已结束', days: 0 };
+    const days = Math.max(1, Math.ceil(ms / 86400000));
+    if (days <= warnDays) return { key: 'expiring', label: `${days} 天后到期`, days };
+    return { key: 'active', label: '生效中', days };
+  }
+
+  function shortAgent(raw) {
+    const text = String(raw || '');
+    if (!text) return '未知设备';
+    if (/iPhone|iPad/i.test(text)) return 'Apple 设备';
+    if (/Android/i.test(text)) return 'Android 设备';
+    if (/Macintosh/i.test(text)) return 'Mac';
+    if (/Windows/i.test(text)) return 'Windows';
+    if (/Linux/i.test(text)) return 'Linux';
+    return text.slice(0, 48);
+  }
+
+  function filteredGrants() {
+    const q = (document.getElementById('grant-search')?.value || '').trim().toLowerCase();
+    const filter = document.getElementById('grant-filter')?.value || '';
+    return grantsCache.filter((row) => {
+      if (q && !(row.email || '').toLowerCase().includes(q)) return false;
+      if (filter && grantState(row).key !== filter) return false;
+      return true;
+    });
+  }
+
+  function nearestGrant(email) {
+    const grants = (grantsCache || []).filter((row) => (row.email || '') === email);
+    const active = grants.filter((row) => grantState(row).key !== 'ended');
+    const pool = active.length ? active : grants;
+    return pool.slice().sort((a, b) => {
+      if (!a.ends_at) return 1;
+      if (!b.ends_at) return -1;
+      return String(a.ends_at).localeCompare(String(b.ends_at));
+    })[0] || null;
+  }
+
   function paintDossierGrants(email) {
     const grantsBox = document.getElementById('dossier-grants');
     if (!grantsBox) return;
     grantsBox.replaceChildren();
-    const grants = (grantsCache || []).filter((row) => (row.email || '') === email);
+    let grants = (grantsCache || []).filter((row) => (row.email || '') === email);
+    if (!grants.length && Array.isArray(dossierDetail?.grants)) grants = dossierDetail.grants;
     if (!grants.length) {
       const li = document.createElement('li');
       li.textContent = '没有单独授予记录（可能走生产折扣）。';
@@ -750,8 +859,8 @@
     }
     grants.forEach((row) => {
       const li = document.createElement('li');
-      const active = !row.ends_at || new Date(row.ends_at) > new Date();
-      li.textContent = `${planLabel(row.plan_code)} · ${row.source || 'grant'} · ${row.ends_at ? formatTime(row.ends_at) : '长期'}${active ? '' : ' · 已结束'}`;
+      const state = grantState(row);
+      li.textContent = `${planLabel(row.plan_code)} · ${row.source || 'grant'} · ${row.ends_at ? formatTime(row.ends_at) : '长期'} · ${state.label}`;
       grantsBox.append(li);
     });
   }
@@ -813,6 +922,7 @@
       }, ...grantsCache];
       paintDossierGrants(dossierEmail);
       renderEntitlements();
+      loadOverviewStats();
       setMessage(msg, `预览已发放${what}，未写入生产。`);
       return;
     }
@@ -827,7 +937,9 @@
         }),
       });
       await loadEntitlements();
+      await loadDossierDetail();
       paintDossierGrants(dossierEmail);
+      loadOverviewStats();
       setMessage(msg, `已发放${what}`);
     } catch (error) {
       setMessage(msg, setupHint(classifyError(error), GRANT_SQL) || error.message, true);
@@ -851,6 +963,7 @@
       ));
       paintDossierGrants(dossierEmail);
       renderEntitlements();
+      loadOverviewStats();
       setMessage(msg, '预览已收回当前权益，未写入生产。');
       return;
     }
@@ -861,11 +974,134 @@
       });
       const count = await response.json();
       await loadEntitlements();
+      await loadDossierDetail();
       paintDossierGrants(dossierEmail);
+      loadOverviewStats();
       setMessage(msg, `已收回 ${Number(count) || 0} 条生效权益`);
     } catch (error) {
       setMessage(msg, setupHint(classifyError(error), GRANT_SQL) || error.message, true);
     }
+  }
+
+  function paintDossierAccount(found, extra) {
+    const grant = nearestGrant(found?.email || dossierEmail);
+    const state = grant ? grantState(grant) : null;
+    fillDl(document.getElementById('dossier-account'), [
+      ['昵称', found?.name || extra?.user?.name || '—'],
+      ['角色', (found?.is_admin ?? extra?.user?.is_admin) ? '管理员' : '普通用户'],
+      ['状态', (found?.is_disabled ?? extra?.user?.is_disabled) ? '已停用' : (found?.email_confirmed_at || extra?.user?.email_confirmed_at) ? '正常' : found || extra?.user ? '未验证' : '未在用户列表中'],
+      ['注册', found?.created_at ? formatTime(found.created_at) : extra?.user?.created_at ? formatTime(extra.user.created_at) : '—'],
+      ['最近登录', found?.last_sign_in_at ? formatTime(found.last_sign_in_at) : extra?.user?.last_sign_in_at ? formatTime(extra.user.last_sign_in_at) : '—'],
+      ['二次验证', extra ? (extra.mfa_enabled ? '已开启' : '未开启') : '加载中'],
+      ['试用到期', state ? `${planLabel(grant.plan_code)} · ${state.label}` : '无单独授予'],
+    ]);
+  }
+
+  function paintDossierSessions(sessions) {
+    const body = document.getElementById('dossier-sessions');
+    const empty = document.getElementById('dossier-sessions-empty');
+    const kick = document.getElementById('dossier-kick');
+    if (!body) return;
+    body.replaceChildren();
+    const rows = Array.isArray(sessions) ? sessions : [];
+    if (empty) empty.hidden = rows.length > 0;
+    if (kick) kick.disabled = !dossierUser?.id || !rows.some((row) => !row.is_current);
+    rows.forEach((row) => {
+      const tr = document.createElement('tr');
+      const device = document.createElement('td');
+      device.textContent = shortAgent(row.user_agent) + (row.is_current ? ' · 当前这一处' : '');
+      const status = document.createElement('td');
+      status.textContent = row.online ? '在线' : '仍登录';
+      const seen = document.createElement('td');
+      seen.textContent = formatTime(row.last_active);
+      const act = document.createElement('td');
+      act.className = 'row-actions';
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'secondary';
+      btn.textContent = row.is_current ? '当前会话' : '下线这一处';
+      btn.disabled = Boolean(row.is_current) || !dossierUser?.id;
+      if (!row.is_current) {
+        btn.addEventListener('click', () => kickDossierSession(row));
+      }
+      act.append(btn);
+      tr.append(device, status, seen, act);
+      body.append(tr);
+    });
+  }
+
+  function paintDossierLocations(locations) {
+    const list = document.getElementById('dossier-locations');
+    const empty = document.getElementById('dossier-locations-empty');
+    if (!list) return;
+    list.replaceChildren();
+    const rows = Array.isArray(locations) ? locations : [];
+    if (empty) empty.hidden = rows.length > 0;
+    rows.forEach((row) => {
+      const li = document.createElement('li');
+      li.textContent = `网络 ${row.network || '—'} · 最近 ${formatTime(row.last_seen)} · 首次 ${formatTime(row.first_seen)}`;
+      list.append(li);
+    });
+  }
+
+  async function loadDossierDetail() {
+    if (!dossierEmail) return;
+    if (isPreview() && !getSession()) {
+      dossierDetail = {
+        found: true,
+        user: dossierUser,
+        mfa_enabled: Boolean(dossierUser?.is_admin),
+        sessions: [
+          {
+            session_id: 's-current',
+            user_id: dossierUser?.id,
+            last_active: new Date().toISOString(),
+            user_agent: 'Macintosh',
+            online: true,
+            is_current: Boolean(dossierUser?.is_admin),
+          },
+        ],
+        locations: [{ network: 'a1b2c3d4', first_seen: '2026-08-01T08:00:00Z', last_seen: new Date().toISOString() }],
+        grants: (grantsCache || []).filter((row) => row.email === dossierEmail),
+      };
+      paintDossierAccount(dossierUser, dossierDetail);
+      paintDossierSessions(dossierDetail.sessions);
+      paintDossierLocations(dossierDetail.locations);
+      paintDossierGrants(dossierEmail);
+      return;
+    }
+    try {
+      const response = await request('rpc/admin_user_dossier', {
+        method: 'POST',
+        body: JSON.stringify({ p_user_id: dossierUser?.id || null, p_email: dossierEmail }),
+      });
+      const data = await response.json();
+      dossierDetail = data && data.found ? data : { found: false, mfa_enabled: false, sessions: [], locations: [], grants: [] };
+      if (data?.user?.id) {
+        dossierUser = { ...(dossierUser || {}), ...data.user };
+        setGrantFormVisible(true);
+      }
+      paintDossierAccount(dossierUser, dossierDetail);
+      paintDossierSessions(dossierDetail.sessions);
+      paintDossierLocations(dossierDetail.locations);
+      paintDossierGrants(dossierEmail);
+    } catch (error) {
+      paintDossierSessions([]);
+      paintDossierLocations([]);
+      setMessage(document.getElementById('dossier-message'), setupHint(classifyError(error), 'supabase/migrations/202609020020_admin_dossier_expiry.sql') || error.message, true);
+    }
+  }
+
+  async function kickDossierUser() {
+    if (!dossierUser?.id) return;
+    await window.AdminSessions?.forceUserById?.(dossierUser);
+    await loadDossierDetail();
+  }
+
+  async function kickDossierSession(row) {
+    if (!dossierUser?.id || !row?.session_id) return;
+    await window.AdminSessions?.forceSessionByIds?.(dossierUser, row.session_id);
+    await loadDossierDetail();
   }
 
   async function openDossier(email, user) {
@@ -874,42 +1110,39 @@
     dossierEmail = email;
     const found = user || (typeof usersCache !== 'undefined' ? usersCache.find((row) => row.email === email) : null);
     dossierUser = found || null;
+    dossierDetail = null;
     panel.hidden = false;
     document.getElementById('dossier-title').textContent = email;
-    fillDl(document.getElementById('dossier-account'), [
-      ['昵称', found?.name || '—'],
-      ['角色', found?.is_admin ? '管理员' : '普通用户'],
-      ['状态', found?.is_disabled ? '已停用' : found?.email_confirmed_at ? '正常' : found ? '未验证' : '未在用户列表中'],
-      ['注册', found ? formatTime(found.created_at) : '—'],
-      ['最近登录', found ? formatTime(found.last_sign_in_at) : '—'],
-    ]);
-    document.getElementById('dossier-meta').textContent = found ? '来自用户管理与最近日志' : '该邮箱未匹配到注册用户，仍可查看日志。';
+    paintDossierAccount(found, null);
+    document.getElementById('dossier-meta').textContent = found?.id ? '来自用户管理、会话与最近日志' : '正在按邮箱匹配注册用户。';
     resetGrantForm();
     setGrantFormVisible(Boolean(found?.id));
     paintDossierGrants(email);
+    paintDossierSessions([]);
+    paintDossierLocations([]);
     const logsBody = document.getElementById('dossier-logs');
     logsBody.replaceChildren();
-    setMessage(document.getElementById('dossier-message'), '正在加载最近日志……');
+    setMessage(document.getElementById('dossier-message'), '正在加载详情……');
     try {
-      let items = [];
-      if (isPreview() && !getSession()) {
-        items = mockLogs.items.filter((row) => row.email === email);
-      } else {
+      const logsTask = (async () => {
+        if (isPreview() && !getSession()) return mockLogs.items.filter((row) => row.email === email);
         const response = await request('rpc/admin_list_activity_logs', {
           method: 'POST',
           body: JSON.stringify({ p_email: email, p_limit: 20, p_offset: 0 }),
         });
-        const data = await response.json();
-        items = asArray(data);
-      }
-      if (!items.length) {
-        const tr = document.createElement('tr');
-        const td = document.createElement('td');
-        td.colSpan = 4;
-        td.textContent = '没有带该邮箱的日志。';
-        tr.append(td);
-        logsBody.append(tr);
-      } else {
+        return asArray(await response.json());
+      })();
+      await Promise.all([loadDossierDetail(), logsTask.then((items) => {
+        logsBody.replaceChildren();
+        if (!items.length) {
+          const tr = document.createElement('tr');
+          const td = document.createElement('td');
+          td.colSpan = 4;
+          td.textContent = '没有带该邮箱的日志。';
+          tr.append(td);
+          logsBody.append(tr);
+          return;
+        }
         items.forEach((row) => {
           const tr = document.createElement('tr');
           [formatTime(row.created_at), categoryLabel[row.category] || row.category || '—', row.event_type || '—', row.path || '—'].forEach((value) => {
@@ -919,7 +1152,7 @@
           });
           logsBody.append(tr);
         });
-      }
+      })]);
       setMessage(document.getElementById('dossier-message'), '');
     } catch (error) {
       setMessage(document.getElementById('dossier-message'), setupHint(classifyError(error), OPS_SQL) || error.message, true);
@@ -980,14 +1213,13 @@
       return;
     }
     if (kind === 'grants') {
-      const q = (document.getElementById('grant-search')?.value || '').trim().toLowerCase();
-      const rows = grantsCache.filter((row) => !q || (row.email || '').toLowerCase().includes(q));
-      downloadCsv(`utilora-entitlements-${stamp}.csv`, ['邮箱', '方案', '来源', '开始', '结束'], rows.map((row) => [
+      downloadCsv(`utilora-entitlements-${stamp}.csv`, ['邮箱', '方案', '来源', '开始', '结束', '状态'], filteredGrants().map((row) => [
         row.email || '',
         row.plan_code || '',
         row.source || '',
         row.starts_at || '',
         row.ends_at || '',
+        grantState(row).label,
       ]));
     }
   }
@@ -1026,6 +1258,7 @@
   document.getElementById('launch-promo-off')?.addEventListener('click', () => setLaunchPromo(false));
   document.getElementById('launch-promo-on')?.addEventListener('click', () => setLaunchPromo(true));
   document.getElementById('grant-search')?.addEventListener('input', renderEntitlements);
+  document.getElementById('grant-filter')?.addEventListener('change', renderEntitlements);
   document.getElementById('logs-filter-form')?.addEventListener('submit', (event) => {
     event.preventDefault();
     loadLogs();
@@ -1048,6 +1281,9 @@
   });
   document.getElementById('dossier-revoke')?.addEventListener('click', () => {
     revokeEntitlements().catch((error) => setMessage(document.getElementById('dossier-message'), error.message, true));
+  });
+  document.getElementById('dossier-kick')?.addEventListener('click', () => {
+    kickDossierUser().catch((error) => setMessage(document.getElementById('dossier-message'), error.message, true));
   });
   document.getElementById('dossier')?.addEventListener('click', (event) => {
     if (event.target.id === 'dossier') closeDossier();

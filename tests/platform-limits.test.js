@@ -27,6 +27,7 @@ const FIELDS = [
   { key: "aging_bucket_2_days", min: 1, max: 365, label: "账龄桶2上限天", group: "aging" },
   { key: "aging_bucket_3_days", min: 1, max: 365, label: "账龄桶3上限天", group: "aging" },
   { key: "trial_days", min: 1, max: 365, label: "试用天数", group: "ops" },
+  { key: "trial_expiry_warn_days", min: 1, max: 30, label: "试用到期预警天数", group: "ops" },
   { key: "invite_reward_months", min: 1, max: 24, label: "邀请成功奖励月数", group: "ops" },
 ];
 
@@ -93,19 +94,22 @@ const defaults = {
   match_amount_tolerance_cents: 0,
   backup_stale_days: 7,
   trial_days: 14,
+  trial_expiry_warn_days: 7,
   invite_reward_months: 3,
   aging_bucket_1_days: 30,
   aging_bucket_2_days: 60,
   aging_bucket_3_days: 90,
 };
 
-assert(FIELDS.length === 20, "all configurable limits present");
+assert(FIELDS.length === 21, "all configurable limits present");
 assert(FIELDS.filter((field) => field.group === "strategy").map((field) => field.key).join(",") === "match_date_near_days,match_amount_tolerance_cents,backup_stale_days", "ops strategy keys grouped");
 assert(FIELDS.filter((field) => field.group === "aging").map((field) => field.key).join(",") === "aging_bucket_1_days,aging_bucket_2_days,aging_bucket_3_days", "aging keys grouped");
 assert(validateLimits(defaults).ok === true, "defaults valid");
 assert(validateLimits({ ...defaults, invite_reward_months: 6 }).ok === true, "invite months ok");
 assert(validateLimits({ ...defaults, match_amount_tolerance_cents: 0 }).ok === true, "zero fen ok");
 assert(validateLimits({ ...defaults, trial_days: 0 }).ok === false, "trial 0 rejected");
+assert(validateLimits({ ...defaults, trial_expiry_warn_days: 0 }).ok === false, "warn 0 rejected");
+assert(validateLimits({ ...defaults, trial_expiry_warn_days: 31 }).ok === false, "warn over max rejected");
 assert(validateLimits({ ...defaults, trial_days: "14.5" }).ok === false, "float rejected");
 assert(validateLimits({ ...defaults, aging_bucket_1_days: 90, aging_bucket_2_days: 60, aging_bucket_3_days: 30 }).ok === false, "bucket order rejected");
 assert(validateLimits({ ...defaults, aging_bucket_1_days: 15, aging_bucket_2_days: 45, aging_bucket_3_days: 90 }).ok === true, "custom buckets allowed");

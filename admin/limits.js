@@ -1,5 +1,5 @@
 (() => {
-  const LIMITS_SQL = 'supabase/migrations/202608310017_login_security.sql';
+  const LIMITS_SQL = 'supabase/migrations/202609020020_admin_dossier_expiry.sql';
   const GROUP_LABEL = {
     security: '注册与登录',
     strategy: '运营策略',
@@ -26,6 +26,7 @@
     { key: 'aging_bucket_2_days', label: '账龄桶2上限天', hint: '逾期 桶1+1–桶2 天为第二桶', min: 1, max: 365, default: 60, group: 'aging' },
     { key: 'aging_bucket_3_days', label: '账龄桶3上限天', hint: '逾期 桶2+1–桶3 天为第三桶；超过为桶3+', min: 1, max: 365, default: 90, group: 'aging' },
     { key: 'trial_days', label: '试用天数', hint: '发放试用的默认天数，单次仍可手填', min: 1, max: 365, default: 14, group: 'ops' },
+    { key: 'trial_expiry_warn_days', label: '试用到期预警天数', hint: '工作台列出该天数内到期的单独授予', min: 1, max: 30, default: 7, group: 'ops' },
     { key: 'invite_reward_months', label: '邀请成功奖励月数', hint: '被邀请人首次实际付费后才入账；支付接通前不展示邀请', min: 1, max: 24, default: 3, group: 'ops' },
   ];
 
