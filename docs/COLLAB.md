@@ -54,7 +54,7 @@
 |----|------|--------|------|
 | 用户端 | feat/user-workspace | 五个财税工具打磨 | 待开始 |
 | 管理端 | feat/admin-ops | — | 空闲 |
-| 安全 | fix/security-hardening | 二次验证恢复码 | 进行中 |
+| 安全 | fix/security-hardening | — | 空闲 |
 
 ## AI 开工前必读
 
@@ -183,9 +183,13 @@ S-19 管理端强制二次验证：管理员进入后台前必须已开启验证
 | S-14 | 已合入 main | fix/security-hardening | 4dee685 | 新地点登录通知 |
 | S-15 | 已合入 main | fix/security-hardening | 4dee685 | 备份加口令 |
 | S-16 | 已合入 main | fix/security-hardening | 4dee685 | 防被嵌进别人网站 |
+| S-17 | 已合入 main | fix/security-hardening | f636e1e | 二次验证恢复码 |
+| S-18 | 已合入 main | fix/security-hardening | f636e1e | 登录设备清单 |
+| S-19 | 已合入 main | fix/security-hardening | f636e1e | 管理端强制二次验证 |
 
 ## 变更记录
 
+- 2026-09-02：合入 main：二次验证恢复码、登录设备清单、后台强制二次验证（f636e1e）。开启验证器时签发一次性恢复码，只展示一次；登录可用恢复码代替 6 位码，用掉后二次验证关闭；账号页列出仍有效会话；管理员进入后台必须已开启并完成本次二次验证。生产已执行 202609020018_mfa_recovery_sessions.sql，已部署 mfa-recovery。占用改为五个财税工具打磨 / 空闲 / 安全空闲。
 - 2026-08-31：合入 main：二次验证与登录保护（4dee685）。账号页可开启/关闭验证器二次验证，未完成验证不留下可用会话；可登出其他设备；登录成功后登记哈希网络，新地点写入活动，能发信时通知注册邮箱；新备份必须口令加密，明文旧备份仍可导入；留言与购买意向四项进入限额页；公开页加跳出脚本，回访的站点服务补 frame-ancestors。生产已执行 202608310017_login_security.sql，已部署 login-location。占用改为五个财税工具打磨 / 空闲 / 安全空闲。
 - 2026-08-31：合入 main：收紧样式策略（f9d1bb4）。去掉 style-src 的 unsafe-inline；账户页和工具页内联样式改到样式表；工作台模板去掉 style 属性，进度条宽度改由脚本设置。占用改为五个财税工具打磨 / 空闲 / 安全空闲。
 
