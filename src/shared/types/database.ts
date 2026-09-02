@@ -7,6 +7,10 @@ export interface Profile {
   id: UUID;
   display_name: string | null;
   avatar_url: string | null;
+  company: string | null;
+  title: string | null;
+  city: string | null;
+  bio: string | null;
   created_at: string;
   updated_at: string;
 }

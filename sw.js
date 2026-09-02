@@ -1,4 +1,4 @@
-const CACHE = "utilora-v23";
+const CACHE = "utilora-v24";
 const PRECACHE = [
   "./",
   "./index.html",

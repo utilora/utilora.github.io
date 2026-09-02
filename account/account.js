@@ -49,13 +49,56 @@
     });
   };
 
-  const paint = (user) => {
-    const name = auth.displayName(user);
+  const paintAvatar = (name, avatarUrl) => {
+    const initial = document.getElementById("avatar");
+    const img = document.getElementById("avatar-img");
+    const removeBtn = document.getElementById("avatar-remove");
+    const letter = (name || "U").slice(0, 1).toUpperCase();
+    if (initial) initial.textContent = letter;
+    if (avatarUrl && img) {
+      img.src = avatarUrl;
+      img.alt = letter + " 的头像";
+      img.hidden = false;
+      if (initial) initial.hidden = true;
+      if (removeBtn) removeBtn.hidden = false;
+    } else {
+      if (img) {
+        img.removeAttribute("src");
+        img.hidden = true;
+      }
+      if (initial) initial.hidden = false;
+      if (removeBtn) removeBtn.hidden = true;
+    }
+  };
+
+  const paintProfileFields = (profile) => {
+    if (!profile) return;
+    const setVal = (id, value) => {
+      const el = document.getElementById(id);
+      if (el) el.value = value || "";
+    };
+    if (profile.display_name) setVal("name", profile.display_name);
+    setVal("company", profile.company);
+    setVal("title", profile.title);
+    setVal("city", profile.city);
+    setVal("bio", profile.bio);
+    updateBioCount();
+  };
+
+  const updateBioCount = () => {
+    const bio = document.getElementById("bio");
+    const count = document.getElementById("bio-count");
+    if (count) count.textContent = String((bio && bio.value || "").length) + " / 160";
+  };
+
+  const paint = (user, profile) => {
+    const name = (profile && profile.display_name) || auth.displayName(user);
     document.getElementById("hello").textContent = name;
     document.getElementById("email-line").textContent = user.email || "";
-    document.getElementById("avatar").textContent = name.slice(0, 1).toUpperCase();
-    document.getElementById("name").value = user.user_metadata?.name || name;
+    document.getElementById("name").value = (profile && profile.display_name) || user.user_metadata?.name || name;
     document.getElementById("email").value = user.email || "";
+    paintAvatar(name, profile && profile.avatar_url);
+    paintProfileFields(profile);
     const badge = document.getElementById("verify-badge");
     if (auth.isVerified(user)) {
       badge.className = "verify-on";
@@ -66,12 +109,63 @@
     }
     const meta = user.user_metadata || {};
     const localFav = window.Utilora ? Utilora.favorites() : [];
-    const localRecent = window.Utilora ? Utilora.recent() : [];
     const favs = Array.from(new Set([...(meta.favorites || []), ...localFav]));
-    const recents = Array.from(new Set([...(localRecent || []), ...(meta.recents || [])])).slice(0, 8);
     chips("favs", "fav-empty", favs);
-    chips("recents", "recent-empty", recents);
   };
+
+  let currentProfile = null;
+
+  const toSquareJpeg = (file) => new Promise((resolve, reject) => {
+    if (!file || !/^image\/(jpeg|png|webp|gif)$/i.test(file.type)) {
+      reject(new Error("请选择 JPG、PNG 或 WebP 图片。"));
+      return;
+    }
+    if (file.size > 2 * 1024 * 1024) {
+      reject(new Error("图片请小于 2 MB。"));
+      return;
+    }
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      const side = Math.min(img.width, img.height);
+      if (side < 32) {
+        URL.revokeObjectURL(url);
+        reject(new Error("图片太小，请换一张更清晰的。"));
+        return;
+      }
+      const canvas = document.createElement("canvas");
+      canvas.width = 256;
+      canvas.height = 256;
+      const ctx = canvas.getContext("2d");
+      ctx.drawImage(img, (img.width - side) / 2, (img.height - side) / 2, side, side, 0, 0, 256, 256);
+      URL.revokeObjectURL(url);
+      let quality = 0.82;
+      let data = canvas.toDataURL("image/jpeg", quality);
+      while (data.length > 80000 && quality > 0.45) {
+        quality -= 0.12;
+        data = canvas.toDataURL("image/jpeg", quality);
+      }
+      if (data.length > 80000) {
+        reject(new Error("图片处理后仍太大，请换一张简单一些的。"));
+        return;
+      }
+      resolve(data);
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error("无法读取这张图片。"));
+    };
+    img.src = url;
+  });
+
+  const readFormProfile = () => ({
+    display_name: document.getElementById("name").value.trim(),
+    company: document.getElementById("company").value.trim(),
+    title: document.getElementById("title").value.trim(),
+    city: document.getElementById("city").value.trim(),
+    bio: document.getElementById("bio").value.trim(),
+    avatar_url: currentProfile && currentProfile.avatar_url || null,
+  });
 
   (async () => {
     const captured = await auth.captureRedirect();
@@ -85,25 +179,63 @@
       location.href = "../login/";
       return;
     }
-    paint(session.user);
+    paint(session.user, null);
     loadSecurity();
     const meta = session.user.user_metadata || {};
     if (window.Utilora) {
       const mergedFav = Array.from(new Set([...(meta.favorites || []), ...Utilora.favorites()]));
-      const mergedRecent = Array.from(new Set([...Utilora.recent(), ...(meta.recents || [])])).slice(0, 8);
       localStorage.setItem("utilora_favorites", JSON.stringify(mergedFav));
-      localStorage.setItem("utilora_recent", JSON.stringify(mergedRecent));
-      await auth.updateUser({ data: { name: meta.name || auth.displayName(session.user), favorites: mergedFav, recents: mergedRecent } }).catch(() => {});
+      await auth.updateUser({ data: { name: meta.name || auth.displayName(session.user), favorites: mergedFav } }).catch(() => {});
+    }
+    try {
+      currentProfile = auth.getMyProfile ? await auth.getMyProfile() : null;
+      paint(session.user, currentProfile);
+    } catch {
+      currentProfile = null;
     }
   })();
+
+  document.getElementById("bio")?.addEventListener("input", updateBioCount);
+
+  document.getElementById("avatar-file")?.addEventListener("change", async (event) => {
+    const file = event.target.files && event.target.files[0];
+    event.target.value = "";
+    if (!file) return;
+    setMsg("正在处理头像…");
+    try {
+      const dataUrl = await toSquareJpeg(file);
+      const session = auth.readSession && auth.readSession();
+      const fields = { ...readFormProfile(), avatar_url: dataUrl };
+      currentProfile = await auth.saveMyProfile(fields, true);
+      paint(session && session.user || {}, currentProfile);
+      setMsg("头像已更新");
+    } catch (error) {
+      setMsg(error.message || "头像更新失败", true);
+    }
+  });
+
+  document.getElementById("avatar-remove")?.addEventListener("click", async () => {
+    setMsg("正在移除头像…");
+    try {
+      const session = auth.readSession && auth.readSession();
+      const fields = { ...readFormProfile(), avatar_url: null };
+      currentProfile = await auth.saveMyProfile(fields, true);
+      paint(session && session.user || {}, currentProfile);
+      setMsg("头像已移除");
+    } catch (error) {
+      setMsg(error.message || "移除失败", true);
+    }
+  });
 
   document.getElementById("profile-form").addEventListener("submit", async (event) => {
     event.preventDefault();
     setMsg("保存中…");
     try {
       const name = document.getElementById("name").value.trim();
+      const fields = readFormProfile();
+      currentProfile = await auth.saveMyProfile(fields, false);
       const user = await auth.updateUser({ data: { name } });
-      paint(user);
+      paint(user, currentProfile);
       setMsg("资料已更新");
     } catch (error) {
       setMsg(error.message || "保存失败", true);

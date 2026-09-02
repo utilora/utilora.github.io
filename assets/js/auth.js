@@ -1061,6 +1061,55 @@
     }
   };
 
+  const PROFILE_SELECT = "display_name,avatar_url,company,title,city,bio";
+
+  const clipProfile = (fields, includeAvatar) => {
+    const body = {
+      display_name: String((fields && fields.display_name) || "").trim().slice(0, 40),
+      company: String((fields && fields.company) || "").trim().slice(0, 80),
+      title: String((fields && fields.title) || "").trim().slice(0, 40),
+      city: String((fields && fields.city) || "").trim().slice(0, 40),
+      bio: String((fields && fields.bio) || "").trim().slice(0, 160),
+    };
+    if (includeAvatar) {
+      const avatar = fields && fields.avatar_url;
+      body.avatar_url = avatar ? String(avatar).slice(0, 120000) : null;
+    }
+    return body;
+  };
+
+  const getMyProfile = async () => {
+    const session = await refreshIfNeeded();
+    if (!session) throw new Error("请先登录");
+    const rows = await request(
+      "/rest/v1/profiles?select=" + PROFILE_SELECT + "&id=eq." + encodeURIComponent(session.user.id),
+      { headers: headers(session.access_token) },
+      1,
+    );
+    return Array.isArray(rows) ? (rows[0] || null) : rows;
+  };
+
+  const saveMyProfile = async (fields, includeAvatar) => {
+    const session = await refreshIfNeeded();
+    if (!session) throw new Error("请先登录");
+    const uid = session.user.id;
+    const body = clipProfile(fields, includeAvatar);
+    const patchHeaders = { ...headers(session.access_token), Prefer: "return=representation" };
+    const patched = await request("/rest/v1/profiles?id=eq." + encodeURIComponent(uid), {
+      method: "PATCH",
+      headers: patchHeaders,
+      body: JSON.stringify(body),
+    }, 1);
+    if (Array.isArray(patched) && patched.length) return patched[0];
+    if (patched && patched.id) return patched;
+    const inserted = await request("/rest/v1/profiles", {
+      method: "POST",
+      headers: patchHeaders,
+      body: JSON.stringify({ id: uid, ...body }),
+    }, 1);
+    return Array.isArray(inserted) ? inserted[0] : inserted;
+  };
+
   const recordActivity = (eventType, category, detail) => {
     const session = readSession();
     if (!session || !session.access_token) return Promise.resolve();
@@ -1142,6 +1191,8 @@
     recover,
     resend,
     updateUser,
+    getMyProfile,
+    saveMyProfile,
     logout,
     isDisabled,
     ping,

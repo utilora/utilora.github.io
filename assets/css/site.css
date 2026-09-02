@@ -21,7 +21,14 @@
 .account-main .panel{margin-bottom:16px}
 .account-main h2{margin:0 0 12px;font-size:18px}
 .account-hero{display:flex;gap:16px;align-items:center;margin-bottom:22px}
-.account-avatar{display:grid;width:64px;height:64px;place-items:center;border-radius:50%;background:#111827;color:#fff;font-size:24px;font-weight:750}
+.account-avatar-wrap{position:relative;display:inline-grid;width:88px;height:88px;flex:0 0 88px;cursor:pointer}
+.account-avatar{display:grid;width:88px;height:88px;place-items:center;border-radius:50%;background:#111827;color:#fff;font-size:32px;font-weight:750}
+.account-avatar-img{width:88px;height:88px;border-radius:50%;object-fit:cover;background:#111827}
+.account-avatar-edit{position:absolute;right:-2px;bottom:-2px;padding:3px 8px;border-radius:999px;background:#111827;color:#fff;font-size:11px;font-weight:750;line-height:1.4}
+.profile-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+#bio{min-height:96px}
+.char-count{margin:6px 0 0;color:var(--muted);font-size:12px;text-align:right}
+@media(max-width:650px){.profile-grid{grid-template-columns:1fr}}
 .account-chips{display:flex;flex-wrap:wrap;gap:8px}
 .account-chips a{padding:8px 12px;border:1px solid var(--line);border-radius:999px;background:#f8fafc}
 .verify-on,.verify-off{display:inline-block;margin:8px 0 0;padding:4px 10px;border-radius:999px;font-size:12px;font-weight:750}

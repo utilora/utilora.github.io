@@ -22,7 +22,11 @@
   <main class="tool-main account-main">
     <section class="panel">
       <div class="account-hero">
-        <span class="account-avatar" id="avatar">U</span>
+        <label class="account-avatar-wrap" for="avatar-file">
+          <span class="account-avatar" id="avatar">U</span>
+          <img id="avatar-img" class="account-avatar-img" alt="" hidden>
+          <span class="account-avatar-edit">更换</span>
+        </label>
         <div>
           <h1 id="hello">账号</h1>
           <p class="hint" id="email-line"></p>
@@ -30,16 +34,40 @@
           <p id="plan-badge" class="plan-pill">读取中</p>
         </div>
       </div>
+      <p class="hint tight">头像、称呼和公司只出现在你的账号页。财务账本仍只保存在这台设备。</p>
       <form id="profile-form">
+        <input id="avatar-file" type="file" accept="image/jpeg,image/png,image/webp,image/gif" hidden>
         <div class="field">
           <label for="name">称呼</label>
-          <input id="name" autocomplete="nickname">
+          <input id="name" maxlength="40" autocomplete="nickname" placeholder="怎么称呼你">
         </div>
         <div class="field">
           <label for="email">邮箱</label>
           <input id="email" type="email" readonly>
         </div>
-        <button type="submit">保存资料</button>
+        <div class="profile-grid">
+          <div class="field">
+            <label for="company">公司 / 工作室</label>
+            <input id="company" maxlength="80" autocomplete="organization" placeholder="选填">
+          </div>
+          <div class="field">
+            <label for="title">职务</label>
+            <input id="title" maxlength="40" autocomplete="organization-title" placeholder="选填">
+          </div>
+        </div>
+        <div class="field">
+          <label for="city">所在城市</label>
+          <input id="city" maxlength="40" autocomplete="address-level2" placeholder="选填">
+        </div>
+        <div class="field">
+          <label for="bio">简介</label>
+          <textarea id="bio" maxlength="160" rows="3" placeholder="一句话介绍自己，最多 160 字。"></textarea>
+          <p class="char-count" id="bio-count">0 / 160</p>
+        </div>
+        <div class="actions">
+          <button type="submit">保存资料</button>
+          <button id="avatar-remove" class="secondary" type="button" hidden>移除头像</button>
+        </div>
       </form>
       <p id="profile-msg" class="message" role="status"></p>
     </section>
@@ -61,11 +89,6 @@
       <h2>我的收藏</h2>
       <div id="favs" class="account-chips"></div>
       <p id="fav-empty" class="hint">还没有收藏。打开工具后点星标即可。</p>
-    </section>
-    <section class="panel">
-      <h2>最近使用</h2>
-      <div id="recents" class="account-chips"></div>
-      <p id="recent-empty" class="hint">还没有使用记录。</p>
     </section>
     <section class="panel" id="security-panel">
       <h2>登录安全</h2>
@@ -112,11 +135,11 @@
       <button id="logout" class="secondary" type="button">退出登录</button>
     </div>
   </main>
-  <script src="../assets/js/auth.js?v=23"></script>
+  <script src="../assets/js/auth.js?v=24"></script>
   <script src="../assets/js/announcement.js"></script>
   <script src="../assets/js/app.js?v=14"></script>
   <script src="../assets/js/pro.js?v=2"></script>
-  <script src="account.js?v=6"></script>
+  <script src="account.js?v=7"></script>
   <script type="module" src="/src/account.ts"></script>
 </body>
 </html>
