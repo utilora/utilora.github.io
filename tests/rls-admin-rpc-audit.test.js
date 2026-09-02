@@ -28,6 +28,8 @@ const TABLES_DENY_ANON = [
   "public_submit_log",
   "password_reset_log",
   "login_locations",
+  "mfa_recovery_codes",
+  "mfa_recovery_attempts",
 ];
 
 const RPC_DENY_ANON = [
@@ -68,6 +70,13 @@ const RPC_DENY_ANON = [
   "submit_purchase_intent",
   "record_login_location",
   "list_my_login_locations",
+  "replace_mfa_recovery_codes",
+  "consume_mfa_recovery_code",
+  "peek_mfa_recovery_code",
+  "mark_mfa_recovery_code_used",
+  "mfa_recovery_remaining",
+  "clear_mfa_recovery_codes",
+  "list_my_sessions",
 ];
 
 const RPC_ALLOW_ANON = ["track_analytics_event", "get_aging_bucket_bounds"];

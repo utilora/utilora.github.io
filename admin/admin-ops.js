@@ -1089,10 +1089,23 @@
     revokeEntitlements,
   };
 
-  if (getSession() || isPreview()) {
+  if (isPreview() && !getSession()) {
     showManager();
     refreshAll();
-  } else {
+  } else if (!getSession()) {
     showLogin();
+  } else {
+    Promise.resolve(window.ensureAdminMfaSession ? window.ensureAdminMfaSession() : { ok: true }).then((gate) => {
+      if (!gate || gate.ok) {
+        showManager();
+        refreshAll();
+        return;
+      }
+      sessionStorage.removeItem(sessionKey);
+      showLogin();
+      setMessage(loginMessage, gate.message || '请先完成二次验证', true);
+    }).catch(() => {
+      showLogin();
+    });
   }
 })();

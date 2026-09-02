@@ -54,7 +54,7 @@
 |----|------|--------|------|
 | 用户端 | feat/user-workspace | 五个财税工具打磨 | 待开始 |
 | 管理端 | feat/admin-ops | — | 空闲 |
-| 安全 | fix/security-hardening | — | 空闲 |
+| 安全 | fix/security-hardening | 二次验证恢复码 | 进行中 |
 
 ## AI 开工前必读
 
@@ -143,7 +143,7 @@ A-11 账龄分桶边界配置：在限额/运营策略配置中增加「账龄�
 
 ## 安全改善（分支 fix/security-hardening）
 
-允许路径：`supabase/functions/`、`supabase/migrations/`（限流/验证码/RLS）、`assets/js/auth.js`、`login/`、`feedback/`。S-10 / S-11 可改全站 HTML、CSS，以及为去掉内联脚本/样式而新增或改动的 `assets/` 与工作台模板（`pro/app.js`）。S-12–S-16 可改 `account/`、`sw.js`、`src/core/backup/`、`admin/limits.js`（限额页补留言/购买意向四项）。
+允许路径：`supabase/functions/`、`supabase/migrations/`（限流/验证码/RLS）、`assets/js/auth.js`、`login/`、`feedback/`。S-10 / S-11 可改全站 HTML、CSS，以及为去掉内联脚本/样式而新增或改动的 `assets/` 与工作台模板（`pro/app.js`）。S-12–S-16 可改 `account/`、`sw.js`、`src/core/backup/`、`admin/limits.js`（限额页补留言/购买意向四项）。S-17–S-19 可改 `account/`、`login/`、`admin/admin.js`、`admin/index.html`、`admin/admin-ops.js`（后台强制二次验证）。
 
 S-01 每 IP 每天成功注册不超过配置值（默认 3；验证成功才计数，不是点发送就计数）。  
 S-02 验证码服务端限额：读配置（默认每邮箱每小时 3 封；每 IP 每小时 10 封）。  
@@ -161,6 +161,9 @@ S-13 登出其他设备：账号页一键让其他浏览器/设备的登录立�
 S-14 新地点登录通知：登录成功后按哈希后的网络识别是否新地点；新地点写入账号活动，账号页可查看最近网络；能发信时通知注册邮箱。
 S-15 备份加口令：新导出必须口令加密（Web Crypto）；明文旧备份仍可导入；口令错误不得预览内容。
 S-16 防被嵌进别人网站：脚本发现被嵌入则拒绝展示并尝试跳出；已安装的站点服务在页面响应上补 frame-ancestors。GitHub Pages 首次访问仍可能被嵌，完整响应头需代理。
+S-17 二次验证恢复码：开启验证器时生成一次性恢复码，只展示一次。登录可用一张恢复码代替 6 位码；用掉后二次验证关闭，须重新开启。已开启但没有恢复码的，可在账号页用验证器码重新生成。
+S-18 登录设备清单：账号页列出仍有效的登录会话（当前这一处会标明），可继续一键登出其他设备。
+S-19 管理端强制二次验证：管理员进入后台前必须已开启验证器，且本次登录须通过二次验证。未开启则提示先到账号页开启，不留下后台会话。预览页不强制。
 
 | 编号 | 状态 | 分支 | 最近提交 | 测试 |
 |------|------|------|----------|------|

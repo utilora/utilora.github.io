@@ -122,13 +122,21 @@
     el.textContent = text || "";
   };
 
-  const paintMfa = (enabled) => {
+  const paintMfa = (enabled, remaining) => {
     const status = document.getElementById("mfa-status");
     const enableBtn = document.getElementById("mfa-enable");
     const disableBtn = document.getElementById("mfa-disable");
+    const rotateBtn = document.getElementById("recovery-rotate");
+    const recoveryStatus = document.getElementById("recovery-status");
     if (status) status.textContent = enabled ? "二次验证已开启。登录时须再填验证器中的 6 位码。" : "尚未开启二次验证。";
     if (enableBtn) enableBtn.hidden = enabled;
     if (disableBtn) disableBtn.hidden = !enabled;
+    if (rotateBtn) rotateBtn.hidden = !enabled;
+    if (recoveryStatus) {
+      recoveryStatus.textContent = enabled
+        ? (remaining > 0 ? "还剩 " + remaining + " 张未使用的恢复码。明文只在生成时显示一次。" : "还没有可用恢复码。请立刻重新生成并保存。")
+        : "";
+    }
   };
 
   const paintLocations = (rows) => {
@@ -146,24 +154,82 @@
       const item = document.createElement("div");
       item.className = "location-item";
       const last = row.last_seen ? new Date(row.last_seen).toLocaleString("zh-CN") : "";
-      item.innerHTML = "<b>" + (row.network || "未知网络") + "</b>" + (last ? "最近：" + last : "");
+      const net = document.createElement("b");
+      net.textContent = row.network || "未知网络";
+      item.append(net);
+      if (last) item.append(document.createTextNode("最近：" + last));
       box.append(item);
     });
+  };
+
+  const shortAgent = (raw) => {
+    const text = String(raw || "");
+    if (!text) return "未知设备";
+    if (/iPhone|iPad/i.test(text)) return "Apple 设备";
+    if (/Android/i.test(text)) return "Android 设备";
+    if (/Macintosh/i.test(text)) return "Mac";
+    if (/Windows/i.test(text)) return "Windows";
+    if (/Linux/i.test(text)) return "Linux";
+    return text.slice(0, 48);
+  };
+
+  const paintSessions = (rows) => {
+    const box = document.getElementById("login-sessions");
+    if (!box) return;
+    box.replaceChildren();
+    if (!rows || !rows.length) {
+      const empty = document.createElement("p");
+      empty.className = "hint tight";
+      empty.textContent = "目前只能看到当前这一处。";
+      box.append(empty);
+      return;
+    }
+    rows.forEach((row) => {
+      const item = document.createElement("div");
+      item.className = row.current ? "session-item current" : "session-item";
+      const title = document.createElement("b");
+      title.textContent = (row.current ? "当前 · " : "") + shortAgent(row.user_agent);
+      item.append(title);
+      const last = row.last_active ? new Date(row.last_active).toLocaleString("zh-CN") : "";
+      const created = row.created_at ? new Date(row.created_at).toLocaleString("zh-CN") : "";
+      item.append(document.createTextNode((last ? "最近活动：" + last : "") + (created ? "　登录于：" + created : "")));
+      box.append(item);
+    });
+  };
+
+  const showRecoveryCodes = (codes) => {
+    const box = document.getElementById("recovery-once");
+    const list = document.getElementById("recovery-list");
+    if (!box || !list) return;
+    list.replaceChildren();
+    (codes || []).forEach((code) => {
+      const li = document.createElement("li");
+      li.textContent = code;
+      list.append(li);
+    });
+    box.hidden = !codes || !codes.length;
+    window.__utiloraRecoveryCodes = codes || [];
   };
 
   const loadSecurity = async () => {
     if (!auth.listMfaStatus) return;
     try {
       const status = await auth.listMfaStatus();
-      paintMfa(Boolean(status && status.enabled));
+      paintMfa(Boolean(status && status.enabled), Number(status && status.remaining) || 0);
     } catch {
-      paintMfa(false);
+      paintMfa(false, 0);
     }
     try {
       const rows = await auth.listLoginLocations();
       paintLocations(rows);
     } catch {
       paintLocations([]);
+    }
+    try {
+      const sessions = auth.listMySessions ? await auth.listMySessions() : [];
+      paintSessions(sessions);
+    } catch {
+      paintSessions([]);
     }
   };
 
@@ -203,11 +269,14 @@
     const code = document.getElementById("mfa-code").value.trim();
     setSecurityMsg("正在确认…");
     try {
-      await auth.confirmMfaEnroll(pendingFactorId, code);
+      const enrolled = await auth.confirmMfaEnroll(pendingFactorId, code);
       pendingFactorId = "";
       document.getElementById("mfa-enroll").hidden = true;
-      paintMfa(true);
-      setSecurityMsg("二次验证已开启。");
+      paintMfa(true, (enrolled && enrolled.recovery_codes || []).length);
+      showRecoveryCodes(enrolled && enrolled.recovery_codes);
+      setSecurityMsg(enrolled && enrolled.recovery_codes && enrolled.recovery_codes.length
+        ? "二次验证已开启。请保存下面的恢复码，只显示这一次。"
+        : "二次验证已开启，但恢复码未能生成。请点「重新生成恢复码」。");
     } catch (error) {
       setSecurityMsg(error.message || "开启失败", true);
     }
@@ -219,7 +288,8 @@
     setSecurityMsg("正在关闭…");
     try {
       await auth.disableMfa(code);
-      paintMfa(false);
+      paintMfa(false, 0);
+      showRecoveryCodes([]);
       setSecurityMsg("二次验证已关闭。");
     } catch (error) {
       setSecurityMsg(error.message || "关闭失败", true);
@@ -232,9 +302,47 @@
     try {
       await auth.logoutOthers();
       setSecurityMsg("其他设备已退出。");
+      try { paintSessions(await auth.listMySessions()); } catch { /* ignore */ }
     } catch (error) {
       setSecurityMsg(error.message || "操作失败", true);
     }
+  });
+
+  document.getElementById("recovery-rotate")?.addEventListener("click", async () => {
+    const code = window.prompt("重新生成恢复码须填写验证器中的 6 位码。旧恢复码会立即失效。");
+    if (!code) return;
+    setSecurityMsg("正在生成新的恢复码…");
+    try {
+      const codes = await auth.rotateRecoveryCodes(code);
+      paintMfa(true, codes.length);
+      showRecoveryCodes(codes);
+      setSecurityMsg("新的恢复码已生成，请立刻保存。旧码已失效。");
+    } catch (error) {
+      setSecurityMsg(error.message || "生成失败", true);
+    }
+  });
+
+  document.getElementById("recovery-copy")?.addEventListener("click", async () => {
+    const codes = window.__utiloraRecoveryCodes || [];
+    if (!codes.length) return;
+    try {
+      await navigator.clipboard.writeText(codes.join("\n"));
+      setSecurityMsg("已复制到剪贴板。");
+    } catch {
+      setSecurityMsg("复制失败，请手动抄写。", true);
+    }
+  });
+
+  document.getElementById("recovery-download")?.addEventListener("click", () => {
+    const codes = window.__utiloraRecoveryCodes || [];
+    if (!codes.length) return;
+    const blob = new Blob(["Utilora 二次验证恢复码\n每张只能用一次。请离线保存。\n\n" + codes.join("\n") + "\n"], { type: "text/plain;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "utilora-recovery-codes.txt";
+    a.click();
+    URL.revokeObjectURL(url);
   });
 
   document.addEventListener("utilora:idle-expired", () => {

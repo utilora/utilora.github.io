@@ -17,7 +17,7 @@
 <body class="admin-body">
   <section id="login-panel" class="panel login-panel">
       <h1>管理员登录</h1>
-      <p class="hint">使用管理员邮箱和密码登录。登录后可查看访问、财务工具、购买意向、操作日志，并管理用户与折扣。</p>
+      <p class="hint">使用管理员邮箱和密码登录。后台须开启二次验证，本次登录还须填写验证器中的 6 位码。</p>
       <form id="login-form">
         <div class="field">
           <label for="email">邮箱</label>
@@ -27,7 +27,12 @@
           <label for="password">密码</label>
           <input id="password" type="password" required autocomplete="current-password">
         </div>
+        <div class="field" id="admin-mfa-field" hidden>
+          <label for="admin-mfa">二次验证码</label>
+          <input id="admin-mfa" inputmode="numeric" maxlength="6" autocomplete="one-time-code" placeholder="验证器中的 6 位码">
+        </div>
         <button id="login-button" type="submit">登录</button>
+        <button id="admin-mfa-cancel" class="secondary" type="button" hidden>返回重新登录</button>
       </form>
       <div id="login-message" class="message" role="status"></div>
     </section>

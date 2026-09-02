@@ -505,4 +505,30 @@ describe("product architecture", () => {
     expect(read("supabase/functions/login-location/index.ts")).not.toMatch(/sb_secret/i);
     expect(read("assets/js/auth.js")).not.toMatch(/service[_-]?role|sb_secret/i);
   });
+
+  it("issues hashed recovery codes, lists sessions, and requires admin totp", () => {
+    const sql = read("supabase/migrations/202609020018_mfa_recovery_sessions.sql");
+    expect(sql).toContain("mfa_recovery_codes");
+    expect(sql).toContain("replace_mfa_recovery_codes");
+    expect(sql).toContain("peek_mfa_recovery_code");
+    expect(sql).toContain("list_my_sessions");
+    expect(sql).toContain("grant execute on function public.replace_mfa_recovery_codes(uuid, text[]) to service_role");
+    expect(sql).not.toMatch(/grant\s+(select|insert|update|delete)\s+on\s+public\.mfa_recovery_codes\s+to\s+(public|anon|authenticated)/i);
+    expect(sql).not.toMatch(/grant execute on function public.peek_mfa_recovery_code\(uuid, text\) to (public|anon|authenticated)/i);
+    expect(read("assets/js/auth.js")).toContain("functions/v1/mfa-recovery");
+    expect(read("assets/js/auth.js")).toContain("redeemRecoveryCode");
+    expect(read("assets/js/auth.js")).toContain("listMySessions");
+    expect(read("login/login.js")).toContain('mode === "recovery"');
+    expect(read("login/index.html")).toContain("toggle-recovery-code");
+    expect(read("account/index.html")).toContain("recovery-once");
+    expect(read("account/index.html")).toContain("login-sessions");
+    expect(read("account/account.js")).toContain("rotateRecoveryCodes");
+    expect(read("admin/index.html")).toContain("admin-mfa-field");
+    expect(read("admin/admin.js")).toContain("ensureAdminMfaSession");
+    expect(read("admin/admin.js")).toContain("管理员须先在账号页开启二次验证");
+    expect(read("admin/admin-ops.js")).toContain("ensureAdminMfaSession");
+    expect(read("supabase/functions/mfa-recovery/index.ts")).toContain("totp_removed");
+    expect(read("supabase/functions/mfa-recovery/index.ts")).not.toMatch(/sb_secret/i);
+    expect(read("supabase/admin-ops.sql")).toContain("202609020018_mfa_recovery_sessions.sql");
+  });
 });

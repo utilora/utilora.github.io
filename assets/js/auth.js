@@ -11,6 +11,7 @@
   const CAPTCHA_FN = API + "/functions/v1/verify-captcha";
   const PASSWORD_RESET_FN = API + "/functions/v1/password-reset-limit";
   const LOGIN_LOCATION_FN = API + "/functions/v1/login-location";
+  const MFA_RECOVERY_FN = API + "/functions/v1/mfa-recovery";
 
   const headers = (token) => ({
     apikey: KEY,
@@ -116,6 +117,12 @@
     }
     if (/mfa_required|二次验证/i.test(code + raw)) {
       return raw || "请输入验证器中的 6 位码";
+    }
+    if (/recovery_locked|恢复码尝试次数/i.test(code + raw)) {
+      return raw || "恢复码尝试次数过多，请稍后再试。";
+    }
+    if (/recovery_invalid|恢复码不对/i.test(code + raw)) {
+      return raw || "恢复码不对或已用过。";
     }
     if (/invalid.*code|invalid.*totp|mfa_verification|挑战已过期/i.test(code + raw)) {
       return "验证码不对或已过期，请再试一次。";
@@ -568,12 +575,95 @@
 
   const listMfaStatus = async () => {
     const session = await refreshIfNeeded();
-    if (!session) return { enabled: false };
+    if (!session) return { enabled: false, remaining: 0 };
     try {
       const totp = verifiedTotp(await listFactors(session.access_token));
-      return { enabled: Boolean(totp), factorId: totp && totp.id };
+      let remaining = 0;
+      try {
+        remaining = await request("/rest/v1/rpc/mfa_recovery_remaining", {
+          method: "POST",
+          headers: headers(session.access_token),
+          body: "{}",
+        }, 1);
+      } catch {
+        remaining = 0;
+      }
+      return { enabled: Boolean(totp), factorId: totp && totp.id, remaining: Number(remaining) || 0 };
     } catch {
-      return { enabled: false };
+      return { enabled: false, remaining: 0 };
+    }
+  };
+
+  const callMfaRecovery = async (token, body) => {
+    const response = await fetch(MFA_RECOVERY_FN, {
+      method: "POST",
+      credentials: "omit",
+      cache: "no-store",
+      headers: headers(token),
+      body: JSON.stringify(body || {}),
+    });
+    return parseJson(response);
+  };
+
+  const issueRecoveryCodes = async () => {
+    const session = await refreshIfNeeded();
+    if (!session) throw new Error("请先登录");
+    const data = await callMfaRecovery(session.access_token, { action: "issue" });
+    return Array.isArray(data.codes) ? data.codes : [];
+  };
+
+  const rotateRecoveryCodes = async (code) => {
+    const session = await refreshIfNeeded();
+    if (!session) throw new Error("请先登录");
+    const token = String(code || "").trim();
+    if (!/^\d{6}$/.test(token)) throw new Error("请输入验证器中的 6 位码");
+    const totp = verifiedTotp(await listFactors(session.access_token));
+    if (!totp) throw new Error("尚未开启二次验证");
+    const verified = await challengeAndVerify(session.access_token, totp.id, token);
+    let access = session.access_token;
+    if (verified && verified.access_token) {
+      const next = await assembleSession(verified);
+      writeSession(next);
+      access = next.access_token;
+    }
+    const data = await callMfaRecovery(access, { action: "issue" });
+    recordActivity("profile_update", "auth", { source: "mfa_recovery_rotate" });
+    return Array.isArray(data.codes) ? data.codes : [];
+  };
+
+  const redeemRecoveryCode = async (code) => {
+    if (!pendingMfa || !pendingMfa.session) {
+      const err = new Error("请重新登录后再填恢复码");
+      err.code = "mfa_required";
+      throw err;
+    }
+    const raw = String(code || "").trim().toUpperCase();
+    if (!/^[A-Z0-9]{4}-?[A-Z0-9]{4}$/.test(raw.replace(/\s/g, ""))) {
+      throw new Error("请输入 8 位恢复码");
+    }
+    try {
+      await callMfaRecovery(pendingMfa.session.access_token, { action: "redeem", code: raw });
+      const session = pendingMfa.session;
+      pendingMfa = null;
+      const active = await enforceActiveAccount(session);
+      if (!active) {
+        const err = new Error(DISABLED_ACCOUNT_MESSAGE);
+        err.code = "account_disabled";
+        throw err;
+      }
+      writeSession(session);
+      recordActivity("login", "auth", { source: "mfa_recovery" });
+      pingLoginLocation(session.access_token);
+      return session;
+    } catch (error) {
+      if (error && error.code === "account_disabled") throw error;
+      if (error && (error.code === "locked" || error.status === 429)) {
+        error.code = "recovery_locked";
+        error.message = friendlyError(error, "恢复码尝试次数过多，请约 15 分钟后再试。");
+        throw error;
+      }
+      error.message = friendlyError(error, "恢复码不对或已用过。");
+      throw error;
     }
   };
 
@@ -609,7 +699,17 @@
         writeSession(next);
       }
       recordActivity("profile_update", "auth", { source: "mfa_enable" });
-      return data;
+      let codes = [];
+      try {
+        const issued = await callMfaRecovery(
+          (data && data.access_token) ? data.access_token : session.access_token,
+          { action: "issue" },
+        );
+        codes = Array.isArray(issued.codes) ? issued.codes : [];
+      } catch {
+        codes = [];
+      }
+      return { ...data, recovery_codes: codes };
     } catch (error) {
       error.message = friendlyError(error, "验证码不对，二次验证未开启。");
       throw error;
@@ -638,6 +738,11 @@
         method: "DELETE",
         headers: headers(session.access_token),
       });
+      await request("/rest/v1/rpc/clear_mfa_recovery_codes", {
+        method: "POST",
+        headers: headers(session.access_token),
+        body: "{}",
+      }, 1).catch(() => {});
       recordActivity("profile_update", "auth", { source: "mfa_disable" });
     } catch (error) {
       error.message = friendlyError(error, "关闭失败，请核对验证码后重试。");
@@ -665,6 +770,30 @@
         body: "{}",
       }, 1);
       return Array.isArray(data) ? data : [];
+    } catch {
+      return [];
+    }
+  };
+
+  const listMySessions = async () => {
+    const session = await refreshIfNeeded();
+    if (!session) return [];
+    try {
+      const data = await request("/rest/v1/rpc/list_my_sessions", {
+        method: "POST",
+        headers: headers(session.access_token),
+        body: "{}",
+      }, 1);
+      const rows = Array.isArray(data) ? data : [];
+      let currentId = "";
+      try {
+        const part = String(session.access_token || "").split(".")[1] || "";
+        const padded = part.replace(/-/g, "+").replace(/_/g, "/") + "==".slice(0, (4 - (part.length % 4)) % 4);
+        currentId = String((JSON.parse(atob(padded)) || {}).session_id || "");
+      } catch {
+        currentId = "";
+      }
+      return rows.map((row) => ({ ...row, current: Boolean(currentId && row.id === currentId) }));
     } catch {
       return [];
     }
@@ -982,6 +1111,9 @@
     signup,
     login,
     verifyMfaLogin,
+    redeemRecoveryCode,
+    issueRecoveryCodes,
+    rotateRecoveryCodes,
     listMfaStatus,
     startMfaEnroll,
     confirmMfaEnroll,
@@ -989,6 +1121,7 @@
     disableMfa,
     logoutOthers,
     listLoginLocations,
+    listMySessions,
     cancelPendingMfa: () => { pendingMfa = null; },
     recover,
     resend,

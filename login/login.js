@@ -13,6 +13,7 @@
   const submit = document.getElementById("submit");
   const toggleMode = document.getElementById("toggle-mode");
   const toggleRecover = document.getElementById("toggle-recover");
+  const toggleRecoveryCode = document.getElementById("toggle-recovery-code");
   const resend = document.getElementById("resend");
   const banner = document.getElementById("banner");
   const formMsg = document.getElementById("form-msg");
@@ -48,7 +49,8 @@
     const isVerify = mode === "verify";
     const isReset = mode === "reset";
     const isMfa = mode === "mfa";
-    title.textContent = isUp ? "创建账号" : isRecover ? "重置密码" : isVerify ? "验证邮箱" : isReset ? "设置新密码" : isMfa ? "二次验证" : "登录";
+    const isRecovery = mode === "recovery";
+    title.textContent = isUp ? "创建账号" : isRecover ? "重置密码" : isVerify ? "验证邮箱" : isReset ? "设置新密码" : isRecovery ? "使用恢复码" : isMfa ? "二次验证" : "登录";
     lead.textContent = isUp
       ? "使用真实邮箱。我们会发送验证码，验证成功后才能登录。"
       : isRecover
@@ -57,29 +59,38 @@
           ? `验证码已发送到 ${pendingEmail}，请输入邮件中的数字验证码。`
           : isReset
             ? "请设置新密码，保存后进入账号页。"
-            : isMfa
+            : isRecovery
+              ? "请输入开启二次验证时保存的一次性恢复码。用掉后二次验证会关闭，请尽快重新开启。"
+              : isMfa
               ? "请输入验证器中的 6 位码。未完成验证不会登录。"
               : "使用已验证的邮箱登录。工具本身仍可免登录使用。";
     nameField.hidden = !isUp;
     confirmField.hidden = !(isUp || isReset);
-    passwordField.hidden = isRecover || isVerify || isMfa;
-    otpField.hidden = !(isVerify || isMfa);
-    passwordInput.required = !isRecover && !isVerify && !isMfa;
+    passwordField.hidden = isRecover || isVerify || isMfa || isRecovery;
+    otpField.hidden = !(isVerify || isMfa || isRecovery);
+    passwordInput.required = !isRecover && !isVerify && !isMfa && !isRecovery;
     confirmInput.required = isUp || isReset;
-    otpInput.required = isVerify || isMfa;
-    emailInput.readOnly = isVerify || isReset || isMfa;
-    submit.textContent = isUp ? "发送验证码" : isRecover ? "发送重置邮件" : isVerify ? "验证并完成注册" : isReset ? "保存新密码" : isMfa ? "验证并登录" : "登录";
-    toggleMode.textContent = isUp || isRecover || isVerify || isReset || isMfa ? "返回登录" : "没有账号？注册";
-    toggleRecover.hidden = isRecover || isVerify || isReset || isMfa;
+    otpInput.required = isVerify || isMfa || isRecovery;
+    emailInput.readOnly = isVerify || isReset || isMfa || isRecovery;
+    submit.textContent = isUp ? "发送验证码" : isRecover ? "发送重置邮件" : isVerify ? "验证并完成注册" : isReset ? "保存新密码" : isRecovery ? "用恢复码登录" : isMfa ? "验证并登录" : "登录";
+    toggleMode.textContent = isUp || isRecover || isVerify || isReset || isMfa || isRecovery ? "返回登录" : "没有账号？注册";
+    toggleRecover.hidden = isRecover || isVerify || isReset || isMfa || isRecovery;
+    if (toggleRecoveryCode) {
+      toggleRecoveryCode.hidden = !(isMfa || isRecovery);
+      toggleRecoveryCode.textContent = isRecovery ? "改用验证器码" : "使用恢复码";
+    }
     resend.hidden = !pendingEmail || !isVerify;
     resend.textContent = cooldown > 0 ? resend.textContent : "重新发送验证码";
     strength.hidden = !(isUp && passwordInput.value);
     const otpLabel = document.getElementById("otp-label");
     const otpHint = document.getElementById("otp-hint");
-    if (otpLabel) otpLabel.textContent = isMfa ? "二次验证码" : "邮箱验证码";
-    if (otpHint) otpHint.hidden = isMfa;
-    otpInput.placeholder = isMfa ? "请输入验证器中的 6 位码" : "请输入邮件中的验证码";
-    otpInput.maxLength = isMfa ? 6 : 8;
+    if (otpLabel) otpLabel.textContent = isRecovery ? "恢复码" : isMfa ? "二次验证码" : "邮箱验证码";
+    if (otpHint) otpHint.hidden = isMfa || isRecovery;
+    otpInput.placeholder = isRecovery ? "例如 ABCD-EFGH" : isMfa ? "请输入验证器中的 6 位码" : "请输入邮件中的验证码";
+    otpInput.maxLength = isRecovery ? 9 : isMfa ? 6 : 8;
+    otpInput.inputMode = isRecovery ? "text" : "numeric";
+    otpInput.autocomplete = isRecovery ? "off" : "one-time-code";
+    otpInput.pattern = isRecovery ? "[A-Za-z0-9-]{8,9}" : "[0-9]{6,8}";
   };
 
   const goAfterAuth = () => {
@@ -209,6 +220,15 @@
     paint();
   });
 
+  toggleRecoveryCode?.addEventListener("click", () => {
+    mode = mode === "recovery" ? "mfa" : "recovery";
+    otpInput.value = "";
+    setMsg(formMsg, mode === "recovery"
+      ? "请输入开启二次验证时保存的一次性恢复码。"
+      : "请输入验证器中的 6 位码。");
+    paint();
+  });
+
   const sendMail = async (email, name, password) => {
     pendingPassword = password || pendingPassword;
     pendingName = name || pendingName;
@@ -266,6 +286,17 @@
         const token = otpInput.value.trim();
         if (!/^\d{6}$/.test(token)) throw new Error("请输入验证器中的 6 位码");
         await auth.verifyMfaLogin(token);
+        if (await auth.isDisabled()) {
+          await auth.logout();
+          throw new Error(auth.DISABLED_ACCOUNT_MESSAGE || "该账号已停用，请联系管理员。");
+        }
+        trackLoginSuccess();
+        goAfterAuth();
+        return;
+      }
+      if (mode === "recovery") {
+        const token = otpInput.value.trim();
+        await auth.redeemRecoveryCode(token);
         if (await auth.isDisabled()) {
           await auth.logout();
           throw new Error(auth.DISABLED_ACCOUNT_MESSAGE || "该账号已停用，请联系管理员。");

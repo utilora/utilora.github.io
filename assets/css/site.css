@@ -82,6 +82,12 @@ a.plan-pill{margin:0}
 .mfa-qr{display:block;width:180px;height:180px;margin:8px 0;background:#fff;border:1px solid var(--line);border-radius:12px}
 .location-item{padding:8px 12px;border:1px solid var(--line);border-radius:12px;background:#f8fafc;font-size:13px;line-height:1.5}
 .location-item b{display:block;font-family:ui-monospace,monospace}
+.session-item{padding:8px 12px;border:1px solid var(--line);border-radius:12px;background:#f8fafc;font-size:13px;line-height:1.5;margin:0 0 8px}
+.session-item.current{border-color:#94a3b8;background:#eef2ff}
+.session-item b{display:block}
+.codes-once{margin:12px 0;padding:12px;border:1px solid #fdba74;border-radius:12px;background:#fff7ed}
+.recovery-codes{margin:8px 0 0;padding-left:22px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:14px;letter-spacing:.04em}
+.recovery-codes li{margin:4px 0}
 
 .select-inline{width:auto;min-width:180px}
 .note-short{min-height:80px}

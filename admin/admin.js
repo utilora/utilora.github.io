@@ -231,8 +231,100 @@ function loginErrorText(raw) {
   if (/email not confirmed/i.test(text)) return '邮箱尚未验证';
   if (/too many requests|rate limit/i.test(text)) return '尝试次数过多，请稍后再试';
   if (/failed to fetch|networkerror|load failed/i.test(text)) return '网络异常，请稍后重试';
+  if (/二次验证|验证器|aal2/i.test(text)) return text;
   return text || '登录失败';
 }
+
+let pendingAdmin = null;
+
+function adminAuthHeaders(token) {
+  return {
+    apikey: SUPABASE_CONFIG.publishableKey,
+    Authorization: `Bearer ${token}`,
+    'Content-Type': 'application/json',
+  };
+}
+
+function jwtAal(token) {
+  try {
+    const part = String(token || '').split('.')[1] || '';
+    const padded = part.replace(/-/g, '+').replace(/_/g, '/') + '=='.slice(0, (4 - (part.length % 4)) % 4);
+    return String(JSON.parse(atob(padded)).aal || '');
+  } catch {
+    return '';
+  }
+}
+
+function totpFromFactors(data) {
+  const list = Array.isArray(data)
+    ? data
+    : [...(data?.totp || []), ...(data?.all || []), ...(data?.factors || [])];
+  return list.find((factor) => (factor.factor_type || factor.type) === 'totp' && factor.status === 'verified') || null;
+}
+
+async function listAdminTotp(token) {
+  const response = await fetch(`${SUPABASE_CONFIG.url}/auth/v1/factors`, { headers: adminAuthHeaders(token) });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) return null;
+  return totpFromFactors(data);
+}
+
+async function verifyAdminTotp(token, factorId, code) {
+  const challengeRes = await fetch(`${SUPABASE_CONFIG.url}/auth/v1/factors/${factorId}/challenge`, {
+    method: 'POST',
+    headers: adminAuthHeaders(token),
+    body: '{}',
+  });
+  const challenge = await challengeRes.json().catch(() => ({}));
+  if (!challengeRes.ok) throw new Error(challenge.msg || '二次验证失败');
+  const verifyRes = await fetch(`${SUPABASE_CONFIG.url}/auth/v1/factors/${factorId}/verify`, {
+    method: 'POST',
+    headers: adminAuthHeaders(token),
+    body: JSON.stringify({ challenge_id: challenge.id, code: String(code || '').trim() }),
+  });
+  const data = await verifyRes.json().catch(() => ({}));
+  if (!verifyRes.ok) throw new Error('验证码不对或已过期');
+  return data;
+}
+
+async function isAdminUser(token) {
+  const response = await fetch(`${SUPABASE_CONFIG.url}/rest/v1/rpc/is_admin`, {
+    method: 'POST',
+    headers: adminAuthHeaders(token),
+    body: '{}',
+  });
+  if (!response.ok) return false;
+  const data = await response.json().catch(() => false);
+  return data === true;
+}
+
+function showAdminMfa(show) {
+  const field = document.getElementById('admin-mfa-field');
+  const cancel = document.getElementById('admin-mfa-cancel');
+  const password = document.getElementById('password');
+  const email = document.getElementById('email');
+  const button = document.getElementById('login-button');
+  if (field) field.hidden = !show;
+  if (cancel) cancel.hidden = !show;
+  if (password) password.required = !show;
+  if (email) email.readOnly = show;
+  if (button) button.textContent = show ? '验证并进入后台' : '登录';
+}
+
+async function ensureAdminMfaSession() {
+  const session = getSession();
+  if (!session?.access_token) return { ok: false, message: '请先登录' };
+  if (isPreview()) return { ok: true };
+  const totp = await listAdminTotp(session.access_token);
+  if (!totp) {
+    return { ok: false, message: '管理员须先在账号页开启二次验证，再进入后台。' };
+  }
+  if (jwtAal(session.access_token) !== 'aal2') {
+    return { ok: false, message: '请使用验证器完成二次验证后再进入后台。' };
+  }
+  return { ok: true };
+}
+window.ensureAdminMfaSession = ensureAdminMfaSession;
 
 function addDays(iso, days) {
   const date = new Date(`${iso}T00:00:00`);
@@ -247,6 +339,22 @@ loginForm.addEventListener('submit', async (event) => {
   button.disabled = true;
   setMessage(loginMessage, '正在登录……');
   try {
+    if (pendingAdmin?.access_token) {
+      const code = document.getElementById('admin-mfa')?.value.trim();
+      if (!/^\d{6}$/.test(code || '')) throw new Error('请输入验证器中的 6 位码');
+      const verified = await verifyAdminTotp(pendingAdmin.access_token, pendingAdmin.factorId, code);
+      const session = { ...pendingAdmin, ...verified };
+      pendingAdmin = null;
+      sessionStorage.setItem(sessionKey, JSON.stringify(session));
+      document.getElementById('password').value = '';
+      const mfaInput = document.getElementById('admin-mfa');
+      if (mfaInput) mfaInput.value = '';
+      showAdminMfa(false);
+      showManager();
+      await recordAdminAuth('login');
+      await refreshAll();
+      return;
+    }
     const response = await fetch(`${SUPABASE_CONFIG.url}/auth/v1/token?grant_type=password`, {
       method: 'POST',
       headers: { apikey: SUPABASE_CONFIG.publishableKey, 'Content-Type': 'application/json' },
@@ -257,6 +365,19 @@ loginForm.addEventListener('submit', async (event) => {
     });
     const data = await response.json();
     if (!response.ok) throw new Error(loginErrorText(data.error_description || data.msg || data.error));
+    if (!isPreview()) {
+      const admin = await isAdminUser(data.access_token);
+      if (!admin) throw new Error('当前账号没有管理员权限');
+      const totp = await listAdminTotp(data.access_token);
+      if (!totp) {
+        throw new Error('管理员须先在账号页开启二次验证，再进入后台。');
+      }
+      pendingAdmin = { ...data, factorId: totp.id };
+      showAdminMfa(true);
+      setMessage(loginMessage, '请输入验证器中的 6 位码。未完成验证不会进入后台。');
+      document.getElementById('admin-mfa')?.focus();
+      return;
+    }
     sessionStorage.setItem(sessionKey, JSON.stringify(data));
     document.getElementById('password').value = '';
     showManager();
@@ -267,6 +388,14 @@ loginForm.addEventListener('submit', async (event) => {
   } finally {
     button.disabled = false;
   }
+});
+
+document.getElementById('admin-mfa-cancel')?.addEventListener('click', () => {
+  pendingAdmin = null;
+  showAdminMfa(false);
+  const mfaInput = document.getElementById('admin-mfa');
+  if (mfaInput) mfaInput.value = '';
+  setMessage(loginMessage, '');
 });
 
 async function refreshSession() {
