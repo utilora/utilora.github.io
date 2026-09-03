@@ -16,8 +16,8 @@
 - 开始前：用户需明确说「做 M3-W9」或「开始真人试用」
 - 完成后必须更新本文件的进度和「当前项」
 
-Last reviewed branch: feat/user-workspace
-Last reviewed commit: _待填写_
+Last reviewed branch: main
+Last reviewed commit: 126e819
 Last reviewed date: 2026-09-03
 
 ## 进度更新协议
@@ -87,8 +87,8 @@ Last reviewed date: 2026-09-03
 
 - [x] **M2-W8** 真实使用小坑：导入表头、日期格式、重复提示、手机上能看完月结/应收。  
   验收：记录并修掉至少 5 个具体卡点。  
-  提交：_待填写_  
-  测试：_待填写_  
+  提交：126e819  
+  测试：npm test 98 passed；npm run build PASS  
   卡点：
   1. 银行导出表头不在第 1 行 → `parseBankSheet` 扫描前 12 行。
   2. 日期 `20260831` / `2026年8月1日` / `31/08/2026` 无法识别。
