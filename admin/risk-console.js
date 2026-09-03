@@ -25,6 +25,21 @@
     new_locations_today: [
       { user_id: '2', email: 'li@example.com', network: 'a1b2c3d4', first_seen: '2026-08-31T03:00:00Z', last_seen: '2026-08-31T03:00:00Z' },
     ],
+    unverified_users: [
+      { id: '3', email: 'unverified@example.com', name: '待验证', created_at: '2026-08-31T03:10:00Z', is_disabled: false },
+    ],
+    admins_mfa: [
+      { user_id: '1', email: 'admin@utilora.local', name: '站长', mfa_enabled: true, is_disabled: false },
+      { user_id: '5', email: 'ops@example.com', name: '值班', mfa_enabled: false, is_disabled: false },
+    ],
+    edge_usage: {
+      day: '2026-08-31',
+      limit: 10000,
+      items: [
+        { function_name: 'submit-feedback', used: 12, remaining: 9988, over_limit: false },
+        { function_name: 'submit-purchase-intent', used: 4, remaining: 9996, over_limit: false },
+      ],
+    },
     limits: {
       registration_success_per_ip_per_day: 3,
       otp_per_email_per_hour: 3,
@@ -228,6 +243,69 @@
       });
       locBody?.append(tr);
     });
+
+    const unverified = Array.isArray(d.unverified_users) ? d.unverified_users : [];
+    paintRiskEmpty('risk-unverified', 'risk-unverified-empty', unverified.length === 0);
+    const unverifiedBody = document.getElementById('risk-unverified');
+    unverified.forEach((user) => {
+      const tr = document.createElement('tr');
+      const status = user.is_disabled ? '已停用' : '未验证';
+      [user.email || '—', user.name || '—', fmtTime(user.created_at), status].forEach((text) => {
+        const td = document.createElement('td');
+        td.textContent = text;
+        tr.append(td);
+      });
+      const act = document.createElement('td');
+      const detail = document.createElement('button');
+      detail.type = 'button';
+      detail.className = 'secondary';
+      detail.textContent = '详情';
+      detail.addEventListener('click', () => window.AdminOps?.openDossier?.(user.email, user.id ? { id: user.id, email: user.email } : null));
+      act.append(detail);
+      tr.append(act);
+      unverifiedBody?.append(tr);
+    });
+    fill('overview-unverified', unverified.length);
+
+    const admins = Array.isArray(d.admins_mfa) ? d.admins_mfa : [];
+    paintRiskEmpty('risk-admins-mfa', 'risk-admins-mfa-empty', admins.length === 0);
+    const adminsBody = document.getElementById('risk-admins-mfa');
+    admins.forEach((row) => {
+      const tr = document.createElement('tr');
+      const mfa = row.mfa_enabled ? '已开启' : '未开启';
+      const status = row.is_disabled ? '已停用' : '正常';
+      [row.email || '—', row.name || '—', mfa, status].forEach((text, i) => {
+        const td = document.createElement('td');
+        td.textContent = text;
+        if (i === 2 && !row.mfa_enabled) td.className = 'over-limit';
+        tr.append(td);
+      });
+      adminsBody?.append(tr);
+    });
+    fill('overview-admins-no-mfa', admins.filter((row) => !row.mfa_enabled).length);
+
+    const edge = d.edge_usage || {};
+    const edgeItems = Array.isArray(edge.items) ? edge.items : [];
+    paintRiskEmpty('risk-edge-usage', 'risk-edge-usage-empty', edgeItems.length === 0);
+    const edgeBody = document.getElementById('risk-edge-usage');
+    edgeItems.forEach((row) => {
+      const tr = document.createElement('tr');
+      const usedTd = document.createElement('td');
+      usedTd.textContent = String(row.used ?? 0);
+      if (row.over_limit) usedTd.className = 'over-limit';
+      const nameTd = document.createElement('td');
+      nameTd.textContent = row.function_name || '—';
+      const remainTd = document.createElement('td');
+      remainTd.textContent = String(row.remaining ?? '—');
+      const limitTd = document.createElement('td');
+      limitTd.textContent = String(edge.limit ?? '—');
+      tr.append(nameTd, usedTd, remainTd, limitTd);
+      edgeBody?.append(tr);
+    });
+    const hottest = edgeItems.reduce((max, row) => Math.max(max, Number(row.used) || 0), 0);
+    fill('overview-edge-used', edgeItems.length ? hottest : 0);
+    const edgeHint = document.getElementById('overview-edge-limit');
+    if (edgeHint) edgeHint.textContent = edge.limit ? `每函数上限 ${edge.limit}` : '每函数有日上限';
   }
 
   async function loadRiskConsole() {
@@ -248,6 +326,26 @@
         data.new_locations_today = await locRes.json();
       } catch {
         data.new_locations_today = data.new_locations_today || [];
+      }
+      const extra = await Promise.allSettled([
+        request('rpc/admin_list_unverified_users', { method: 'POST', body: '{}' }),
+        request('rpc/admin_list_admins_mfa', { method: 'POST', body: '{}' }),
+        request('rpc/admin_list_edge_function_usage', { method: 'POST', body: '{}' }),
+      ]);
+      if (extra[0].status === 'fulfilled') {
+        data.unverified_users = await extra[0].value.json();
+      } else {
+        data.unverified_users = data.unverified_users || [];
+      }
+      if (extra[1].status === 'fulfilled') {
+        data.admins_mfa = await extra[1].value.json();
+      } else {
+        data.admins_mfa = data.admins_mfa || [];
+      }
+      if (extra[2].status === 'fulfilled') {
+        data.edge_usage = await extra[2].value.json();
+      } else {
+        data.edge_usage = data.edge_usage || { items: [] };
       }
       renderRiskConsole(data);
       setMessage(msg, '已刷新。');

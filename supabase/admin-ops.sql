@@ -13,6 +13,7 @@
 -- A-14 留言档案回访与风控补齐：见 migrations/202609020023_admin_ops_followthrough.sql
 -- A-15 档案权限/留言备注/账号回填：见 migrations/202609020024_admin_ops_crm_invite.sql
 -- A-08 邀请预埋：见 migrations/202609020024_admin_ops_crm_invite.sql（不对用户展示、不入账）
+-- A-16 意向认领检索与风控名单：见 migrations/202609020025_admin_ops_search_mfa_usage.sql
 
 create table if not exists public.purchase_intent_followups (
   intent_id uuid primary key references public.purchase_intents(id) on delete cascade,

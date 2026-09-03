@@ -14,6 +14,7 @@ let feedbackCache = [];
 let usersLoadState = 'ok';
 let intentsLoadState = 'ok';
 let feedbackLoadState = 'ok';
+let pendingRowTarget = null;
 function isPreview() {
   return !/utilora\.github\.io$/i.test(location.hostname);
 }
@@ -588,7 +589,7 @@ async function loadFeedback() {
   if (isPreview() && !getSession()) {
     feedbackLoadState = 'ok';
     feedbackCache = mockFeedback;
-    renderRows(feedbackCache);
+    renderRows();
     setMessage(managerMessage, '当前为界面预览数据。');
     setPageSummary('预览数据');
     return;
@@ -617,13 +618,14 @@ async function loadFeedback() {
     const rows = await response.json();
     feedbackLoadState = 'ok';
     feedbackCache = Array.isArray(rows) ? rows : [];
-    renderRows(feedbackCache);
-    setMessage(managerMessage, rows.length ? `共 ${rows.length} 条` : '');
-    const filtered = document.getElementById('status-filter').value || start || end;
-    setPageSummary(`${filtered ? '筛选结果' : '全部留言'}：${rows.length} 条`);
+    renderRows();
+    const visible = filteredFeedback();
+    setMessage(managerMessage, visible.length ? `共 ${visible.length} 条` : '');
+    const filtered = document.getElementById('status-filter').value || start || end || document.getElementById('feedback-search')?.value;
+    setPageSummary(`${filtered ? '筛选结果' : '全部留言'}：${visible.length} 条`);
     const badge = document.getElementById('feedback-count');
-    badge.hidden = rows.length === 0;
-    badge.textContent = rows.length;
+    badge.hidden = feedbackCache.length === 0;
+    badge.textContent = feedbackCache.length;
   } catch (error) {
     feedbackLoadState = classifyError(error);
     feedbackCache = [];
@@ -636,11 +638,21 @@ async function loadFeedback() {
   }
 }
 
-function renderRows(rows) {
+function filteredFeedback() {
+  const q = (document.getElementById('feedback-search')?.value || '').trim().toLowerCase();
+  return (feedbackCache || []).filter((row) => {
+    if (!q) return true;
+    const hay = [row.name, row.title, row.message, row.contact, row.user_email, row.admin_note, row.handler_email].join(' ').toLowerCase();
+    return hay.includes(q);
+  });
+}
+
+function renderRows() {
+  const rows = filteredFeedback();
   feedbackList.replaceChildren();
   if (rows.length) hideEmpty(empty);
   else {
-    const filtered = document.getElementById('status-filter').value || document.getElementById('start-date').value || document.getElementById('end-date').value;
+    const filtered = document.getElementById('status-filter').value || document.getElementById('start-date').value || document.getElementById('end-date').value || document.getElementById('feedback-search')?.value;
     setEmptyState(empty, filtered ? '没有符合当前筛选条件的留言。' : '还没有用户留言。', filtered ? '可重置筛选后再查询。' : '');
   }
   rows.forEach((row) => {
@@ -701,6 +713,12 @@ function renderRows(rows) {
     button.addEventListener('click', () => deleteFeedback(row.id, row.title));
     actionTd.append(claim, button);
     tr.append(actionTd);
+    tr.dataset.rowId = String(row.id);
+    if (pendingRowTarget?.kind === 'feedback' && String(pendingRowTarget.id) === String(row.id)) {
+      tr.classList.add('row-target');
+      pendingRowTarget = null;
+      queueMicrotask(() => tr.scrollIntoView({ block: 'nearest', inline: 'nearest' }));
+    }
     feedbackList.append(tr);
   });
 }
@@ -1117,6 +1135,7 @@ document.getElementById('reset-filter').addEventListener('click', () => {
   filterForm.reset();
   loadFeedback();
 });
+document.getElementById('feedback-search')?.addEventListener('input', () => renderRows());
 document.getElementById('refresh').addEventListener('click', () => refreshAll());
 document.getElementById('logout').addEventListener('click', logout);
 document.querySelectorAll('[data-page]').forEach((btn) => {
@@ -1128,6 +1147,10 @@ document.querySelectorAll('[data-page]').forEach((btn) => {
     if (btn.dataset.intentFilter) {
       const filter = document.getElementById('intent-follow-filter');
       if (filter) filter.value = btn.dataset.intentFilter;
+    }
+    if (btn.dataset.userStatus) {
+      const filter = document.getElementById('user-status-filter');
+      if (filter) filter.value = btn.dataset.userStatus;
     }
     switchPage(btn.dataset.page);
   });
@@ -1244,8 +1267,8 @@ const mockUsers = [
   { id: '4', email: 'paused@example.com', name: '已停用账号', created_at: '2026-05-02T04:00:00Z', last_sign_in_at: '2026-07-01T10:00:00Z', email_confirmed_at: '2026-05-02T04:10:00Z', is_admin: false, is_disabled: true },
 ];
 const mockIntents = [
-  { id: 'i1', email: 'demo-bookkeeper@example.com', use_case: '银行流水', company_size: '1-10', intended_plan: 'pro', created_at: '2026-08-20T08:00:00Z', follow_status: 'follow_up', follow_note: '', next_follow_on: '2026-08-31', follow_result: 'considering', trial_granted: false },
-  { id: 'i2', email: 'finance@example.com', use_case: '应收回款', company_size: '11-50', intended_plan: 'pro', created_at: '2026-08-22T11:20:00Z', follow_status: 'contacted', follow_note: '已电话确认', next_follow_on: '2026-09-05', follow_result: 'interested', trial_granted: true },
+  { id: 'i1', email: 'demo-bookkeeper@example.com', use_case: '银行流水', company_size: '1-10', intended_plan: 'pro', created_at: '2026-08-20T08:00:00Z', follow_status: 'follow_up', follow_note: '', next_follow_on: '2026-08-31', follow_result: 'considering', trial_granted: false, handler_email: null },
+  { id: 'i2', email: 'finance@example.com', use_case: '应收回款', company_size: '11-50', intended_plan: 'pro', created_at: '2026-08-22T11:20:00Z', follow_status: 'contacted', follow_note: '已电话确认', next_follow_on: '2026-09-05', follow_result: 'interested', trial_granted: true, handler_id: '1', handler_email: 'admin@utilora.local' },
 ];
 const mockFeedback = [
   { id: 'f1', created_at: '2026-08-28T09:12:00Z', name: '林青', title: '银行导入', message: '导入预览后想批量确认匹配。', contact: 'qing@example.com', status: 'new', admin_note: '', handler_email: null },
@@ -1436,9 +1459,9 @@ renderAnalytics = function(data, range) {
 };
 
 const originalRenderRows = renderRows;
-renderRows = function(rows) {
-  originalRenderRows(rows);
-  const fresh = (rows || []).filter((row) => (row.status || 'new') === 'new').length;
+renderRows = function() {
+  originalRenderRows();
+  const fresh = (feedbackCache || []).filter((row) => (row.status || 'new') === 'new').length;
   document.getElementById('overview-feedback').textContent = String(fresh);
   const todo = document.getElementById('todo-feedback');
   if (todo) todo.textContent = String(fresh);
@@ -1451,7 +1474,10 @@ function filteredIntents() {
   const follow = document.getElementById('intent-follow-filter')?.value || '';
   const today = todayISO();
   return intentsCache.filter((row) => {
-    if (q && !(row.email || '').toLowerCase().includes(q)) return false;
+    if (q) {
+      const hay = [row.email, row.use_case, row.company_size, row.intended_plan, row.follow_note, row.handler_email, row.follow_result].join(' ').toLowerCase();
+      if (!hay.includes(q)) return false;
+    }
     if (use && row.use_case !== use) return false;
     if (size && row.company_size !== size) return false;
     if (follow === 'due') {
@@ -1484,6 +1510,10 @@ function renderIntents() {
     return;
   }
   const filtered = filteredIntents();
+  if (pendingRowTarget?.kind === 'intents') {
+    const idx = filtered.findIndex((row) => String(row.id) === String(pendingRowTarget.id));
+    if (idx >= 0) intentsPage = Math.floor(idx / PAGE_SIZE) + 1;
+  }
   const page = paginate(filtered, intentsPage);
   intentsPage = page.current;
   const rows = page.slice;
@@ -1548,6 +1578,8 @@ function renderIntents() {
     trial.checked = Boolean(row.trial_granted);
     trialLabel.append(trial, document.createTextNode('已发'));
     trialTd.append(trialLabel);
+    const handlerTd = document.createElement('td');
+    handlerTd.textContent = row.handler_email || '未认领';
     const noteTd = document.createElement('td');
     const note = document.createElement('input');
     note.type = 'text';
@@ -1558,7 +1590,7 @@ function renderIntents() {
     save.type = 'button';
     save.className = 'secondary';
     save.textContent = '保存';
-    save.addEventListener('click', async () => {
+    const persist = async (claim) => {
       if (trial.checked && !row.trial_granted) {
         const ok = await window.AdminOps?.issueIntentTrial?.(row);
         if (!ok) {
@@ -1572,11 +1604,24 @@ function renderIntents() {
         note.value,
         next.value,
         result.value,
-        trial.checked
+        trial.checked,
+        Boolean(claim)
       );
-    });
-    noteTd.append(note, save);
-    tr.append(followTd, nextTd, resultTd, trialTd, noteTd);
+    };
+    save.addEventListener('click', () => persist(false));
+    const claim = document.createElement('button');
+    claim.type = 'button';
+    claim.className = 'secondary';
+    claim.textContent = row.handler_id ? '改认领' : '认领';
+    claim.addEventListener('click', () => persist(true));
+    noteTd.append(note, save, claim);
+    tr.append(followTd, nextTd, resultTd, trialTd, handlerTd, noteTd);
+    tr.dataset.rowId = String(row.id);
+    if (pendingRowTarget?.kind === 'intents' && String(pendingRowTarget.id) === String(row.id)) {
+      tr.classList.add('row-target');
+      pendingRowTarget = null;
+      queueMicrotask(() => tr.scrollIntoView({ block: 'nearest', inline: 'nearest' }));
+    }
     list.append(tr);
   });
 }
@@ -1668,4 +1713,23 @@ document.getElementById('intent-search')?.addEventListener('input', () => { inte
 document.getElementById('intent-use-filter')?.addEventListener('change', () => { intentsPage = 1; renderIntents(); });
 document.getElementById('intent-size-filter')?.addEventListener('change', () => { intentsPage = 1; renderIntents(); });
 document.getElementById('intent-follow-filter')?.addEventListener('change', () => { intentsPage = 1; renderIntents(); });
+
+function jumpToFeedback(id) {
+  window.AdminOps?.closeDossier?.();
+  filterForm.reset();
+  const search = document.getElementById('feedback-search');
+  if (search) search.value = '';
+  pendingRowTarget = { kind: 'feedback', id };
+  switchPage('feedback');
+}
+
+function jumpToIntent(id) {
+  window.AdminOps?.closeDossier?.();
+  document.getElementById('intents-filter-form')?.reset();
+  intentsPage = 1;
+  pendingRowTarget = { kind: 'intents', id };
+  switchPage('intents');
+}
+
+window.AdminJump = { openFeedback: jumpToFeedback, openIntent: jumpToIntent };
 

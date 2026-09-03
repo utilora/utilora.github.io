@@ -6,6 +6,7 @@
   const EXPIRE_SQL = 'supabase/migrations/202608310014_admin_expire_announcement.sql';
   const FOLLOWTHROUGH_SQL = 'supabase/migrations/202609020023_admin_ops_followthrough.sql';
   const CRM_SQL = 'supabase/migrations/202609020024_admin_ops_crm_invite.sql';
+  const SEARCH_SQL = 'supabase/migrations/202609020025_admin_ops_search_mfa_usage.sql';
   const TRIAL_DAYS_DEFAULT = 14;
   const LOG_PAGE = 50;
   let promotionsCache = [];
@@ -805,7 +806,7 @@
     }
   }
 
-  async function saveIntentFollowup(row, status, note, nextFollowOn, result, trialGranted) {
+  async function saveIntentFollowup(row, status, note, nextFollowOn, result, trialGranted, claim) {
     const msg = document.getElementById('intents-message');
     if (isPreview() && !getSession()) {
       row.follow_status = status;
@@ -813,8 +814,13 @@
       row.next_follow_on = nextFollowOn || null;
       row.follow_result = result || null;
       row.trial_granted = Boolean(trialGranted);
+      if (claim) {
+        row.handler_id = currentAdminId() || 'preview';
+        row.handler_email = currentAdminEmail() || '预览管理员';
+        row.handled_at = new Date().toISOString();
+      }
       renderIntents();
-      setMessage(msg, '预览已更新，未写入生产。');
+      setMessage(msg, claim ? '预览已认领，未写入生产。' : '预览已更新，未写入生产。');
       return;
     }
     try {
@@ -827,12 +833,13 @@
           p_next_follow_on: nextFollowOn || null,
           p_result: result || null,
           p_trial_granted: Boolean(trialGranted),
+          p_claim: Boolean(claim),
         }),
       });
-      setMessage(msg, '跟进已保存');
+      setMessage(msg, claim ? '已认领并保存' : '跟进已保存');
       await loadIntents();
     } catch (error) {
-      setMessage(msg, setupHint(classifyError(error), FOLLOW_SQL) || error.message, true);
+      setMessage(msg, setupHint(classifyError(error), SEARCH_SQL) || error.message, true);
     }
   }
 
@@ -1172,7 +1179,7 @@
       : '';
   }
 
-  function paintSimpleList(listId, emptyId, rows, format) {
+  function paintJumpList(listId, emptyId, rows, format, onClick) {
     const list = document.getElementById(listId);
     const empty = document.getElementById(emptyId);
     if (!list) return;
@@ -1181,7 +1188,12 @@
     if (empty) empty.hidden = items.length > 0;
     items.forEach((row) => {
       const li = document.createElement('li');
-      li.textContent = format(row);
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'linkish';
+      btn.textContent = format(row);
+      btn.addEventListener('click', () => onClick(row));
+      li.append(btn);
       list.append(li);
     });
   }
@@ -1190,16 +1202,16 @@
   const feedbackLabels = { new: '新留言', processing: '处理中', completed: '已完成', closed: '已关闭' };
 
   function paintDossierRelatedLists(extra) {
-    paintSimpleList('dossier-intents', 'dossier-intents-empty', extra?.intents, (row) => {
+    paintJumpList('dossier-intents', 'dossier-intents-empty', extra?.intents, (row) => {
       const follow = followLabels[row.follow_status] || row.follow_status || '未联系';
       const due = row.next_follow_on ? ` · 下次 ${(row.next_follow_on || '').toString().slice(0, 10)}` : '';
       const trial = row.trial_granted ? ' · 已发试用' : '';
       return `${row.use_case || '意向'} · ${follow}${due}${trial} · ${formatTime(row.created_at)}`;
-    });
-    paintSimpleList('dossier-feedback', 'dossier-feedback-empty', extra?.feedback, (row) => {
+    }, (row) => window.AdminJump?.openIntent?.(row.id));
+    paintJumpList('dossier-feedback', 'dossier-feedback-empty', extra?.feedback, (row) => {
       const status = feedbackLabels[row.status] || row.status || '新留言';
       return `${row.title || '留言'} · ${status} · ${formatTime(row.created_at)}`;
-    });
+    }, (row) => window.AdminJump?.openFeedback?.(row.id));
   }
 
   function paintDossierSessions(sessions) {
@@ -1391,7 +1403,7 @@
       return;
     }
     if (kind === 'intents') {
-      downloadCsv(`utilora-intents-${stamp}.csv`, ['时间', '邮箱', '用途', '规模', '方案', '跟进', '下次跟进', '结果', '已发试用', '备注'], filteredIntents().map((row) => [
+      downloadCsv(`utilora-intents-${stamp}.csv`, ['时间', '邮箱', '用途', '规模', '方案', '跟进', '下次跟进', '结果', '已发试用', '处理人', '备注'], filteredIntents().map((row) => [
         row.created_at || '',
         row.email || '',
         row.use_case || '',
@@ -1401,12 +1413,14 @@
         (row.next_follow_on || '').toString().slice(0, 10),
         row.follow_result || '',
         row.trial_granted ? '是' : '',
+        row.handler_email || '',
         row.follow_note || '',
       ]));
       return;
     }
     if (kind === 'feedback') {
-      downloadCsv(`utilora-feedback-${stamp}.csv`, ['时间', '提交账号', '称呼', '功能', '说明', '联系方式', '状态', '处理人', '内部备注'], (feedbackCache || []).map((row) => [
+      const rows = typeof filteredFeedback === 'function' ? filteredFeedback() : (feedbackCache || []);
+      downloadCsv(`utilora-feedback-${stamp}.csv`, ['时间', '提交账号', '称呼', '功能', '说明', '联系方式', '状态', '处理人', '内部备注'], rows.map((row) => [
         row.created_at || '',
         row.user_email || '',
         row.name || '',

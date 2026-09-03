@@ -168,6 +168,21 @@
                 <strong id="overview-open-intents">—</strong>
                 <em>未关闭的购买意向</em>
               </button>
+              <button class="overview-card" data-page="users" data-user-status="unverified" type="button">
+                <span>未验证账号</span>
+                <strong id="overview-unverified">—</strong>
+                <em>邮箱尚未确认</em>
+              </button>
+              <button class="overview-card" data-page="risk" type="button">
+                <span>管理员未开二次验证</span>
+                <strong id="overview-admins-no-mfa">—</strong>
+                <em>进入风控台</em>
+              </button>
+              <button class="overview-card" data-page="risk" type="button">
+                <span>云函数今日调用</span>
+                <strong id="overview-edge-used">—</strong>
+                <em id="overview-edge-limit">每函数有日上限</em>
+              </button>
             </div>
             <form id="overview-find" class="filters">
               <div>
@@ -421,6 +436,10 @@
             <label for="end-date">结束日期</label>
             <input id="end-date" type="date">
           </div>
+          <div>
+            <label for="feedback-search">关键字</label>
+            <input id="feedback-search" type="search" placeholder="功能 / 说明 / 邮箱 / 备注">
+          </div>
           <div class="filter-actions">
             <button type="submit">查询</button>
             <button id="reset-filter" type="button" class="secondary">重置</button>
@@ -456,8 +475,8 @@
       <section id="intents-section" hidden>
         <form id="intents-filter-form" class="filters">
           <div>
-            <label for="intent-search">搜索邮箱</label>
-            <input id="intent-search" type="search" placeholder="邮箱关键字">
+            <label for="intent-search">关键字</label>
+            <input id="intent-search" type="search" placeholder="邮箱 / 用途 / 备注 / 处理人">
           </div>
           <div>
             <label for="intent-use-filter">用途</label>
@@ -512,6 +531,7 @@
                 <th>下次跟进</th>
                 <th>结果</th>
                 <th>已发试用</th>
+                <th>处理人</th>
                 <th>备注</th>
               </tr>
             </thead>
@@ -871,6 +891,64 @@
         <div id="risk-new-locations-empty" class="empty-state" hidden>
           <strong>今日没有新地点登录。</strong>
           <p class="hint">依赖安全线表 login_locations。</p>
+        </div>
+        <h3>未验证账号</h3>
+        <p class="hint">注册后尚未确认邮箱。可点进用户管理继续筛选，或打开档案。</p>
+        <div class="table-wrap analytics-table">
+          <table>
+            <thead>
+              <tr>
+                <th>邮箱</th>
+                <th>昵称</th>
+                <th>注册时间</th>
+                <th>状态</th>
+                <th>操作</th>
+              </tr>
+            </thead>
+            <tbody id="risk-unverified"></tbody>
+          </table>
+        </div>
+        <div id="risk-unverified-empty" class="empty-state" hidden>
+          <strong>没有未验证账号。</strong>
+          <p class="hint">邮箱确认后会从这里消失。</p>
+        </div>
+        <h3>管理员二次验证</h3>
+        <p class="hint">未开启验证器的管理员不能进后台。这里列出当前管理员的开启情况。</p>
+        <div class="table-wrap analytics-table">
+          <table>
+            <thead>
+              <tr>
+                <th>邮箱</th>
+                <th>昵称</th>
+                <th>二次验证</th>
+                <th>状态</th>
+              </tr>
+            </thead>
+            <tbody id="risk-admins-mfa"></tbody>
+          </table>
+        </div>
+        <div id="risk-admins-mfa-empty" class="empty-state" hidden>
+          <strong>没有管理员记录。</strong>
+          <p class="hint">依赖 admin_users。</p>
+        </div>
+        <h3>云函数今日调用</h3>
+        <p class="hint">按 Asia/Shanghai 自然日、每个函数分别计数。上限来自限额配置。</p>
+        <div class="table-wrap analytics-table">
+          <table>
+            <thead>
+              <tr>
+                <th>函数</th>
+                <th>已用</th>
+                <th>剩余</th>
+                <th>上限</th>
+              </tr>
+            </thead>
+            <tbody id="risk-edge-usage"></tbody>
+          </table>
+        </div>
+        <div id="risk-edge-usage-empty" class="empty-state" hidden>
+          <strong>今日还没有云函数调用记录。</strong>
+          <p class="hint">依赖 edge_function_call_log。</p>
         </div>
       </section>
 
