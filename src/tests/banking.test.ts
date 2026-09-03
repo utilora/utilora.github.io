@@ -2,6 +2,9 @@ import { describe, expect, it } from "vitest";
 import {
   bankFingerprint,
   bankMatchState,
+  DUPLICATE_HINT,
+  normalizeImportedDate,
+  parseBankSheet,
   parseBankTable,
   planAllocation,
   planAllocations,
@@ -17,6 +20,13 @@ describe("bank import fingerprints", () => {
     expect(bankFingerprint("2026/8/1", "  星海贸易  转账 ", "3,000.00"))
       .toBe(bankFingerprint("2026-08-01", "星海贸易 转账", 3000));
   });
+
+  it("normalizes compact, Chinese and day-first dates", () => {
+    expect(normalizeImportedDate("20260831")).toBe("2026-08-31");
+    expect(normalizeImportedDate("2026年8月1日")).toBe("2026-08-01");
+    expect(normalizeImportedDate("31/08/2026")).toBe("2026-08-31");
+    expect(normalizeImportedDate("08/31/2026")).toBe("2026-08-31");
+  });
 });
 
 describe("bank import preview", () => {
@@ -31,6 +41,21 @@ describe("bank import preview", () => {
       { date: "2026-08-01", summary: "星海贸易转账", amount: 3000 }
     ]);
     expect(preview.map((row) => row.status)).toEqual(["duplicate", "new", "invalid", "invalid"]);
+    expect(preview[0]?.hint).toBe(DUPLICATE_HINT);
+  });
+
+  it("reads bank sheets whose title rows sit above the header", () => {
+    const parsed = parseBankSheet([
+      ["账户名称", "星海贸易对公户"],
+      ["导出日期", "2026-08-31"],
+      ["交易日期", "摘要", "贷方金额"],
+      ["20260831", "星海贸易转账", "3000"],
+      ["2026年8月1日", "北岸工作室", "600"]
+    ]);
+    expect(parsed.map((row) => ({ date: row.date, amount: row.amount, row: row.row }))).toEqual([
+      { date: "2026-08-31", amount: 3000, row: 4 },
+      { date: "2026-08-01", amount: 600, row: 5 }
+    ]);
   });
 
   it("does not create extra rows when the same file is previewed twice", () => {

@@ -649,13 +649,13 @@
           <div class="stat-card"><div><b>${progress.collectedRate}%</b><span>回款进度</span><small>已收 ${money(progress.collectedTotal)} / 应收 ${money(progress.issuedTotal)}</small></div></div>
           <div class="stat-card"><div><b>${progress.settledCount}</b><span>已结清</span><small>不含草稿和作废</small></div></div>
         </div>
-        <div class="table-wrap"><table class="sheet-table"><thead><tr><th>${labels.current}</th><th>${labels.d30}</th><th>${labels.d60}</th><th>${labels.d90}</th><th>${labels.over90}</th></tr></thead>
-        <tbody><tr><td>${money(aging.current)}</td><td>${money(aging.d30)}</td><td>${money(aging.d60)}</td><td>${money(aging.d90)}</td><td>${money(aging.over90)}</td></tr></tbody></table></div>
+        <div class="table-wrap"><table class="sheet-table stack-on-phone"><thead><tr><th>${labels.current}</th><th>${labels.d30}</th><th>${labels.d60}</th><th>${labels.d90}</th><th>${labels.over90}</th></tr></thead>
+        <tbody><tr><td data-th="${esc(labels.current)}">${money(aging.current)}</td><td data-th="${esc(labels.d30)}">${money(aging.d30)}</td><td data-th="${esc(labels.d60)}">${money(aging.d60)}</td><td data-th="${esc(labels.d90)}">${money(aging.d90)}</td><td data-th="${esc(labels.over90)}">${money(aging.over90)}</td></tr></tbody></table></div>
       </div>
       <div class="panel stack">
         <h2>客户欠款</h2>
-        <div class="table-wrap"><table class="sheet-table"><thead><tr><th>客户</th><th>未收</th><th>逾期</th><th>${short.current}</th><th>${short.d30}</th><th>${short.d60}</th><th>${short.d90}</th><th>${short.over90}</th></tr></thead>
-        <tbody>${debts.map((row) => `<tr data-ar-customer="${esc(row.customerId)}" class="${row.overdueAmount > 0 ? "warn-row" : ""}"><td>${esc(row.customerName)}</td><td>${money(row.openAmount)}</td><td>${money(row.overdueAmount)}</td><td>${money(row.aging.current)}</td><td>${money(row.aging.d30)}</td><td>${money(row.aging.d60)}</td><td>${money(row.aging.d90)}</td><td>${money(row.aging.over90)}</td></tr>`).join("") || `<tr><td colspan="8">没有未收应收</td></tr>`}</tbody></table></div>
+        <div class="table-wrap"><table class="sheet-table stack-on-phone"><thead><tr><th>客户</th><th>未收</th><th>逾期</th><th>${short.current}</th><th>${short.d30}</th><th>${short.d60}</th><th>${short.d90}</th><th>${short.over90}</th></tr></thead>
+        <tbody>${debts.map((row) => `<tr data-ar-customer="${esc(row.customerId)}" class="${row.overdueAmount > 0 ? "warn-row" : ""}"><td data-th="客户">${esc(row.customerName)}</td><td data-th="未收">${money(row.openAmount)}</td><td data-th="逾期">${money(row.overdueAmount)}</td><td data-th="${esc(short.current)}">${money(row.aging.current)}</td><td data-th="${esc(short.d30)}">${money(row.aging.d30)}</td><td data-th="${esc(short.d60)}">${money(row.aging.d60)}</td><td data-th="${esc(short.d90)}">${money(row.aging.d90)}</td><td data-th="${esc(short.over90)}">${money(row.aging.over90)}</td></tr>`).join("") || `<tr><td colspan="8">没有未收应收</td></tr>`}</tbody></table></div>
       </div>` : "";
     view.innerHTML = `${overview}<div class="split-app${overview ? " ar-docs" : ""}">
       <div class="doc-list">
@@ -961,14 +961,14 @@
           : window.UtiloraCsv.parseCsv(await file.text());
         if (!rows.length) throw new Error("文件没有可读取的内容");
         setProgress(`正在解析 ${Math.max(0, rows.length - 1)} 行…`);
-        const parsed = Bank.parseBankTable(rows[0], rows.slice(1));
+        const parsed = Bank.parseBankSheet ? Bank.parseBankSheet(rows) : Bank.parseBankTable(rows[0], rows.slice(1));
         const preview = Bank.previewBankImport(parsed, db.bankTransactions);
         const tally = Bank.countPreview(preview);
         setProgress(`已解析 ${parsed.length} 行 · 新增 ${tally.new} · 重复 ${tally.duplicate} · 无效 ${tally.invalid}`);
         previewBox.hidden = false;
         previewBox.innerHTML = `
-          <div class="table-wrap"><table class="sheet-table"><thead><tr><th>行</th><th>日期</th><th>摘要</th><th>金额</th><th>结果</th></tr></thead>
-          <tbody>${preview.map((row) => `<tr><td>${row.row}</td><td>${esc(row.date || "—")}</td><td>${esc(row.summary || "—")}</td><td>${row.error ? "—" : money(row.amount)}</td><td><span class="pill ${row.status}">${row.status === "new" ? "新增" : row.status === "duplicate" ? "重复" : row.error || "无效"}</span></td></tr>`).join("") || `<tr><td colspan="5">没有可导入的数据行</td></tr>`}</tbody></table></div>
+          <div class="table-wrap"><table class="sheet-table wide"><thead><tr><th>行</th><th>日期</th><th>摘要</th><th>金额</th><th>结果</th></tr></thead>
+          <tbody>${preview.map((row) => `<tr><td>${row.row}</td><td>${esc(row.date || "—")}</td><td>${esc(row.summary || "—")}</td><td>${row.error ? "—" : money(row.amount)}</td><td><span class="pill ${row.status}">${row.status === "new" ? "新增" : row.status === "duplicate" ? `重复 · ${esc(row.hint || Bank.DUPLICATE_HINT || "与已入账流水相同（日期、金额、摘要）")}` : row.error || "无效"}</span></td></tr>`).join("") || `<tr><td colspan="5">没有可导入的数据行</td></tr>`}</tbody></table></div>
           <div class="actions"><button id="bank-commit" type="button" ${tally.new ? "" : "disabled"}>确认导入新增 ${tally.new} 笔</button></div>`;
         const commit = document.getElementById("bank-commit");
         if (commit) commit.onclick = async () => {
@@ -1129,9 +1129,9 @@
           </div>
           <p class="data-note">${esc(closeNote)} 已月结：${db.closedMonths.slice().sort().join("、") || "暂无"}</p>
         </div>
-        <div class="panel stack"><h2>未收应收</h2><div class="table-wrap"><table class="sheet-table"><thead><tr><th>客户</th><th>单号</th><th>到期日</th><th>未收</th></tr></thead><tbody>${input.openReceivables.map((row) => `<tr><td>${esc(row.customerName)}</td><td>${esc(row.number)}</td><td>${esc(row.dueDate || "—")}</td><td>${money(row.remaining)}</td></tr>`).join("") || `<tr><td colspan="4">没有未收应收</td></tr>`}</tbody></table></div></div>
-        <div class="panel stack"><h2>未匹配银行流水</h2><div class="table-wrap"><table class="sheet-table"><thead><tr><th>日期</th><th>摘要</th><th>待匹配</th></tr></thead><tbody>${input.unmatchedBank.map((row) => `<tr><td>${esc(row.date)}</td><td>${esc(row.summary)}</td><td>${money(row.remaining)}</td></tr>`).join("") || `<tr><td colspan="3">没有未匹配流水</td></tr>`}</tbody></table></div></div>
-        <div class="panel stack"><h2>当月费用与报销</h2><div class="table-wrap"><table class="sheet-table"><thead><tr><th>日期</th><th>类型</th><th>对象</th><th>金额</th></tr></thead><tbody>${input.expenses.map((row) => `<tr><td>${esc(row.date)}</td><td>${esc(row.kind)}</td><td>${esc(row.party)}</td><td>${money(row.amount)}</td></tr>`).join("") || `<tr><td colspan="4">当月暂无费用或报销</td></tr>`}</tbody></table></div></div>
+        <div class="panel stack"><h2>未收应收</h2><div class="table-wrap"><table class="sheet-table stack-on-phone"><thead><tr><th>客户</th><th>单号</th><th>到期日</th><th>未收</th></tr></thead><tbody>${input.openReceivables.map((row) => `<tr><td data-th="客户">${esc(row.customerName)}</td><td data-th="单号">${esc(row.number)}</td><td data-th="到期日">${esc(row.dueDate || "—")}</td><td data-th="未收">${money(row.remaining)}</td></tr>`).join("") || `<tr><td colspan="4">没有未收应收</td></tr>`}</tbody></table></div></div>
+        <div class="panel stack"><h2>未匹配银行流水</h2><div class="table-wrap"><table class="sheet-table stack-on-phone"><thead><tr><th>日期</th><th>摘要</th><th>待匹配</th></tr></thead><tbody>${input.unmatchedBank.map((row) => `<tr><td data-th="日期">${esc(row.date)}</td><td data-th="摘要">${esc(row.summary)}</td><td data-th="待匹配">${money(row.remaining)}</td></tr>`).join("") || `<tr><td colspan="3">没有未匹配流水</td></tr>`}</tbody></table></div></div>
+        <div class="panel stack"><h2>当月费用与报销</h2><div class="table-wrap"><table class="sheet-table stack-on-phone"><thead><tr><th>日期</th><th>类型</th><th>对象</th><th>金额</th></tr></thead><tbody>${input.expenses.map((row) => `<tr><td data-th="日期">${esc(row.date)}</td><td data-th="类型">${esc(row.kind)}</td><td data-th="对象">${esc(row.party)}</td><td data-th="金额">${money(row.amount)}</td></tr>`).join("") || `<tr><td colspan="4">当月暂无费用或报销</td></tr>`}</tbody></table></div></div>
         <div class="panel stack"><h2>数据校验</h2><p class="data-note">检查时间：${new Date().toLocaleString("zh-CN")}</p><div class="validation-list">${input.anomalies.length ? input.anomalies.map((x) => `<div class="validation-item"><b>${esc(x.where)}：${esc(x.issue)}</b><small>修复建议：${esc(x.fix)}</small></div>`).join("") : `<p class="empty">未发现明显异常。请仍按原始凭证复核。</p>`}</div></div>`;
       paintMeter();
       primary.hidden = true;
@@ -1216,6 +1216,9 @@
   };
   let importState = null;
   const normalizeImportedDate = (value) => {
+    if (window.UtiloraBank && window.UtiloraBank.normalizeImportedDate) {
+      return window.UtiloraBank.normalizeImportedDate(value);
+    }
     const text = String(value || "").trim();
     if (/^\d{5}(?:\.\d+)?$/.test(text)) {
       const date = new Date(Date.UTC(1899, 11, 30) + Number(text) * 86400000);

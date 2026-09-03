@@ -12,6 +12,7 @@ export interface BankParsedRow {
 
 export interface BankPreviewRow extends BankParsedRow {
   status: BankPreviewStatus;
+  hint?: string;
 }
 
 export interface BankTransactionLike {
@@ -76,10 +77,38 @@ export const normalizeImportedDate = (value: unknown): string => {
     if (Number.isNaN(date.getTime())) return "";
     return date.toISOString().slice(0, 10);
   }
-  const match = text.match(/^(\d{4})[./-](\d{1,2})[./-](\d{1,2})/);
-  if (!match?.[1] || !match[2] || !match[3]) return text;
-  return `${match[1]}-${match[2].padStart(2, "0")}-${match[3].padStart(2, "0")}`;
+  const ymd = (year: string, month: string, day: string): string => {
+    const y = Number(year);
+    const m = Number(month);
+    const d = Number(day);
+    if (!Number.isInteger(y) || !Number.isInteger(m) || !Number.isInteger(d)) return "";
+    if (y < 1900 || y > 2100 || m < 1 || m > 12 || d < 1 || d > 31) return "";
+    const date = new Date(Date.UTC(y, m - 1, d));
+    if (date.getUTCFullYear() !== y || date.getUTCMonth() !== m - 1 || date.getUTCDate() !== d) return "";
+    return `${String(y).padStart(4, "0")}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+  };
+  let match = text.match(/^(\d{4})[./-](\d{1,2})[./-](\d{1,2})/);
+  if (match?.[1] && match[2] && match[3]) return ymd(match[1], match[2], match[3]) || text;
+  match = text.match(/^(\d{4})年(\d{1,2})月(\d{1,2})/);
+  if (match?.[1] && match[2] && match[3]) return ymd(match[1], match[2], match[3]) || text;
+  match = text.match(/^(\d{4})(\d{2})(\d{2})$/);
+  if (match?.[1] && match[2] && match[3]) return ymd(match[1], match[2], match[3]) || text;
+  match = text.match(/^(\d{1,2})[./-](\d{1,2})[./-](\d{4})$/);
+  if (match?.[1] && match[2] && match[3]) {
+    const a = Number(match[1]);
+    const b = Number(match[2]);
+    if (a > 12 && b <= 12) return ymd(match[3], match[2], match[1]) || text;
+    if (b > 12 && a <= 12) return ymd(match[3], match[1], match[2]) || text;
+    return ymd(match[3], match[2], match[1]) || text;
+  }
+  return text;
 };
+
+export const DUPLICATE_HINT = "与已入账流水相同（日期、金额、摘要）";
+export const BANK_HEADER_SCAN = 12;
+export const BANK_DATE_HEADERS = ["日期", "交易日", "记账日"];
+export const BANK_SUMMARY_HEADERS = ["摘要", "用途", "对方", "备注"];
+export const BANK_AMOUNT_HEADERS = ["贷方金额", "收入金额", "收入", "贷方发生额", "贷方", "交易金额", "入账金额", "金额"];
 
 export const bankFingerprint = (date: string, summary: string, amount: number | string): string =>
   `${normalizeImportedDate(date)}|${toFen(amount)}|${normalizeSummary(summary)}`;
@@ -99,11 +128,11 @@ export const parseAmountCell = (raw: unknown): { amount?: number; error?: string
 const headerIndex = (headers: string[], names: string[]): number =>
   headers.findIndex((header) => names.some((name) => header.includes(name)));
 
-export const parseBankTable = (headers: unknown[], rows: unknown[][]): BankParsedRow[] => {
+export const parseBankTable = (headers: unknown[], rows: unknown[][], headerOffset = 0): BankParsedRow[] => {
   const labels = headers.map((header) => String(header || "").trim());
-  const dateIndex = headerIndex(labels, ["日期", "交易日", "记账日"]);
-  const summaryIndex = headerIndex(labels, ["摘要", "用途", "对方", "备注"]);
-  const amountIndex = headerIndex(labels, ["收入", "贷方发生额", "贷方", "交易金额", "入账金额", "金额"]);
+  const dateIndex = headerIndex(labels, BANK_DATE_HEADERS);
+  const summaryIndex = headerIndex(labels, BANK_SUMMARY_HEADERS);
+  const amountIndex = headerIndex(labels, BANK_AMOUNT_HEADERS);
   if (dateIndex < 0 || summaryIndex < 0 || amountIndex < 0) {
     throw new Error("未找到日期、摘要或金额列");
   }
@@ -116,7 +145,7 @@ export const parseBankTable = (headers: unknown[], rows: unknown[][]): BankParse
     const date = normalizeImportedDate(cells[dateIndex]);
     const summary = normalizeSummary(String(cells[summaryIndex] ?? ""));
     const parsedAmount = parseAmountCell(cells[amountIndex]);
-    const rowNumber = index + 2;
+    const rowNumber = index + 2 + headerOffset;
     if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
       parsed.push({ row: rowNumber, date, summary, amount: 0, fingerprint: "", error: "日期无效" });
       return;
@@ -136,6 +165,26 @@ export const parseBankTable = (headers: unknown[], rows: unknown[][]): BankParse
   return parsed;
 };
 
+export const findBankHeaderRow = (rows: unknown[][], scan = BANK_HEADER_SCAN): number => {
+  const limit = Math.min(rows.length, Math.max(scan, 1));
+  for (let i = 0; i < limit; i += 1) {
+    try {
+      parseBankTable(rows[i] || [], []);
+      return i;
+    } catch {
+      /* keep scanning title rows */
+    }
+  }
+  return -1;
+};
+
+export const parseBankSheet = (rows: unknown[][]): BankParsedRow[] => {
+  if (!rows.length) throw new Error("未找到日期、摘要或金额列");
+  const headerRow = findBankHeaderRow(rows);
+  if (headerRow < 0) throw new Error("未找到日期、摘要或金额列");
+  return parseBankTable(rows[headerRow] || [], rows.slice(headerRow + 1), headerRow);
+};
+
 export const previewBankImport = (
   parsed: BankParsedRow[],
   existing: BankTransactionLike[]
@@ -151,7 +200,7 @@ export const previewBankImport = (
     const left = remaining.get(row.fingerprint) || 0;
     if (left > 0) {
       remaining.set(row.fingerprint, left - 1);
-      return { ...row, status: "duplicate" as const };
+      return { ...row, status: "duplicate" as const, hint: DUPLICATE_HINT };
     }
     return { ...row, status: "new" as const };
   });

@@ -136,6 +136,9 @@ describe("product architecture", () => {
   it("previews bank imports and blocks duplicate commits", () => {
     const workbench = read("pro/app.js");
     expect(workbench).toContain("previewBankImport");
+    expect(workbench).toContain("parseBankSheet");
+    expect(workbench).toContain("DUPLICATE_HINT");
+    expect(workbench).toContain("stack-on-phone");
     expect(workbench).toContain("suggestMatches");
     expect(workbench).toContain("确认导入新增");
     expect(workbench).toContain("撤销匹配");
