@@ -59,8 +59,9 @@ async function rpc(
   return { ok: response.ok, status: response.status, data };
 }
 
-function lockMessage(data: Record<string, unknown>): string {
+function lockMessage(data: Record<string, unknown>, kind = "login"): string {
   const mins = Number(data?.remaining_minutes || data?.cooldown_minutes || 15) || 15;
+  if (kind === "mfa") return `二次验证失败次数过多，请约 ${mins} 分钟后再试。`;
   return `登录失败次数过多，请约 ${mins} 分钟后再试。`;
 }
 
@@ -151,6 +152,58 @@ async function handler(req: Request): Promise<Response> {
         serviceKey,
         apiUrl,
       );
+      if (!result.ok) {
+        return json({ error: "clear failed", detail: result.data }, result.status >= 400 ? result.status : 500);
+      }
+      return json(result.data);
+    }
+
+    if (action === "mfa_check") {
+      const result = await rpc("check_mfa_allowed", { p_email: email }, serviceKey, apiUrl);
+      if (!result.ok) {
+        return json({ error: "check failed", detail: result.data }, result.status >= 400 ? result.status : 500);
+      }
+      const data = result.data as Record<string, unknown>;
+      const allowed = Boolean(data?.allowed);
+      return json({
+        allowed,
+        max_attempts: data?.max_attempts ?? 5,
+        cooldown_minutes: data?.cooldown_minutes ?? 15,
+        failures: data?.failures ?? 0,
+        locked_until: data?.locked_until ?? null,
+        remaining_minutes: data?.remaining_minutes ?? 0,
+        reason: data?.reason ?? null,
+        message: allowed ? null : lockMessage(data, "mfa"),
+      });
+    }
+
+    if (action === "mfa_record") {
+      const result = await rpc("record_mfa_failure", { p_email: email }, serviceKey, apiUrl);
+      if (!result.ok) {
+        return json({ error: "record failed", detail: result.data }, result.status >= 400 ? result.status : 500);
+      }
+      const data = result.data as Record<string, unknown>;
+      const locked = Boolean(data?.locked) || data?.reason === "mfa_lock";
+      if (locked) {
+        return json(
+          {
+            error: "mfa_cooldown",
+            reason: data?.reason ?? "mfa_lock",
+            message: lockMessage(data, "mfa"),
+            locked_until: data?.locked_until ?? null,
+            remaining_minutes: data?.remaining_minutes ?? 0,
+            max_attempts: data?.max_attempts ?? 5,
+            cooldown_minutes: data?.cooldown_minutes ?? 15,
+            failures: data?.failures ?? null,
+          },
+          429,
+        );
+      }
+      return json(data);
+    }
+
+    if (action === "mfa_clear") {
+      const result = await rpc("clear_mfa_failures", { p_email: email }, serviceKey, apiUrl);
       if (!result.ok) {
         return json({ error: "clear failed", detail: result.data }, result.status >= 400 ? result.status : 500);
       }

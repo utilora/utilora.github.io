@@ -7,7 +7,7 @@ function assert(cond, msg) {
   if (!cond) throw new Error(msg || "assertion failed");
 }
 
-const ALLOWED_PURPOSES = new Set(["register", "feedback", "purchase_intent"]);
+const ALLOWED_PURPOSES = new Set(["register", "feedback", "purchase_intent", "login", "reset"]);
 
 function normalizePurpose(purpose) {
   return String(purpose || "").toLowerCase().trim();
@@ -57,7 +57,9 @@ function decideVerify({ token, purpose, secretConfigured, providerSuccess }) {
 assert(isValidPurpose("register") === true, "register ok");
 assert(isValidPurpose("feedback") === true, "feedback ok");
 assert(isValidPurpose("purchase_intent") === true, "purchase_intent ok");
-assert(isValidPurpose("login") === false, "login not a captcha purpose");
+assert(isValidPurpose("login") === true, "login ok");
+assert(isValidPurpose("reset") === true, "reset ok");
+assert(isValidPurpose("signin") === false, "signin not a captcha purpose");
 assert(isValidPurpose("") === false, "empty purpose");
 
 assert(isValidTokenShape("") === false, "empty token");

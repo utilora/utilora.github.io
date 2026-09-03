@@ -266,7 +266,8 @@
     setMsg(formMsg, "请稍候…");
     try {
       if (mode === "recover") {
-        await auth.recover(email);
+        await auth.recover(email, readCaptchaToken());
+        resetCaptcha();
         setMsg(formMsg, "如果该邮箱已注册，重置邮件已发出。请同时检查垃圾箱。点邮件里的链接后设置新密码。");
         return;
       }
@@ -337,7 +338,8 @@
         return;
       }
       try {
-        await auth.login(email, password);
+        await auth.login(email, password, readCaptchaToken());
+        resetCaptcha();
         if (await auth.isDisabled()) {
           await auth.logout();
           throw new Error(auth.DISABLED_ACCOUNT_MESSAGE || "该账号已停用，请联系管理员。");

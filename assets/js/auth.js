@@ -4,6 +4,7 @@
   const SESSION_KEY = "utilora_sb_session";
   const LAST_ACTIVE_KEY = "utilora_last_active";
   const IDLE_TIMEOUT_MS = 30 * 60 * 1000;
+  const DEFAULT_IDLE_TIMEOUT_MS = IDLE_TIMEOUT_MS;
   const REDIRECT = "https://utilora.github.io/account/";
   const REG_LIMIT_FN = API + "/functions/v1/registration-limit";
   const OTP_LIMIT_FN = API + "/functions/v1/otp-rate-limit";
@@ -124,6 +125,9 @@
     if (/recovery_invalid|恢复码不对/i.test(code + raw)) {
       return raw || "恢复码不对或已用过。";
     }
+    if (/mfa_cooldown|二次验证失败次数过多/i.test(code + raw)) {
+      return raw || "二次验证失败次数过多，请稍后再试。";
+    }
     if (/invalid.*code|invalid.*totp|mfa_verification|挑战已过期/i.test(code + raw)) {
       return "验证码不对或已过期，请再试一次。";
     }
@@ -141,6 +145,9 @@
     return fallback || raw || "请求失败";
   };
 
+  let idleTimeoutMs = DEFAULT_IDLE_TIMEOUT_MS;
+  let pendingMfa = null;
+
   const readLastActive = () => {
     try {
       const value = Number(localStorage.getItem(LAST_ACTIVE_KEY) || 0);
@@ -156,15 +163,28 @@
 
   const expireIdleSession = () => {
     try {
-      if (!localStorage.getItem(SESSION_KEY)) return false;
+      if (!localStorage.getItem(SESSION_KEY) && !pendingMfa) return false;
       const last = readLastActive();
       if (!last) {
         touchActivity();
         return false;
       }
-      if (Date.now() - last <= IDLE_TIMEOUT_MS) return false;
+      if (Date.now() - last <= idleTimeoutMs) return false;
+      const raw = localStorage.getItem(SESSION_KEY);
+      let token = "";
+      try {
+        const session = raw ? JSON.parse(raw) : null;
+        token = session && session.access_token ? session.access_token : "";
+      } catch {}
+      if (!token && pendingMfa && pendingMfa.session && pendingMfa.session.access_token) {
+        token = pendingMfa.session.access_token;
+      }
       localStorage.removeItem(SESSION_KEY);
       localStorage.removeItem(LAST_ACTIVE_KEY);
+      pendingMfa = null;
+      if (token) {
+        fetch(API + "/auth/v1/logout", { method: "POST", headers: headers(token) }).catch(() => {});
+      }
       document.dispatchEvent(new CustomEvent("utilora:idle-expired"));
       return true;
     } catch {
@@ -172,14 +192,37 @@
     }
   };
 
+  const noteActivity = () => {
+    if (expireIdleSession()) return;
+    if (localStorage.getItem(SESSION_KEY) || pendingMfa) touchActivity();
+  };
+
   const bindIdleTracking = () => {
     if (window.__utiloraIdleBound) return;
     window.__utiloraIdleBound = true;
-    if (localStorage.getItem(SESSION_KEY) && !readLastActive()) touchActivity();
-    document.addEventListener("click", () => {
-      if (expireIdleSession()) return;
-      if (localStorage.getItem(SESSION_KEY)) touchActivity();
-    }, true);
+    if ((localStorage.getItem(SESSION_KEY) || pendingMfa) && !readLastActive()) touchActivity();
+    document.addEventListener("click", noteActivity, true);
+    document.addEventListener("keydown", noteActivity, true);
+    document.addEventListener("touchstart", noteActivity, { capture: true, passive: true });
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "visible") expireIdleSession();
+    });
+    loadIdleTimeout();
+  };
+
+  const loadIdleTimeout = async () => {
+    try {
+      const session = JSON.parse(localStorage.getItem(SESSION_KEY) || "null");
+      const token = session && session.access_token;
+      if (!token) return;
+      const mins = await request("/rest/v1/rpc/get_idle_timeout_minutes", {
+        method: "POST",
+        headers: headers(token),
+        body: "{}",
+      }, 1);
+      const n = Number(mins);
+      if (Number.isInteger(n) && n >= 5 && n <= 1440) idleTimeoutMs = n * 60 * 1000;
+    } catch {}
   };
 
   const readSession = () => {
@@ -194,14 +237,13 @@
   const writeSession = (session) => {
     localStorage.setItem(SESSION_KEY, JSON.stringify(session));
     touchActivity();
+    loadIdleTimeout();
   };
   const clearSession = () => {
     localStorage.removeItem(SESSION_KEY);
     localStorage.removeItem(LAST_ACTIVE_KEY);
     pendingMfa = null;
   };
-
-  let pendingMfa = null;
 
   const parseJson = async (response) => {
     const data = await response.json().catch(() => ({}));
@@ -238,7 +280,7 @@
     throw lastError;
   };
 
-  /** S-04: 人机验证服务端验票；purpose=register|feedback|purchase_intent */
+  /** S-04 / S-21: 人机验证服务端验票；purpose=register|feedback|purchase_intent|login|reset */
   const verifyCaptcha = async (token, purpose) => {
     const response = await fetch(CAPTCHA_FN, {
       method: "POST",
@@ -414,6 +456,12 @@
     }
   };
 
+  const withCaptchaBody = (body, captchaToken) => {
+    const token = String(captchaToken || "").trim();
+    if (!token) return body;
+    return { ...body, gotrue_meta_security: { captcha_token: token } };
+  };
+
   /** S-03: 登录成功后清零失败计数 */
   const clearLoginFailures = async (email) => {
     try {
@@ -423,6 +471,75 @@
         cache: "no-store",
         headers: headers(),
         body: JSON.stringify({ action: "clear_success", email: String(email || "").trim().toLowerCase() }),
+      });
+    } catch {
+    }
+  };
+
+  const mfaCooldownMessage = (data) => {
+    if (data && data.message) return String(data.message);
+    const mins = Number(data && (data.remaining_minutes || data.cooldown_minutes));
+    if (Number.isInteger(mins) && mins > 0) {
+      return "二次验证失败次数过多，请约 " + mins + " 分钟后再试。";
+    }
+    return "二次验证失败次数过多，请稍后再试。";
+  };
+
+  const checkMfaCooldown = async (email) => {
+    try {
+      const response = await fetch(LOGIN_COOLDOWN_FN, {
+        method: "POST",
+        credentials: "omit",
+        cache: "no-store",
+        headers: headers(),
+        body: JSON.stringify({ action: "mfa_check", email: String(email || "").trim().toLowerCase() }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok && response.status !== 429) return { allowed: true, skipped: true };
+      if (data && data.allowed === false) {
+        const err = new Error(mfaCooldownMessage(data));
+        err.code = "mfa_cooldown";
+        err.status = 429;
+        throw err;
+      }
+      return data;
+    } catch (error) {
+      if (error && error.code === "mfa_cooldown") throw error;
+      return { allowed: true, skipped: true };
+    }
+  };
+
+  const recordMfaFailure = async (email) => {
+    try {
+      const response = await fetch(LOGIN_COOLDOWN_FN, {
+        method: "POST",
+        credentials: "omit",
+        cache: "no-store",
+        headers: headers(),
+        body: JSON.stringify({ action: "mfa_record", email: String(email || "").trim().toLowerCase() }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (response.status === 429 || data.error === "mfa_cooldown") {
+        const err = new Error(mfaCooldownMessage(data));
+        err.code = "mfa_cooldown";
+        err.status = 429;
+        throw err;
+      }
+      return data;
+    } catch (error) {
+      if (error && error.code === "mfa_cooldown") throw error;
+      return { skipped: true };
+    }
+  };
+
+  const clearMfaFailures = async (email) => {
+    try {
+      await fetch(LOGIN_COOLDOWN_FN, {
+        method: "POST",
+        credentials: "omit",
+        cache: "no-store",
+        headers: headers(),
+        body: JSON.stringify({ action: "mfa_clear", email: String(email || "").trim().toLowerCase() }),
       });
     } catch {
     }
@@ -528,6 +645,7 @@
         factorId: totp.id,
         email: email || (session.user && session.user.email) || "",
       };
+      touchActivity();
       const err = new Error("请输入验证器中的 6 位码");
       err.code = "mfa_required";
       throw err;
@@ -559,8 +677,11 @@
     }
     const token = String(code || "").trim();
     if (!/^\d{6}$/.test(token)) throw new Error("请输入 6 位验证码");
+    const email = pendingMfa.email || (pendingMfa.session.user && pendingMfa.session.user.email) || "";
     try {
+      await checkMfaCooldown(email);
       const data = await challengeAndVerify(pendingMfa.session.access_token, pendingMfa.factorId, token);
+      await clearMfaFailures(email);
       pendingMfa = null;
       const session = await assembleSession(data);
       const active = await enforceActiveAccount(session);
@@ -575,6 +696,18 @@
       return session;
     } catch (error) {
       if (error && error.code === "account_disabled") throw error;
+      if (error && error.code === "mfa_cooldown") {
+        error.message = friendlyError(error, "二次验证失败次数过多，请稍后再试。");
+        throw error;
+      }
+      try {
+        await recordMfaFailure(email);
+      } catch (cooldownError) {
+        if (cooldownError && cooldownError.code === "mfa_cooldown") {
+          cooldownError.message = friendlyError(cooldownError, cooldownError.message);
+          throw cooldownError;
+        }
+      }
       error.message = friendlyError(error, "验证码不对或已过期，请再试一次。");
       throw error;
     }
@@ -923,11 +1056,11 @@
       return await request("/auth/v1/otp", {
         method: "POST",
         headers: headers(),
-        body: JSON.stringify({
+        body: JSON.stringify(withCaptchaBody({
           email,
           create_user: true,
           data: meta
-        })
+        }, captchaToken))
       });
     } catch (error) {
       error.message = friendlyError(error, "验证码发送失败");
@@ -981,13 +1114,14 @@
     }
   };
 
-  const login = async (email, password) => {
+  const login = async (email, password, captchaToken) => {
     try {
+      await verifyCaptcha(captchaToken, "login");
       await checkLoginCooldown(email);
       const data = await request("/auth/v1/token?grant_type=password", {
         method: "POST",
         headers: headers(),
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify(withCaptchaBody({ email, password }, captchaToken)),
       });
       let session;
       try {
@@ -1027,13 +1161,14 @@
     }
   };
 
-  const recover = async (email) => {
+  const recover = async (email, captchaToken) => {
     try {
+      await verifyCaptcha(captchaToken, "reset");
       await consumePasswordResetLimit(email, "send");
       return await request("/auth/v1/recover?redirect_to=" + encodeURIComponent(REDIRECT), {
         method: "POST",
         headers: headers(),
-        body: JSON.stringify({ email }),
+        body: JSON.stringify(withCaptchaBody({ email }, captchaToken)),
       });
     } catch (error) {
       error.message = friendlyError(error, "发送失败");
@@ -1187,7 +1322,11 @@
     logoutOthers,
     listLoginLocations,
     listMySessions,
-    cancelPendingMfa: () => { pendingMfa = null; },
+    cancelPendingMfa: () => {
+      const token = pendingMfa && pendingMfa.session && pendingMfa.session.access_token;
+      pendingMfa = null;
+      if (token) fetch(API + "/auth/v1/logout", { method: "POST", headers: headers(token) }).catch(() => {});
+    },
     recover,
     resend,
     updateUser,

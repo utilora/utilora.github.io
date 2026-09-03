@@ -1,11 +1,25 @@
 import type { Session, User } from "@supabase/supabase-js";
 import { getSupabase } from "../supabase/client";
-import { bindIdleTracking, clearIdleSession, expireIdleSession } from "./idle";
+import { bindIdleTracking, clearIdleSession, expireIdleSession, setIdleTimeoutMs } from "./idle";
+
+let idleConfigLoaded = false;
+
+const loadIdleTimeout = async (): Promise<void> => {
+  if (idleConfigLoaded) return;
+  const client = getSupabase();
+  if (!client) return;
+  const { data } = await client.rpc("get_idle_timeout_minutes");
+  const minutes = Number(Array.isArray(data) ? data[0] : data);
+  if (Number.isInteger(minutes) && minutes >= 5 && minutes <= 1440) {
+    setIdleTimeoutMs(minutes * 60 * 1000);
+    idleConfigLoaded = true;
+  }
+};
 
 const signOutLocal = async (): Promise<void> => {
   const client = getSupabase();
   if (!client) return;
-  await client.auth.signOut({ scope: "local" }).then(() => undefined, () => undefined);
+  await client.auth.signOut({ scope: "global" }).then(() => undefined, () => undefined);
 };
 
 export const getSession = async (): Promise<Session | null> => {
@@ -18,6 +32,7 @@ export const getSession = async (): Promise<Session | null> => {
   if (!client) return null;
   const { data, error } = await client.auth.getSession();
   if (error) throw error;
+  if (data.session) await loadIdleTimeout().then(() => undefined, () => undefined);
   return data.session;
 };
 

@@ -1,8 +1,20 @@
+export const DEFAULT_IDLE_TIMEOUT_MINUTES = 30;
 export const IDLE_TIMEOUT_MS = 30 * 60 * 1000;
 export const LAST_ACTIVE_KEY = "utilora_last_active";
 export const SESSION_KEY = "utilora_sb_session";
 
-export const idleExceeded = (lastActive: number, now = Date.now(), timeoutMs = IDLE_TIMEOUT_MS): boolean => {
+let configuredTimeoutMs = IDLE_TIMEOUT_MS;
+
+export const setIdleTimeoutMs = (ms: number): void => {
+  const n = Number(ms);
+  if (Number.isFinite(n) && n >= 5 * 60 * 1000 && n <= 1440 * 60 * 1000) {
+    configuredTimeoutMs = n;
+  }
+};
+
+export const currentIdleTimeoutMs = (): number => configuredTimeoutMs;
+
+export const idleExceeded = (lastActive: number, now = Date.now(), timeoutMs = configuredTimeoutMs): boolean => {
   if (!lastActive) return false;
   return now - lastActive > timeoutMs;
 };
@@ -50,21 +62,28 @@ export const expireIdleSession = (): boolean => {
   }
 };
 
+const noteActivity = (): void => {
+  try {
+    if (expireIdleSession()) {
+      document.dispatchEvent(new CustomEvent("utilora:idle-expired"));
+      return;
+    }
+    if (localStorage.getItem(SESSION_KEY)) touchActivity();
+  } catch {
+    /* ignore */
+  }
+};
+
 export const bindIdleTracking = (): void => {
   if (typeof document === "undefined") return;
   const w = window as Window & { __utiloraIdleBound?: boolean };
   if (w.__utiloraIdleBound) return;
   w.__utiloraIdleBound = true;
   if (localStorage.getItem(SESSION_KEY) && !readLastActive()) touchActivity();
-  document.addEventListener("click", () => {
-    try {
-      if (expireIdleSession()) {
-        document.dispatchEvent(new CustomEvent("utilora:idle-expired"));
-        return;
-      }
-      if (localStorage.getItem(SESSION_KEY)) touchActivity();
-    } catch {
-      /* ignore */
-    }
-  }, true);
+  document.addEventListener("click", noteActivity, true);
+  document.addEventListener("keydown", noteActivity, true);
+  document.addEventListener("touchstart", noteActivity, { capture: true, passive: true });
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible") noteActivity();
+  });
 };

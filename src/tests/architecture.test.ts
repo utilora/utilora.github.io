@@ -265,6 +265,9 @@ describe("product architecture", () => {
     expect(read("assets/js/frame-guard.js")).toContain("top.location.replace");
     expect(read("sw.js")).toContain("frame-ancestors 'none'");
     expect(read("sw.js")).toContain("X-Frame-Options");
+    expect(read("sw.js")).toContain("X-Content-Type-Options");
+    expect(read("sw.js")).toContain("Referrer-Policy");
+    expect(read("sw.js")).toContain("Permissions-Policy");
   });
 
   it("lets admins list purchase intents through RPC without table grants", () => {
@@ -449,6 +452,8 @@ describe("product architecture", () => {
     expect(read("admin/limits.js")).toContain("invite_reward_months");
     expect(read("admin/limits.js")).toContain("feedback_per_user_per_hour");
     expect(read("admin/limits.js")).toContain("purchase_intent_per_email_per_hour");
+    expect(read("admin/limits.js")).toContain("idle_timeout_minutes");
+    expect(read("admin/limits.js")).toContain("mfa_failure_max_attempts");
     expect(read("admin/limits.js")).toContain("validateLimits");
     expect(read("admin/limits.js")).toContain("confirmLimitChange");
     expect(read("admin/limits.js")).not.toMatch(/service[_-]?role|sb_secret/i);
@@ -714,5 +719,46 @@ describe("product architecture", () => {
     expect(read("admin/admin-ops.js")).not.toMatch(/service[_-]?role|sb_secret/i);
     expect(read("admin/risk-console.js")).not.toMatch(/service[_-]?role|sb_secret/i);
     expect(read("supabase/admin-ops.sql")).toContain("202609020025_admin_ops_search_mfa_usage.sql");
+  });
+
+  it("verifies login and reset captcha, counts MFA failures, and idles out from config", () => {
+    const sql = read("supabase/migrations/202609030026_auth_idle_mfa_limits.sql");
+    expect(sql).toContain("idle_timeout_minutes");
+    expect(sql).toContain("mfa_failure_max_attempts");
+    expect(sql).toContain("get_idle_timeout_minutes");
+    expect(sql).toContain("check_mfa_allowed");
+    expect(sql).toContain("record_mfa_failure");
+    expect(sql).toContain("clear_mfa_failures");
+    expect(sql).toContain("subject_type in ('email', 'ip', 'mfa')");
+    expect(sql).toContain("grant execute on function public.get_idle_timeout_minutes() to authenticated");
+    expect(sql).not.toMatch(/grant execute on function public.get_idle_timeout_minutes\(\) to (public|anon)/i);
+    expect(sql).not.toMatch(/grant execute on function public.check_mfa_allowed\(text\) to (public|anon|authenticated)/i);
+    expect(sql).not.toMatch(/grant execute on function public.record_mfa_failure\(text\) to (public|anon|authenticated)/i);
+    expect(read("supabase/functions/verify-captcha/index.ts")).toContain('"login"');
+    expect(read("supabase/functions/verify-captcha/index.ts")).toContain('"reset"');
+    expect(read("supabase/functions/login-cooldown/index.ts")).toContain("mfa_check");
+    expect(read("supabase/functions/login-cooldown/index.ts")).toContain("mfa_record");
+    expect(read("supabase/functions/auth-hooks/index.ts")).toContain("check_mfa_allowed");
+    expect(read("supabase/functions/auth-hooks/index.ts")).toContain("check_login_allowed");
+    expect(read("supabase/functions/auth-hooks/index.ts")).toContain("AUTH_HOOK_SECRET");
+    expect(read("supabase/functions/auth-hooks/index.ts")).not.toMatch(/sb_secret/i);
+    expect(read("assets/js/auth.js")).toContain('verifyCaptcha(captchaToken, "login")');
+    expect(read("assets/js/auth.js")).toContain('verifyCaptcha(captchaToken, "reset")');
+    expect(read("assets/js/auth.js")).toContain("gotrue_meta_security");
+    expect(read("assets/js/auth.js")).toContain("mfa_check");
+    expect(read("assets/js/auth.js")).toContain("get_idle_timeout_minutes");
+    expect(read("assets/js/auth.js")).toContain("/auth/v1/logout");
+    expect(read("assets/js/auth.js")).toContain("keydown");
+    expect(read("login/login.js")).toContain("readCaptchaToken()");
+    expect(read("login/login.js")).toContain("auth.login(email, password, readCaptchaToken())");
+    expect(read("login/login.js")).toContain("auth.recover(email, readCaptchaToken())");
+    expect(read("src/core/auth/idle.ts")).toContain("setIdleTimeoutMs");
+    expect(read("src/core/auth/idle.ts")).toContain("keydown");
+    expect(read("src/core/auth/session.ts")).toContain("get_idle_timeout_minutes");
+    expect(read("src/core/auth/session.ts")).toContain('scope: "global"');
+    expect(read("admin/admin.js")).toContain("gotrue_meta_security");
+    expect(read("admin/admin.js")).toContain("verifyAdminCaptcha");
+    expect(read("admin/index.html")).toContain("turnstile-boot.js");
+    expect(read("assets/js/auth.js")).not.toMatch(/service[_-]?role|sb_secret/i);
   });
 });

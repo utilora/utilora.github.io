@@ -6,6 +6,7 @@
   <meta name="referrer" content="strict-origin-when-cross-origin">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="robots" content="noindex,nofollow">
+  <meta name="turnstile-site-key" content="0x4AAAAAAEig18AwvL5M_t-J">
   <title>网站管理 - Utilora</title>
   <link rel="icon" type="image/svg+xml" href="../favicon.svg">
   <link rel="stylesheet" href="../assets/css/site.css">
@@ -31,6 +32,7 @@
           <label for="admin-mfa">二次验证码</label>
           <input id="admin-mfa" inputmode="numeric" maxlength="6" autocomplete="one-time-code" placeholder="验证器中的 6 位码">
         </div>
+        <div id="turnstile-slot" class="field" hidden></div>
         <button id="login-button" type="submit">登录</button>
         <button id="admin-mfa-cancel" class="secondary" type="button" hidden>返回重新登录</button>
       </form>
@@ -1145,6 +1147,7 @@
       </div>
     </div>
   </div>
+  <script src="../assets/js/turnstile-boot.js"></script>
   <script src="../feedback/config.js"></script>
   <script src="admin.js"></script>
   <script src="admin-ops.js"></script>

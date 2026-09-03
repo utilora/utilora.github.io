@@ -1,5 +1,5 @@
 /**
- * S-04: 人机验证（Cloudflare Turnstile）服务端验票
+ * S-04 / S-21: 人机验证（Cloudflare Turnstile）服务端验票
  * - action=verify：校验客户端 token
  * - secret 仅存 TURNSTILE_SECRET_KEY；缺失时拒绝，不跳过
  * S-06: 经 withEdgeGuard
@@ -9,7 +9,7 @@ import { withEdgeGuard, jsonResponse as json } from "../_shared/edge_guard.ts";
 import { clientIp } from "../_shared/request.ts";
 import { verifyTurnstile } from "../_shared/turnstile.ts";
 
-const ALLOWED_PURPOSES = new Set(["register", "feedback", "purchase_intent"]);
+const ALLOWED_PURPOSES = new Set(["register", "feedback", "purchase_intent", "login", "reset"]);
 
 async function handler(req: Request): Promise<Response> {
   if (req.method !== "POST") return json({ error: "Method not allowed" }, 405);
@@ -27,7 +27,7 @@ async function handler(req: Request): Promise<Response> {
   const purpose = String(body.purpose || "").toLowerCase().trim();
   if (!ALLOWED_PURPOSES.has(purpose)) {
     return json(
-      { error: "invalid purpose", message: "purpose 必须是 register、feedback 或 purchase_intent" },
+      { error: "invalid purpose", message: "purpose 必须是 register、feedback、purchase_intent、login 或 reset" },
       400,
     );
   }

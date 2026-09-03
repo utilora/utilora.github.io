@@ -1,4 +1,4 @@
-const CACHE = "utilora-v24";
+const CACHE = "utilora-v25";
 const PRECACHE = [
   "./",
   "./index.html",
@@ -39,6 +39,9 @@ const withFrameGuard = (response) => {
   const headers = new Headers(response.headers);
   headers.set("X-Frame-Options", "DENY");
   headers.set("Content-Security-Policy", "frame-ancestors 'none'");
+  headers.set("X-Content-Type-Options", "nosniff");
+  headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
+  headers.set("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
   return new Response(response.body, {
     status: response.status,
     statusText: response.statusText,

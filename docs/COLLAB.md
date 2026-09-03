@@ -15,6 +15,8 @@
 | 每 IP 每小时验证码 | 10 | 点发送即计 |
 | 登录连续失败次数 | 5 | 同邮箱或同 IP |
 | 登录冷却分钟 | 15 | 达到失败次数后 |
+| 二次验证连续失败次数 | 5 | 验证器码连续失败；冷却分钟与登录冷却相同 |
+| 登录空闲超时分钟 | 30 | 无键盘、点击或触摸后自动退出并真正登出 |
 | 每邮箱每小时找回密码 | 3 | 点发送重置邮件即计 |
 | 每 IP 每小时找回密码 | 10 | 点发送重置邮件即计 |
 | 试用天数 | 14 | A-01 发放试用的默认天数，单次仍可手填 |
@@ -55,7 +57,7 @@
 |----|------|--------|------|
 | 用户端 | feat/user-workspace | 五个财税工具打磨 | 待开始 |
 | 管理端 | feat/admin-ops | — | 空闲 |
-| 安全 | fix/security-hardening | — | 空闲 |
+| 安全 | fix/security-hardening | 登录验票与钩子限流 | 进行中 |
 
 ## AI 开工前必读
 
@@ -157,7 +159,7 @@ A-16 意向认领检索与风控名单：购买意向可认领处理人；留言
 
 ## 安全改善（分支 fix/security-hardening）
 
-允许路径：`supabase/functions/`、`supabase/migrations/`（限流/验证码/RLS）、`assets/js/auth.js`、`login/`、`feedback/`。S-10 / S-11 可改全站 HTML、CSS，以及为去掉内联脚本/样式而新增或改动的 `assets/` 与工作台模板（`pro/app.js`）。S-12–S-16 可改 `account/`、`sw.js`、`src/core/backup/`、`admin/limits.js`（限额页补留言/购买意向四项）。S-17–S-19 可改 `account/`、`login/`、`admin/admin.js`、`admin/index.html`、`admin/admin-ops.js`（后台强制二次验证）。
+允许路径：`supabase/functions/`、`supabase/migrations/`（限流/验证码/RLS）、`assets/js/auth.js`、`login/`、`feedback/`。S-10 / S-11 可改全站 HTML、CSS，以及为去掉内联脚本/样式而新增或改动的 `assets/` 与工作台模板（`pro/app.js`）。S-12–S-16 可改 `account/`、`sw.js`、`src/core/backup/`、`admin/limits.js`（限额页补留言/购买意向四项）。S-17–S-19 可改 `account/`、`login/`、`admin/admin.js`、`admin/index.html`、`admin/admin-ops.js`（后台强制二次验证）。S-21–S-25 可改 `supabase/functions/`、`supabase/migrations/`、`assets/js/auth.js`、`login/`、`account/`、`sw.js`、`admin/limits.js`、`admin/admin.js`、`admin/index.html`、`src/core/auth/`。
 
 S-01 每 IP 每天成功注册不超过配置值（默认 3；验证成功才计数，不是点发送就计数）。  
 S-02 验证码服务端限额：读配置（默认每邮箱每小时 3 封；每 IP 每小时 10 封）。  
@@ -179,6 +181,11 @@ S-17 二次验证恢复码：开启验证器时生成一次性恢复码，只展
 S-18 登录设备清单：账号页列出仍有效的登录会话（当前这一处会标明），可继续一键登出其他设备。
 S-19 管理端强制二次验证：管理员进入后台前必须已开启验证器，且本次登录须通过二次验证。未开启则提示先到账号页开启，不留下后台会话。预览页不强制。
 S-20 二次验证开启：列举验证器改走当前账号接口。当前账号服务对 GET /factors 返回 405，开启会显示「请求失败」；二维码若是 SVG 源码须转成图片地址才能显示。
+S-21 登录与找回密码人机验证：登录、发送重置邮件须完成 Turnstile；服务端验票（purpose=login|reset）；请求同时带上账号服务验票字段。
+S-22 账号服务侧限流：密码登录与二次验证走 Auth Hook 记账；绕过页面直接打账号接口仍会锁定。页面冷却检查不能当作唯一防线。
+S-23 二次验证失败计数：验证器码连续失败达「二次验证连续失败次数」后冷却；冷却分钟读「登录冷却分钟」。恢复码已有锁定。
+S-24 空闲超时：分钟数读限额配置（默认 30）；键盘、触摸、页面重新可见也算活动；到期调用登出并清掉未完成的二次验证会话。
+S-25 回访响应头：已安装的站点服务在页面响应上补 nosniff、Referrer-Policy、Permissions-Policy。
 
 | 编号 | 状态 | 分支 | 最近提交 | 测试 |
 |------|------|------|----------|------|
@@ -202,6 +209,11 @@ S-20 二次验证开启：列举验证器改走当前账号接口。当前账号
 | S-18 | 已合入 main | fix/security-hardening | f636e1e | 登录设备清单 |
 | S-19 | 已合入 main | fix/security-hardening | f636e1e | 管理端强制二次验证 |
 | S-20 | 已合入 main | fix/security-hardening | 30a7218 | 二次验证开启改走当前账号接口 |
+| S-21 | 待合并 | fix/security-hardening | — | 登录与找回密码人机验证 |
+| S-22 | 待合并 | fix/security-hardening | — | 账号服务侧限流（Auth Hook） |
+| S-23 | 待合并 | fix/security-hardening | — | 二次验证失败计数 |
+| S-24 | 待合并 | fix/security-hardening | — | 空闲超时读配置并真正登出 |
+| S-25 | 待合并 | fix/security-hardening | — | 回访响应头 |
 
 ## 变更记录
 

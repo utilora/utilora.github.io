@@ -1,5 +1,5 @@
 (() => {
-  const LIMITS_SQL = 'supabase/migrations/202609020020_admin_dossier_expiry.sql';
+  const LIMITS_SQL = 'supabase/migrations/202609030026_auth_idle_mfa_limits.sql';
   const GROUP_LABEL = {
     security: '注册与登录',
     strategy: '运营策略',
@@ -12,6 +12,8 @@
     { key: 'otp_per_ip_per_hour', label: '每 IP 每小时验证码', hint: '点发送即计', min: 1, max: 200, default: 10, group: 'security' },
     { key: 'login_failure_max_attempts', label: '登录连续失败次数', hint: '同邮箱或同 IP', min: 1, max: 30, default: 5, group: 'security' },
     { key: 'login_cooldown_minutes', label: '登录冷却分钟', hint: '达到失败次数后', min: 1, max: 1440, default: 15, group: 'security' },
+    { key: 'mfa_failure_max_attempts', label: '二次验证连续失败次数', hint: '验证器码连续失败达此次数后冷却；冷却分钟与登录冷却相同', min: 1, max: 30, default: 5, group: 'security' },
+    { key: 'idle_timeout_minutes', label: '登录空闲超时分钟', hint: '无键盘、点击或触摸后自动退出，并真正登出当前会话', min: 5, max: 1440, default: 30, group: 'security' },
     { key: 'password_reset_per_email_per_hour', label: '每邮箱每小时找回密码', hint: '点发送重置邮件即计', min: 1, max: 50, default: 3, group: 'security' },
     { key: 'password_reset_per_ip_per_hour', label: '每 IP 每小时找回密码', hint: '点发送重置邮件即计', min: 1, max: 200, default: 10, group: 'security' },
     { key: 'feedback_per_user_per_hour', label: '每用户每小时留言', hint: '登录用户提交功能建议；超限拒绝', min: 1, max: 50, default: 5, group: 'security' },

@@ -13,6 +13,8 @@ const FIELDS = [
   { key: "otp_per_ip_per_hour", min: 1, max: 200, label: "每 IP 每小时验证码", group: "security" },
   { key: "login_failure_max_attempts", min: 1, max: 30, label: "登录连续失败次数", group: "security" },
   { key: "login_cooldown_minutes", min: 1, max: 1440, label: "登录冷却分钟", group: "security" },
+  { key: "mfa_failure_max_attempts", min: 1, max: 30, label: "二次验证连续失败次数", group: "security" },
+  { key: "idle_timeout_minutes", min: 5, max: 1440, label: "登录空闲超时分钟", group: "security" },
   { key: "password_reset_per_email_per_hour", min: 1, max: 50, label: "每邮箱每小时找回密码", group: "security" },
   { key: "password_reset_per_ip_per_hour", min: 1, max: 200, label: "每 IP 每小时找回密码", group: "security" },
   { key: "feedback_per_user_per_hour", min: 1, max: 50, label: "每用户每小时留言", group: "security" },
@@ -83,6 +85,8 @@ const defaults = {
   otp_per_ip_per_hour: 10,
   login_failure_max_attempts: 5,
   login_cooldown_minutes: 15,
+  mfa_failure_max_attempts: 5,
+  idle_timeout_minutes: 30,
   password_reset_per_email_per_hour: 3,
   password_reset_per_ip_per_hour: 10,
   feedback_per_user_per_hour: 5,
@@ -101,7 +105,7 @@ const defaults = {
   aging_bucket_3_days: 90,
 };
 
-assert(FIELDS.length === 21, "all configurable limits present");
+assert(FIELDS.length === 23, "all configurable limits present");
 assert(FIELDS.filter((field) => field.group === "strategy").map((field) => field.key).join(",") === "match_date_near_days,match_amount_tolerance_cents,backup_stale_days", "ops strategy keys grouped");
 assert(FIELDS.filter((field) => field.group === "aging").map((field) => field.key).join(",") === "aging_bucket_1_days,aging_bucket_2_days,aging_bucket_3_days", "aging keys grouped");
 assert(validateLimits(defaults).ok === true, "defaults valid");
@@ -116,6 +120,11 @@ assert(validateLimits({ ...defaults, aging_bucket_1_days: 15, aging_bucket_2_day
 assert(validateLimits({ ...defaults, aging_bucket_3_days: 365 }).ok === true, "bucket 365 allowed");
 assert(validateLimits({ ...defaults, aging_bucket_1_days: 30, aging_bucket_2_days: 30, aging_bucket_3_days: 90 }).ok === false, "equal buckets rejected");
 assert(validateLimits({ ...defaults, login_failure_max_attempts: 99 }).ok === false, "over max rejected");
+assert(validateLimits({ ...defaults, mfa_failure_max_attempts: 0 }).ok === false, "mfa 0 rejected");
+assert(validateLimits({ ...defaults, mfa_failure_max_attempts: 31 }).ok === false, "mfa over max rejected");
+assert(validateLimits({ ...defaults, idle_timeout_minutes: 4 }).ok === false, "idle under min rejected");
+assert(validateLimits({ ...defaults, idle_timeout_minutes: 1440 }).ok === true, "idle 1440 allowed");
+assert(validateLimits({ ...defaults, idle_timeout_minutes: 1441 }).ok === false, "idle over max rejected");
 
 const msg = validateLimits({ ...defaults, login_failure_max_attempts: 99 });
 assert(msg.ok === false && /登录连续失败/.test(msg.error), "range message uses label");

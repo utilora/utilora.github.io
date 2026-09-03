@@ -229,9 +229,35 @@ function loginErrorText(raw) {
   if (/invalid login credentials|invalid_grant|invalid email or password/i.test(text)) return '邮箱或密码不对';
   if (/email not confirmed/i.test(text)) return '邮箱尚未验证';
   if (/too many requests|rate limit/i.test(text)) return '尝试次数过多，请稍后再试';
+  if (/captcha|人机验证/i.test(text)) return '请完成人机验证后再提交。';
+  if (/失败次数过多|login_cooldown/i.test(text)) return text || '登录失败次数过多，请稍后再试。';
   if (/failed to fetch|networkerror|load failed/i.test(text)) return '网络异常，请稍后重试';
   if (/二次验证|验证器|aal2/i.test(text)) return text;
   return text || '登录失败';
+}
+
+function readAdminCaptchaToken() {
+  const input = document.querySelector('[name="cf-turnstile-response"]');
+  if (input && input.value) return input.value.trim();
+  if (window.__turnstileToken) return String(window.__turnstileToken).trim();
+  return '';
+}
+
+function resetAdminCaptcha() {
+  window.__turnstileToken = '';
+  try { window.turnstile?.reset?.(); } catch {}
+}
+
+async function verifyAdminCaptcha(token) {
+  const response = await fetch(`${SUPABASE_CONFIG.url}/functions/v1/verify-captcha`, {
+    method: 'POST',
+    headers: { apikey: SUPABASE_CONFIG.publishableKey, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action: 'verify', token: String(token || '').trim(), purpose: 'login' }),
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok || data.allowed === false) {
+    throw new Error(data.message || '请完成人机验证后再提交。');
+  }
 }
 
 let pendingAdmin = null;
@@ -354,12 +380,15 @@ loginForm.addEventListener('submit', async (event) => {
       await refreshAll();
       return;
     }
+    const captchaToken = readAdminCaptchaToken();
+    if (!isPreview()) await verifyAdminCaptcha(captchaToken);
     const response = await fetch(`${SUPABASE_CONFIG.url}/auth/v1/token?grant_type=password`, {
       method: 'POST',
       headers: { apikey: SUPABASE_CONFIG.publishableKey, 'Content-Type': 'application/json' },
       body: JSON.stringify({
         email: document.getElementById('email').value.trim(),
         password: document.getElementById('password').value,
+        gotrue_meta_security: { captcha_token: captchaToken },
       }),
     });
     const data = await response.json();
@@ -383,6 +412,7 @@ loginForm.addEventListener('submit', async (event) => {
     await recordAdminAuth('login');
     await refreshAll();
   } catch (error) {
+    resetAdminCaptcha();
     setMessage(loginMessage, loginErrorText(error.message), true);
   } finally {
     button.disabled = false;
