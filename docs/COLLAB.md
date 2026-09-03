@@ -57,7 +57,7 @@
 |----|------|--------|------|
 | 用户端 | feat/user-workspace | 五个财税工具打磨 | 待开始 |
 | 管理端 | feat/admin-ops | — | 空闲 |
-| 安全 | fix/security-hardening | 登录验票与钩子限流 | 进行中 |
+| 安全 | fix/security-hardening | — | 空闲 |
 
 ## AI 开工前必读
 
@@ -209,14 +209,15 @@ S-25 回访响应头：已安装的站点服务在页面响应上补 nosniff、R
 | S-18 | 已合入 main | fix/security-hardening | f636e1e | 登录设备清单 |
 | S-19 | 已合入 main | fix/security-hardening | f636e1e | 管理端强制二次验证 |
 | S-20 | 已合入 main | fix/security-hardening | 30a7218 | 二次验证开启改走当前账号接口 |
-| S-21 | 待合并 | fix/security-hardening | — | 登录与找回密码人机验证 |
-| S-22 | 待合并 | fix/security-hardening | — | 账号服务侧限流（Auth Hook） |
-| S-23 | 待合并 | fix/security-hardening | — | 二次验证失败计数 |
-| S-24 | 待合并 | fix/security-hardening | — | 空闲超时读配置并真正登出 |
-| S-25 | 待合并 | fix/security-hardening | — | 回访响应头 |
+| S-21 | 已合入 main | fix/security-hardening | c58c44a | 登录与找回密码人机验证；生产 SQL 已执行；verify-captcha 已部署 |
+| S-22 | 已合入 main | fix/security-hardening | c58c44a | Auth Hook 已部署；当前套餐无法打开账号服务钩子；页面与 login-cooldown 仍记账 |
+| S-23 | 已合入 main | fix/security-hardening | c58c44a | 二次验证失败计数；生产 SQL 已执行 |
+| S-24 | 已合入 main | fix/security-hardening | c58c44a | 空闲超时读配置并真正登出 |
+| S-25 | 已合入 main | fix/security-hardening | c58c44a | 回访补 nosniff / Referrer-Policy / Permissions-Policy |
 
 ## 变更记录
 
+- 2026-09-03：合入 main：登录验票、二次验证失败计数与空闲超时（c58c44a）。登录和找回密码须完成人机验证；二次验证失败按限额冷却；空闲分钟读配置，到期真正登出；回访补 nosniff 等响应头。生产已执行 202609030026_auth_idle_mfa_limits.sql，已部署 verify-captcha / login-cooldown / auth-hooks。当前套餐无法打开账号服务钩子，页面与云函数仍记账。占用改为五个财税工具打磨 / 空闲 / 安全空闲。
 - 2026-09-03：合入 main：意向认领检索与风控名单（4117ee6）。购买意向可认领处理人；留言与意向可按关键字筛选；工作台和风控台列出未验证账号、未开二次验证的管理员、云函数今日调用；档案里的意向/留言可跳到对应列表并高亮。生产已执行 202609020025_admin_ops_search_mfa_usage.sql。占用改为五个财税工具打磨 / 空闲 / 安全空闲。
 - 2026-09-03：合入 main：档案权限、留言备注、账号回填与邀请预埋（2be63bf）。用户档案可停用/提权；最后一位可用管理员不能被取消或停用；留言可写内部备注并认领；意向与旧留言按邮箱回填账号；工作台搜邮箱打开档案；风控台列出今日新地点登录。邀请只预埋表和后台列表，默认不对用户展示，也不入账。生产已执行 202609020024_admin_ops_crm_invite.sql。占用改为五个财税工具打磨 / 空闲 / 安全空闲。
 - 2026-09-02：合入 main：留言档案回访与风控补齐（7e3e4a8）。留言绑定提交账号并可点进档案；意向「已发试用」真正发放试用；工作台列出今日该回访；关闭全员限免前展示将失去入口的人数与邮箱；档案补资料、意向、留言和登录冷却（不含头像）；风控台可解锁登录冷却；公告可预约开始并显示不再弹出人数。生产已执行 202609020023_admin_ops_followthrough.sql，已部署 submit-feedback。占用改为五个财税工具打磨 / 空闲 / 安全空闲。
