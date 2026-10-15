@@ -39,7 +39,7 @@ jobs:
           grep -Eq '/assets/pro-[^"[:space:]]+\.js' dist/pro/index.html
           grep -Eq '/assets/main-[^"[:space:]]+\.js' dist/index.html
           CHECK_DIST=1 node tests/csp.test.js
-      - uses: actions/configure-pages@v5
+      - uses: actions/configure-pages@v6
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist
