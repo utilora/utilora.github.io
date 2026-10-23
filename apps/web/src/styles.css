@@ -1,6 +1,7 @@
 :root { color: #162033; background: #f3f6fb; font-synthesis: none; }
 * { box-sizing: border-box; }
 body { margin: 0; min-width: 320px; background: #f3f6fb; }
+button, input { font: inherit; }
 .shell { min-height: 100vh; }
 .sider { background: linear-gradient(180deg, #0c1830, #142445) !important; position: relative; }
 .brand { height: 78px; display: flex; align-items: center; gap: 12px; padding: 0 22px; color: #fff; }
@@ -8,10 +9,11 @@ body { margin: 0; min-width: 320px; background: #f3f6fb; }
 .brand strong, .brand span { display: block; }
 .brand span { color: #93a4c6; font-size: 12px; margin-top: 2px; }
 .sider-note { position: absolute; bottom: 22px; left: 22px; color: #7f91b3; font-size: 12px; line-height: 1.7; }
-.header { height: 78px; padding: 0 28px; background: rgba(255,255,255,.92); display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #e7ebf2; }
+.header { height: 78px; padding: 0 28px; background: rgba(255,255,255,.94); display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #e7ebf2; position: sticky; top: 0; z-index: 10; }
 .header h4 { margin: 0 !important; }
-.search { width: min(360px, 42vw); }
-.content { padding: 24px 28px 40px; }
+.search { width: min(360px, 38vw); }
+.mobile-menu { display: none; }
+.content { padding: 24px 28px 44px; max-width: 1600px; width: 100%; margin: 0 auto; }
 .notice { display: flex; gap: 16px; align-items: center; padding: 11px 16px; margin-bottom: 18px; border: 1px solid #cfe0ff; background: #edf4ff; border-radius: 10px; color: #48617e; }
 .notice span { color: #245edb; font-weight: 600; white-space: nowrap; }
 .metric-card { min-height: 148px; position: relative; box-shadow: 0 8px 24px rgba(31,54,88,.06); }
@@ -19,18 +21,38 @@ body { margin: 0; min-width: 320px; background: #f3f6fb; }
 .metric-icon { position: absolute; right: 20px; top: 20px; width: 38px; height: 38px; border-radius: 10px; background: #edf3ff; color: #2f6bff; display: grid; place-items: center; font-size: 18px; }
 .muted { color: #8793a6; font-size: 12px; }
 .rank { display: inline-grid; place-items: center; width: 30px; height: 30px; border-radius: 8px; background: #edf3ff; color: #2f6bff; font-weight: 700; }
+.up { color: #cf3c35; font-weight: 600; }
+.down { color: #13945b; font-weight: 600; }
 .section-row { margin-top: 16px; }
-.section-row .ant-card { box-shadow: 0 8px 24px rgba(31,54,88,.05); }
+.section-row .ant-card, .content > .ant-card, .content > .ant-row .ant-card { box-shadow: 0 8px 24px rgba(31,54,88,.05); }
 .pipeline { width: 100%; }
 .pipeline > div { width: 100%; display: grid; grid-template-columns: 1fr auto; gap: 7px 12px; }
 .pipeline .ant-progress { grid-column: 1 / -1; }
 .source-meta { margin-top: 24px; padding-top: 18px; border-top: 1px solid #edf0f5; display: grid; grid-template-columns: 76px 1fr; gap: 9px; font-size: 13px; }
 .source-meta span { color: #8793a6; }
-@media (max-width: 768px) {
+.method-note { background: #f7f9fc; border: 1px solid #e8edf5; padding: 11px 14px; border-radius: 8px; margin-bottom: 16px; color: #59677b; }
+.stock-head .ant-card-body { display: flex; justify-content: space-between; align-items: center; }
+.stock-head h3 { margin: 14px 0 8px !important; }
+.symbol { font-size: 16px; color: #8793a6; font-weight: 500; }
+.quote { text-align: right; display: grid; gap: 3px; }
+.quote strong { font-size: 30px; }
+.quote small { color: #8793a6; }
+.indicator-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 22px 12px; }
+.diagnosis { margin-top: 24px; padding: 16px; border-radius: 10px; background: #f5f8fe; color: #50617b; line-height: 1.7; }
+.diagnosis p { margin: 8px 0 0; }
+@media (max-width: 991px) {
+  .sider { position: fixed !important; z-index: 30; height: 100vh; }
   .header { padding: 0 16px; }
   .header .ant-typography-secondary { display: none; }
+  .mobile-menu { display: inline-flex; margin-left: auto; margin-right: 10px; }
   .content { padding: 16px; }
+  .search { width: min(260px, 45vw); }
+}
+@media (max-width: 600px) {
   .notice { align-items: flex-start; flex-direction: column; gap: 4px; }
-  .search { width: 48vw; }
+  .search { display: none; }
+  .stock-head .ant-card-body { align-items: flex-start; gap: 20px; }
+  .quote strong { font-size: 24px; }
+  .indicator-grid { grid-template-columns: 1fr 1fr; }
 }
 
