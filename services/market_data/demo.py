@@ -9,9 +9,27 @@ class DemoMarketDataProvider:
     """Deterministic synthetic data; never presented as licensed market data."""
 
     _instruments = (
-        Instrument(UUID("00000000-0000-0000-0000-000000000001"), "SSE", "600519", "\u8d35\u5dde\u8305\u53f0", "\u4e3b\u677f"),
-        Instrument(UUID("00000000-0000-0000-0000-000000000002"), "SZSE", "000001", "\u5e73\u5b89\u94f6\u884c", "\u4e3b\u677f"),
-        Instrument(UUID("00000000-0000-0000-0000-000000000003"), "SSE", "688981", "\u4e2d\u82af\u56fd\u9645", "\u79d1\u521b\u677f"),
+        Instrument(
+            UUID("00000000-0000-0000-0000-000000000001"),
+            "SSE",
+            "600519",
+            "\u8d35\u5dde\u8305\u53f0",
+            "\u4e3b\u677f",
+        ),
+        Instrument(
+            UUID("00000000-0000-0000-0000-000000000002"),
+            "SZSE",
+            "000001",
+            "\u5e73\u5b89\u94f6\u884c",
+            "\u4e3b\u677f",
+        ),
+        Instrument(
+            UUID("00000000-0000-0000-0000-000000000003"),
+            "SSE",
+            "688981",
+            "\u4e2d\u82af\u56fd\u9645",
+            "\u79d1\u521b\u677f",
+        ),
     )
 
     def capabilities(self) -> ProviderCapabilities:
@@ -29,7 +47,8 @@ class DemoMarketDataProvider:
     def search_instruments(self, query: str, limit: int) -> list[Instrument]:
         query = query.strip().lower()
         return [
-            item for item in self._instruments
+            item
+            for item in self._instruments
             if query in item.symbol.lower() or query in item.name_cn.lower()
         ][:limit]
 
