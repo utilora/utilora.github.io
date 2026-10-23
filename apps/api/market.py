@@ -34,7 +34,11 @@ class DataMeta(BaseModel):
     data_kind: str = "synthetic_demo"
     as_of: datetime
     quality_status: str = "demo"
-    disclaimer: str = "\u5408\u6210\u6f14\u793a\u6570\u636e\uff0c\u4e0d\u4ee3\u8868\u771f\u5b9e\u884c\u60c5\uff0c\u4e0d\u6784\u6210\u8bc1\u5238\u6295\u8d44\u5efa\u8bae\u3002"
+    disclaimer: str = (
+        "\u5408\u6210\u6f14\u793a\u6570\u636e\uff0c"
+        "\u4e0d\u4ee3\u8868\u771f\u5b9e\u884c\u60c5\uff0c"
+        "\u4e0d\u6784\u6210\u8bc1\u5238\u6295\u8d44\u5efa\u8bae\u3002"
+    )
 
 
 class BarsResponse(BaseModel):
