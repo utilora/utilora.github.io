@@ -12,6 +12,7 @@ class Settings(BaseSettings):
     demo_mode: bool = True
     web_origin: str = "http://localhost:5173"
     model_public_visibility: bool = False
+    database_url: str = "postgresql+psycopg://ashare:change-me@localhost:5432/ashare"
 
 
 @lru_cache

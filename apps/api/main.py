@@ -5,6 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 from apps.api.config import get_settings
+from apps.api.market import router as market_router
 
 settings = get_settings()
 app = FastAPI(
@@ -55,4 +56,5 @@ def system_status() -> SystemStatusResponse:
 
 
 app.include_router(router)
+app.include_router(market_router, prefix="/api/v1")
 
