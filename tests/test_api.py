@@ -30,7 +30,7 @@ def test_instrument_search_and_bars_are_traceable_demo_data() -> None:
     assert len(payload["data"]) == 5
     assert payload["meta"]["data_source"] == "demo_v1"
     assert payload["meta"]["data_kind"] == "synthetic_demo"
-    assert "??????" in payload["meta"]["disclaimer"]
+    assert "\u5408\u6210\u6f14\u793a\u6570\u636e" in payload["meta"]["disclaimer"]
 
 
 def test_bars_reject_invalid_date_range() -> None:

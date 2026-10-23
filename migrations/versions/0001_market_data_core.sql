@@ -55,4 +55,4 @@ CREATE INDEX ix_daily_bar_instrument_date ON daily_bar(instrument_id, trade_date
 CREATE INDEX ix_daily_bar_date_instrument ON daily_bar(trade_date, instrument_id);
 
 INSERT INTO data_source (code, name, source_type, license_scope)
-VALUES ('demo_v1', '????????', 'demo', '{"redistribution": true, "synthetic": true}');
+VALUES ('demo_v1', 'Built-in synthetic demo data', 'demo', '{"redistribution": true, "synthetic": true}');

@@ -34,7 +34,7 @@ class DataMeta(BaseModel):
     data_kind: str = "synthetic_demo"
     as_of: datetime
     quality_status: str = "demo"
-    disclaimer: str = "?????????????????????????"
+    disclaimer: str = "\u5408\u6210\u6f14\u793a\u6570\u636e\uff0c\u4e0d\u4ee3\u8868\u771f\u5b9e\u884c\u60c5\uff0c\u4e0d\u6784\u6210\u8bc1\u5238\u6295\u8d44\u5efa\u8bae\u3002"
 
 
 class BarsResponse(BaseModel):
@@ -54,7 +54,7 @@ def search_instruments(
 def get_instrument(instrument_id: UUID) -> InstrumentResponse:
     item = provider.get_instrument(instrument_id)
     if item is None:
-        raise HTTPException(status_code=404, detail="?????")
+        raise HTTPException(status_code=404, detail="\u80a1\u7968\u4e0d\u5b58\u5728")
     return InstrumentResponse(**item.__dict__)
 
 
@@ -67,9 +67,9 @@ def get_bars(
     limit: int = Query(500, ge=1, le=2000),
 ) -> BarsResponse:
     if start_date and end_date and start_date > end_date:
-        raise HTTPException(status_code=422, detail="start_date ???? end_date")
+        raise HTTPException(status_code=422, detail="start_date \u4e0d\u80fd\u665a\u4e8e end_date")
     if provider.get_instrument(instrument_id) is None:
-        raise HTTPException(status_code=404, detail="?????")
+        raise HTTPException(status_code=404, detail="\u80a1\u7968\u4e0d\u5b58\u5728")
     bars = provider.daily_bars(instrument_id, start_date, end_date, limit)
     return BarsResponse(
         data=[BarResponse(**bar.__dict__) for bar in bars],
